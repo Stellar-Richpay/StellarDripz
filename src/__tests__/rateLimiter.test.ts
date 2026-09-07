@@ -5,6 +5,7 @@
 import {
   getCooldownRemaining,
   recordFaucetRequest,
+  recordCooldown,
   canRequestFaucet,
   clearAllCooldowns,
 } from "@/lib/rateLimiter";
@@ -32,6 +33,39 @@ describe("client rateLimiter", () => {
       recordFaucetRequest("GADDR123");
       const remaining = getCooldownRemaining("GADDR456");
       expect(remaining).toBe(0);
+    });
+  });
+
+  describe("recordCooldown", () => {
+    it("honors a shorter remaining window (server Retry-After)", () => {
+      recordCooldown("GADDR123", 30_000);
+      const remaining = getCooldownRemaining("GADDR123");
+      // A 30s server cooldown must read back as ~30s, not the full 60s.
+      expect(remaining).toBeGreaterThan(0);
+      expect(remaining).toBeLessThanOrEqual(30_000);
+      expect(remaining).toBeGreaterThan(25_000);
+    });
+
+    it("honors a longer remaining window than the local default", () => {
+      // e.g. the server's Retry-After says 120s — the stored cooldown must
+      // keep blocking past the local 60s default window.
+      recordCooldown("GADDR123", 120_000);
+      const remaining = getCooldownRemaining("GADDR123");
+      expect(remaining).toBeGreaterThan(110_000);
+      expect(canRequestFaucet("GADDR123")).toBe(false);
+    });
+
+    it("replaces an existing cooldown for the same address", () => {
+      recordCooldown("GADDR123", 30_000);
+      recordCooldown("GADDR123", 15_000);
+      const remaining = getCooldownRemaining("GADDR123");
+      expect(remaining).toBeGreaterThan(0);
+      expect(remaining).toBeLessThanOrEqual(15_000);
+    });
+
+    it("does not leak to other addresses", () => {
+      recordCooldown("GADDR123", 120_000);
+      expect(getCooldownRemaining("GADDR456")).toBe(0);
     });
   });
 
