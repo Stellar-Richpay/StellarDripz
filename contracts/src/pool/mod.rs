@@ -173,7 +173,7 @@ impl DripPool {
             .transfer(&pool_address, &user, &claimable);
 
         // Carry forward unclaimed portion if pool was insufficient
-        let unclaimed = total_reward - claimable;
+        let unclaimed = total_reward.checked_sub(claimable).expect("Unclaimed underflow");
         existing_stake.reward_claimed = unclaimed;
         existing_stake.start_ledger = env.ledger().sequence();
         env.storage().persistent().set(&stake_key, &existing_stake);
@@ -190,7 +190,16 @@ impl DripPool {
         let current_ledger = env.ledger().sequence();
         let elapsed = (current_ledger as i128) - (stake.start_ledger as i128);
         if elapsed <= 0 { return 0; }
-        (stake.amount * config.reward_rate * elapsed) / REWARD_DIVISOR
+        // Checked math: a malicious reward_rate/stake/elapsed combination
+        // must not be able to overflow i128 and wrap to a negative reward.
+        match stake
+            .amount
+            .checked_mul(config.reward_rate)
+            .and_then(|v| v.checked_mul(elapsed))
+        {
+            Some(product) => product / REWARD_DIVISOR,
+            None => 0,
+        }
     }
 
     pub fn fund_rewards(env: Env, admin: Address, amount: i128) -> Result<(), PoolError> {
@@ -376,6 +385,7 @@ mod pool_test {
 #[cfg(test)]
 mod pool_error_test {
     use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::testutils::Ledger as _;
     use super::*;
     use soroban_sdk::Env;
     use crate::token::DripToken;
@@ -451,5 +461,26 @@ mod pool_error_test {
             client.try_set_active(&attacker, &false),
             Err(Ok(PoolError::NotAuthorized))
         ));
+    }
+
+    #[test]
+    fn test_extreme_reward_rate_does_not_overflow() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+        token_client.mint(&admin, &user, &5000i128);
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        token_client.approve(&user, &client.address, &5000i128, &exp_ledger);
+
+        // i128::MAX reward rate — a naive amount * rate * elapsed would
+        // overflow and wrap to a negative reward.
+        client.set_reward_rate(&admin, &i128::MAX);
+        client.stake(&user, &1000i128);
+        env.ledger().set_sequence_number(10_000);
+
+        let reward = client.calculate_reward(&user);
+        assert!(reward >= 0);
     }
 }
