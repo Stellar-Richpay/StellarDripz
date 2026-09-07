@@ -3,23 +3,10 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface QRFundModalProps {
   address: string | null;
-}
-
-/** Copy text to the clipboard with a textarea fallback for insecure contexts. */
-function copyText(text: string): void {
-  try {
-    void navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-  }
 }
 
 /**
@@ -79,7 +66,7 @@ export default function QRFundModal({ address }: QRFundModalProps) {
             </div>
 
             <button
-              onClick={() => copyText(faucetUrl)}
+              onClick={() => void copyToClipboard(faucetUrl)}
               className="mt-3 w-full rounded-xl border border-stellar-blue/30 bg-stellar-blue/10 py-2 text-xs font-medium text-stellar-blue transition-all hover:bg-stellar-blue/20"
             >
               📋 Copy Faucet URL

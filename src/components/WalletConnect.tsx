@@ -10,6 +10,7 @@ import {
   getWalletConnectPairingUri,
   clearWalletConnectPairing,
 } from "@/lib/wallets/walletKit";
+import { copyToClipboard } from "@/lib/clipboard";
 import { getWalletErrorMessage } from "@/lib/wallets/errors";
 import { getWalletConnectStatus } from "@/lib/wallets/walletconnect";
 
@@ -116,16 +117,7 @@ export default function WalletConnect() {
 
   const handleCopy = async () => {
     if (!wallet.publicKey) return;
-    try {
-      await navigator.clipboard.writeText(wallet.publicKey);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = wallet.publicKey;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-    }
+    await copyToClipboard(wallet.publicKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
