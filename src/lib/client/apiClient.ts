@@ -1,31 +1,65 @@
 /**
  * API client — proxied writes through backend API routes.
  * For direct reads, use `@/lib/client/directClient` instead.
+ *
+ * State-changing routes enforce a double-submit CSRF check: the server sets a
+ * `stellardripz_csrf` cookie and requires the same value in the `X-CSRF-Token`
+ * header. This client reads the cookie on every request and echoes it as the
+ * header so POST /faucet, /payment, /contract and /wallet routes are not
+ * rejected with 403 "CSRF token missing".
  */
 
 const BASE_URL = "";
 
-interface ApiResponse<T> {
-  data?: T;
-  error?: string;
+/** Cookie name set by the server (src/lib/server/csrf.ts) and middleware. */
+const CSRF_COOKIE = "stellardripz_csrf";
+const CSRF_HEADER = "x-csrf-token";
+
+/** Read the current CSRF token from document.cookie, if present. */
+function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
+  const headers = new Headers(options.headers);
 
-  const json = await res.json();
+  // All requests are JSON to our API routes.
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  // Echo the CSRF cookie as a header so state-changing routes pass validation.
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    headers.set(CSRF_HEADER, csrfToken);
+  }
+
+  const res = await fetch(url, { ...options, headers });
+
+  // Some routes may return empty bodies (204) or non-JSON error pages; parse
+  // defensively instead of throwing an unhelpful SyntaxError.
+  const raw = await res.text();
+  let json: unknown = null;
+  if (raw) {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      /* non-JSON response body */
+    }
+  }
 
   if (!res.ok) {
     const retryAfter = res.headers.get("Retry-After");
-    const error = new Error(json.error || `HTTP ${res.status}`) as Error & { retryAfter?: number };
+    const message =
+      (json as { error?: string } | null)?.error || `HTTP ${res.status}`;
+    const error = new Error(message) as Error & { retryAfter?: number; status?: number };
     if (retryAfter) error.retryAfter = parseInt(retryAfter, 10);
+    error.status = res.status;
     throw error;
   }
 
