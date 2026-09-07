@@ -290,6 +290,7 @@ export async function getTransactions(
   address?: string,
   type?: TxRecord["type"],
   limit = 50,
+  offset = 0,
 ): Promise<TxRecord[]> {
   const supabase = getSupabaseAdmin();
 
@@ -298,7 +299,7 @@ export async function getTransactions(
       .from("transactions")
       .select("*")
       .order("timestamp", { ascending: false })
-      .limit(Math.min(limit, 100));
+      .range(offset, offset + Math.min(limit, 100) - 1);
 
     if (address) query = query.eq("sender_address", address);
     if (type) query = query.eq("type", type);
@@ -317,7 +318,7 @@ export async function getTransactions(
   let txs = db.transactions;
   if (address) txs = txs.filter((t) => t.senderAddress === address);
   if (type) txs = txs.filter((t) => t.type === type);
-  return txs.slice(0, limit);
+  return txs.slice(offset, offset + limit);
 }
 
 // ---- Analytics ----

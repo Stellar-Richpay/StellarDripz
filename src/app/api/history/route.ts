@@ -15,9 +15,10 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const address = url.searchParams.get("address") || undefined;
   const type = url.searchParams.get("type") as TxRecord["type"] | null;
-  const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+  const limit = Math.max(1, Math.min(parseInt(url.searchParams.get("limit") || "50", 10), 100));
+  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
 
-  const transactions = await getTransactions(address, type || undefined, Math.min(limit, 100));
+  const transactions = await getTransactions(address, type || undefined, limit, offset);
 
-  return NextResponse.json({ transactions, total: transactions.length });
+  return NextResponse.json({ transactions, total: transactions.length, offset, limit });
 }
