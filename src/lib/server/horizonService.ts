@@ -9,6 +9,30 @@ import { saveTransaction, logAnalytics } from "./dbService";
 
 const horizonServer = new StellarSdk.Horizon.Server(STELLAR_NETWORK.horizonUrl);
 
+/**
+ * Fetch with an explicit timeout and a single retry for transient failures.
+ * Prevents a hung upstream (Friendbot/Horizon) from tying up a serverless
+ * invocation indefinitely.
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = 10_000,
+): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (err) {
+      attempt++;
+      // Retry once on network errors and timeouts (AbortError), not on HTTP
+      // status codes — those are handled by the caller.
+      if (attempt >= 2 || !(err instanceof Error)) throw err;
+      await new Promise((r) => setTimeout(r, 250 * attempt));
+    }
+  }
+}
+
 // ---- Balance ----
 
 export interface BalanceResponse {
@@ -95,7 +119,7 @@ export async function requestFaucetFundsServer(
   assertFaucetAllowed();
 
   const url = `${STELLAR_NETWORK.friendbotUrl}?addr=${encodeURIComponent(publicKey)}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url, {}, 15_000);
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
