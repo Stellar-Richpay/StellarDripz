@@ -97,6 +97,23 @@ export default function SendForm() {
 
   const hasValidPaymentInfo = destination.trim() && !destError && amount.trim() && !amountError;
 
+  /** Fill the amount with everything spendable for the selected asset. */
+  const handleMax = () => {
+    if (selectedAsset === "XLM") {
+      // Keep a small reserve for the transaction fee (~0.001 XLM) so a max
+      // send doesn't fail for lack of fee budget.
+      const reserve = 0.001;
+      const raw = state.balance.raw;
+      const balance = raw ? parseFloat(raw) : 0;
+      const max = Math.max(0, balance - reserve);
+      setAmount(max.toFixed(7));
+    } else {
+      const asset = state.balance.assets.find((a) => a.asset.code === selectedAsset);
+      if (asset) setAmount(asset.balance);
+    }
+    setAmountError("");
+  };
+
   return (
     <>
       {hasValidPaymentInfo && (
@@ -193,7 +210,17 @@ export default function SendForm() {
 
           {/* Amount */}
           <div>
-            <label className="block text-xs font-medium text-white/60 mb-1.5">Amount</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-white/60">Amount</label>
+              <button
+                type="button"
+                onClick={handleMax}
+                disabled={isPending || isOnMainnet}
+                className="text-xs font-semibold text-stellar-blue/60 hover:text-stellar-blue transition-colors disabled:opacity-30"
+              >
+                Max
+              </button>
+            </div>
             <input
               type="number"
               value={amount}
