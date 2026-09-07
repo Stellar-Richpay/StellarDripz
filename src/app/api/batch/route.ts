@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { assertFaucetAllowed } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 
 const MAX_BATCH_SIZE = 10;
@@ -21,6 +22,16 @@ export async function POST(request: NextRequest) {
     // CSRF validation — this endpoint spends public faucet funds
     const csrfError = validateCsrf(request);
     if (csrfError) return csrfError;
+
+    // Mainnet has no faucet — fail fast with a clear message.
+    try {
+      assertFaucetAllowed();
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Faucet unavailable" },
+        { status: 400 },
+      );
+    }
 
     // Per-IP rate limiting (25 batches per minute)
     const rateLimitResponse = checkRateLimit(request, "general");

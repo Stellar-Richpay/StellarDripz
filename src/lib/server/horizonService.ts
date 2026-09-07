@@ -77,10 +77,23 @@ export async function fetchBalanceServer(publicKey: string): Promise<BalanceResp
 
 // ---- Faucet ----
 
+/**
+ * Faucet funding only exists on test networks — Friendbot is not deployed
+ * for mainnet and free XLM would be meaningless (and dangerous) there.
+ * Throws when the app is configured for mainnet.
+ */
+export function assertFaucetAllowed(): void {
+  if (!STELLAR_NETWORK.networkPassphrase.includes("Test")) {
+    throw new Error("Faucet is only available on test networks");
+  }
+}
+
 export async function requestFaucetFundsServer(
   publicKey: string,
   requestInfo: { ip?: string; userAgent?: string },
 ): Promise<{ hash: string; newBalance: string }> {
+  assertFaucetAllowed();
+
   const url = `${STELLAR_NETWORK.friendbotUrl}?addr=${encodeURIComponent(publicKey)}`;
   const res = await fetch(url);
 
