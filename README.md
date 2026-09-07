@@ -234,11 +234,11 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (24 suites, 155 tests, all passing ✅):
+Test suites (29 suites, 180 tests, all passing ✅):
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `walletService`
-- API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`
+- API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
 - Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `apiClient`, `env`, `config`
-- Validation: `addressValidation`, `contractTypes`, `paymentValidation`
+- Validation: `addressValidation`, `contractTypes`, `paymentValidation`, `networkGuard`
 - Integration + rate limiter server suites
 
 Coverage is collected with `npx jest --coverage`; the enforced global gate
@@ -500,7 +500,7 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 6. **CI/CD & Testing (2:30-3:00)**
    - Show GitHub Actions pipeline running
-   - Show test output (19 contract + 119 frontend tests passing)
+   - Show test output (55 contract + 180 frontend tests passing)
    - Show Vercel deployment
    - Admin dashboard analytics
 
@@ -512,9 +512,9 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 ![CI/CD Pipeline](./screenshots/cicd-pipeline.png)
 *GitHub Actions workflow — contract tests, frontend tests, lint, build, and Vercel deploy all passing.*
 
-### Test Output — All 119 Tests Passing
+### Test Output — All 180 Tests Passing
 ![Test Output](./screenshots/test-output.png)
-*19 test suites, 119 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
+*29 test suites, 180 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
 
 ### Mobile Responsive UI
 ![Mobile UI](./screenshots/mobile-responsive.png)
@@ -606,12 +606,13 @@ Subscribes to real-time Soroban contract events via SSE with automatic polling f
 
 | Category | Suites | Tests |
 |----------|--------|-------|
-| Services | 5 | 25+ |
+| Services | 6 | 35+ |
 | Hooks | 5 | 30+ |
-| API Routes | 7 | 30+ |
-| **Total** | **19** | **119** |
+| API Routes | 11 | 60+ |
+| Validation & other | 7 | 55+ |
+| **Total** | **29** | **180** |
 
-All 119 tests pass with zero failures. TypeScript strict mode compiles cleanly.
+All 180 tests pass with zero failures. TypeScript strict mode compiles cleanly.
 
 ### Running Tests
 

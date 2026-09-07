@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Env-driven rate limits**: `RATE_LIMIT_*` vars now actually widen testnet buckets (lazily, NaN-proof); wrong-network guards and network-aware metadata/copy throughout (layout, footer, hero, feature cards, balance errors, QR-fund button)
+- **API route tests**: New suites for `api-batch`, `api-status`, `api-analytics`, and `api-events` (guard branches + polyfilled web-stream globals)
+- **Shared network guard**: `networkGuard.ts` compares wallet vs. app network; used by SendForm, SorobanDemo, NetworkWarning
+- **Health dedupe**: Concurrent `/api/health` probes coalesce into one round of external calls (in-flight cache)
+- **Shared asset decimals**: `assetDecimals()` centralizes 7/12-digit rules; send validator honors real alphanum4 vs alphanum12 precision
+- **Payment-request asset QRs**: SEP-7 payment QRs encode `asset_code`/`asset_issuer` for credit assets
+
+### Fixed
+- **Rate-limit gaps**: Contract simulate/build and payment build branches now consume the per-IP general bucket (were unrate-limited RPC/Horizon drivers)
+- **Silent reconnect failures**: Persisted-wallet auto-reconnect surfaces the reason; backend registration failure no longer clears a working wallet session (useWallet + AppContext)
+- **Mainnet copy bugs**: Testnet-only faucet references removed from disconnected feature cards, balance errors, layout metadata/footer, and the Friendbot QR-fund button
+
+### Security
+- **RPC-cost abuse**: Simulation/build endpoints rate-limited per IP so unauthenticated callers can't burn Soroban RPC or Horizon credits
+
+---
+
+## [Unreleased] — hardening wave (post 2.2.0)
+
+### Added
 - **CSRF protection**: Double-submit cookie pattern on all state-changing POST endpoints (faucet, payment, contract)
 - **Contract ID validation**: `isValidContractId()` with Stellar checksum verification and user-friendly error messages
 - **`getWalletConnectStatus()`**: Returns availability + human-readable message when project ID is missing (W2)
