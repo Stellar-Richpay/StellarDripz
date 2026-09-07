@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useReducer,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import { createContext, useContext, useReducer, useCallback, useEffect, useRef } from "react";
 import type {
   AppState,
   WalletState,

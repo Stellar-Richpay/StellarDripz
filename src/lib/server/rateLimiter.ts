@@ -237,7 +237,7 @@ export function checkRateLimit(
 /**
  * Attach rate-limit headers to an allowed response for the given category.
  * Call after checkRateLimit returned null and the response is built.
- */export function attachRateLimitHeaders(
+ */ export function attachRateLimitHeaders(
   request: NextRequest,
   response: NextResponse,
   category: LimitCategory,
@@ -245,9 +245,7 @@ export function checkRateLimit(
 ): NextResponse {
   const limits = getLimitConfig();
   const config = limitFor(category, limits);
-  const key = address
-    ? `${category}:${address}`
-    : `${category}:${getClientIp(request)}`;
+  const key = address ? `${category}:${address}` : `${category}:${getClientIp(request)}`;
   const entry = address ? addressMap.get(key) : ipMap.get(key);
   return withRateLimitHeaders(response, rateLimitHeaders(entry, config, Date.now()));
 }
