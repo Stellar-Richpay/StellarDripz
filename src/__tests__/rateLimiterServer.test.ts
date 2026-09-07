@@ -120,3 +120,38 @@ describe("network-aware rate limits", () => {
     expect((blocked as { status: number }).status).toBe(429);
   });
 });
+
+describe("env-window overrides (testnet only)", () => {
+  const KEYS = ["RATE_LIMIT_FAUCET_MS", "RATE_LIMIT_CONTRACT_MS", "RATE_LIMIT_GENERAL_MS"];
+
+  beforeEach(() => {
+    mockIsTestnet.current = true;
+    clearRateLimits();
+  });
+
+  afterEach(() => {
+    for (const key of KEYS) delete process.env[key];
+    mockIsTestnet.current = true;
+  });
+
+  it("applies an explicit faucet window override", () => {
+    process.env.RATE_LIMIT_FAUCET_MS = "120000"; // 1 per 2 minutes
+    const req = makeRequest({ "x-real-ip": "10.0.0.3" });
+
+    expect(checkRateLimit(req as never, "faucet", "GOVR1")).toBeNull();
+    // Same address is still rate-limited within the overridden window.
+    const blocked = checkRateLimit(req as never, "faucet", "GOVR1");
+    expect((blocked as { status: number }).status).toBe(429);
+  });
+
+  it("ignores a malformed override instead of disabling the limit", () => {
+    process.env.RATE_LIMIT_FAUCET_MS = "not-a-number";
+    const req = makeRequest({ "x-real-ip": "10.0.0.4" });
+
+    expect(checkRateLimit(req as never, "faucet", "GBAD1")).toBeNull();
+    // A NaN window would never expire and never block — the limiter must fall
+    // back to the default window so the address is still limited.
+    const blocked = checkRateLimit(req as never, "faucet", "GBAD1");
+    expect((blocked as { status: number }).status).toBe(429);
+  });
+});

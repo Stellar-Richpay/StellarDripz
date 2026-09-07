@@ -33,6 +33,17 @@ function optional(name: string, value: string | undefined): string | null {
   return value?.trim() || null;
 }
 
+/**
+ * Parse a positive-integer env var with a fallback. A bare parseInt can
+ * return NaN (e.g. RATE_LIMIT_FAUCET_MS=abc), and a NaN window would
+ * silently disable rate limiting — worse than falling back to the default.
+ */
+function positiveInt(value: string | undefined, fallback: number): number {
+  if (!value || !value.trim()) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 let _config: AppConfig | null = null;
 
 export function getAppConfig(): AppConfig {
@@ -95,9 +106,9 @@ export function getAppConfig(): AppConfig {
     ),
     contractIdBadge: optional("NEXT_PUBLIC_CONTRACT_BADGE", process.env.NEXT_PUBLIC_CONTRACT_BADGE),
 
-    rateLimitFaucet: parseInt(process.env.RATE_LIMIT_FAUCET_MS || "60000", 10),
-    rateLimitContract: parseInt(process.env.RATE_LIMIT_CONTRACT_MS || "30000", 10),
-    rateLimitGeneral: parseInt(process.env.RATE_LIMIT_GENERAL_MS || "10000", 10),
+    rateLimitFaucet: positiveInt(process.env.RATE_LIMIT_FAUCET_MS, 60000),
+    rateLimitContract: positiveInt(process.env.RATE_LIMIT_CONTRACT_MS, 30000),
+    rateLimitGeneral: positiveInt(process.env.RATE_LIMIT_GENERAL_MS, 10000),
 
     logLevel: (process.env.LOG_LEVEL ||
       (nodeEnv === "production" ? "info" : "debug")) as AppConfig["logLevel"],

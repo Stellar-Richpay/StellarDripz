@@ -71,15 +71,41 @@ const TESTNET_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 /**
- * Network-aware defaults: mainnet deployments get the much stricter limits
- * from src/lib/stellar/mainnet.ts (1 faucet request per day, tighter
- * payment/contract/wallet buckets) because real XLM is at stake. Previously
- * MAINNET_RATE_LIMITS existed but was never wired into the rate limiter, so
- * a mainnet deploy silently ran with testnet limits.
+ * Network-aware limit config, resolved per call (not frozen at import).
+ *
+ * Mainnet deployments get the much stricter limits from
+ * src/lib/stellar/mainnet.ts (1 faucet request per day, tighter
+ * payment/contract/wallet buckets) because real XLM is at stake — this was
+ * previously evaluated once at import, so a mainnet deploy that started on
+ * testnet could keep testnet limits for the process lifetime.
+ *
+ * RATE_LIMIT_FAUCET_MS / RATE_LIMIT_CONTRACT_MS / RATE_LIMIT_GENERAL_MS
+ * widen the testnet window when explicitly set (per-env tuning on dev);
+ * mainnet never reads them. A bare parseInt of a bad value would be NaN,
+ * so windows must be finite positive numbers before they're used.
  */
-const DEFAULTS: Record<string, RateLimitConfig> = getAppConfig().isTestnet
-  ? TESTNET_LIMITS
-  : (MAINNET_RATE_LIMITS as Record<string, RateLimitConfig>);
+function getLimitConfig(): Record<string, RateLimitConfig> {
+  const isTestnet = getAppConfig().isTestnet;
+  const base: Record<string, RateLimitConfig> = isTestnet
+    ? { ...TESTNET_LIMITS }
+    : { ...(MAINNET_RATE_LIMITS as Record<string, RateLimitConfig>) };
+
+  if (isTestnet) {
+    const overrides: Array<[string, string | undefined]> = [
+      ["faucet", process.env.RATE_LIMIT_FAUCET_MS],
+      ["contract", process.env.RATE_LIMIT_CONTRACT_MS],
+      ["general", process.env.RATE_LIMIT_GENERAL_MS],
+    ];
+    for (const [category, raw] of overrides) {
+      if (!raw || !raw.trim()) continue;
+      const windowMs = Number.parseInt(raw, 10);
+      if (Number.isFinite(windowMs) && windowMs > 0) {
+        base[category] = { ...base[category], windowMs };
+      }
+    }
+  }
+  return base;
+}
 
 /**
  * Check rate limit. Returns null if allowed, or a NextResponse with 429 if blocked.
@@ -146,12 +172,20 @@ function withRateLimitHeaders(
   return response;
 }
 
+type LimitCategory = "faucet" | "payment" | "contract" | "wallet" | "general";
+
+/** Resolve config for a category, falling back to the general bucket. */
+function limitFor(category: string, limits: Record<string, RateLimitConfig>): RateLimitConfig {
+  return limits[category] || limits.general;
+}
+
 export function checkRateLimit(
   request: NextRequest,
-  category: keyof typeof DEFAULTS,
+  category: LimitCategory,
   address?: string,
 ): NextResponse | null {
-  const config = DEFAULTS[category] || DEFAULTS.general;
+  const limits = getLimitConfig();
+  const config = limitFor(category, limits);
   const now = Date.now();
 
   if (address && (category === "faucet" || category === "payment" || category === "contract")) {
@@ -203,15 +237,17 @@ export function checkRateLimit(
 /**
  * Attach rate-limit headers to an allowed response for the given category.
  * Call after checkRateLimit returned null and the response is built.
- */
-export function attachRateLimitHeaders(
+ */export function attachRateLimitHeaders(
   request: NextRequest,
   response: NextResponse,
-  category: keyof typeof DEFAULTS,
+  category: LimitCategory,
   address?: string,
 ): NextResponse {
-  const config = DEFAULTS[category] || DEFAULTS.general;
-  const key = address ? `${category}:${address}` : `${category}:${getClientIp(request)}`;
+  const limits = getLimitConfig();
+  const config = limitFor(category, limits);
+  const key = address
+    ? `${category}:${address}`
+    : `${category}:${getClientIp(request)}`;
   const entry = address ? addressMap.get(key) : ipMap.get(key);
   return withRateLimitHeaders(response, rateLimitHeaders(entry, config, Date.now()));
 }
