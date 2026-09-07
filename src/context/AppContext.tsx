@@ -337,8 +337,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "SET_TX_IN_PROGRESS", payload: "pending" });
 
       try {
-        // 1. Build transaction via backend
-        const { xdr } = await apiClient.buildPayment(
+        // 1. Build transaction via backend (returns the network fee in stroops
+        // so the UI can preview the cost before the signing prompt).
+        const { xdr, feeStroops } = await apiClient.buildPayment(
           state.wallet.publicKey,
           destination,
           amount,
@@ -346,6 +347,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           assetIssuer,
           memo,
         );
+        dispatch({
+          type: "UPDATE_TRANSACTION",
+          payload: { ...pendingTx, feeStroops },
+        });
         // 2. Sign locally via wallet
         const signedXdr = await signTx(xdr, state.wallet.publicKey);
         // 3. Submit via backend

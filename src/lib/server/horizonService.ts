@@ -331,7 +331,7 @@ export async function buildPaymentTransaction(
   assetCode?: string,
   assetIssuer?: string,
   memo?: string,
-): Promise<{ xdr: string }> {
+): Promise<{ xdr: string; feeStroops: number }> {
   try {
     StellarSdk.StrKey.decodeEd25519PublicKey(destination);
   } catch {
@@ -381,5 +381,7 @@ export async function buildPaymentTransaction(
     tx.addMemo(StellarSdk.Memo.text(memo));
   }
 
-  return { xdr: tx.build().toXDR() };
+  // Return the fee in stroops alongside the XDR so the UI can preview the
+  // cost before the user approves the signing prompt.
+  return { xdr: tx.build().toXDR(), feeStroops: Number(fee) };
 }

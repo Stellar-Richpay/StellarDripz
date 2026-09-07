@@ -104,7 +104,7 @@ export function buildPayment(
   assetIssuer?: string,
   memo?: string,
 ) {
-  return request<{ xdr: string }>("/api/payment/send", {
+  return request<{ xdr: string; feeStroops: number }>("/api/payment/send", {
     method: "POST",
     body: JSON.stringify({ senderAddress, destination, amount, assetCode, assetIssuer, memo }),
   });

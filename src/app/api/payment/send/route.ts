@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      const { xdr } = await buildPaymentTransaction(
+      const { xdr, feeStroops } = await buildPaymentTransaction(
         body.senderAddress,
         body.destination,
         body.amount,
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         body.assetIssuer,
         typeof body.memo === "string" ? body.memo : undefined,
       );
-      return NextResponse.json({ xdr });
+      return NextResponse.json({ xdr, feeStroops });
     }
 
     // Submit signed payment

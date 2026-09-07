@@ -67,6 +67,8 @@ export interface TransactionRecord {
   functionName?: string;
   memo?: string;
   ledgerSequence?: number;
+  /** Network fee in stroops charged by the transaction (send payments). */
+  feeStroops?: number;
 }
 
 // --- Contract Event Types ---

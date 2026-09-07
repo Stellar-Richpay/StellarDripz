@@ -73,6 +73,16 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
         </div>
       </div>
 
+      {/* Estimated network fee (sends only) */}
+      {tx.type === "send" && typeof tx.feeStroops === "number" && (
+        <p className="mt-1.5 text-[11px] text-white/40">
+          <span className="text-white/30">Network fee: </span>
+          <span className="font-mono">
+            ≈ {(tx.feeStroops / 1e7).toLocaleString("en-US", { maximumFractionDigits: 7 })} XLM
+          </span>
+        </p>
+      )}
+
       {/* Hash / Error */}
       {/* Memo (sends only) */}
       {tx.type === "send" && tx.memo && (
