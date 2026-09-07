@@ -28,18 +28,3 @@ export async function createSession(
 
   return session;
 }
-
-export async function validateSession(address: string): Promise<SessionEntry | null> {
-  const session = await getSession(address);
-  if (!session) return null;
-
-  const now = Date.now();
-  // Session expires after 24h of inactivity
-  if (now - session.lastActive > 24 * 60 * 60 * 1000) return null;
-
-  // Update lastActive
-  session.lastActive = now;
-  await saveSession(session);
-
-  return session;
-}
