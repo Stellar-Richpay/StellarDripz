@@ -3,6 +3,7 @@
 import { useAppContext } from "@/context/AppContext";
 import { useState } from "react";
 import type { AssetBalance } from "@/types/stellar";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
 
 function AssetRow({ asset }: { asset: AssetBalance }) {
   return (
@@ -65,7 +66,10 @@ export default function BalanceCard() {
       {balance.error ? (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
           <p className="text-sm text-red-400">
-            Failed to load balances. The account may not exist yet — try the faucet!
+            Failed to load balances.
+            {STELLAR_NETWORK.network === "TESTNET"
+              ? " The account may not exist yet — try the faucet!"
+              : " Check that the address is funded on mainnet."}
           </p>
           <button
             onClick={handleRefresh}
