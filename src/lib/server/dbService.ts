@@ -164,7 +164,9 @@ function persistDb(): void {
   if (_persistScheduled) return;
   _persistScheduled = true;
 
-  setImmediate(() => {
+  // setTimeout(0) rather than setImmediate: the latter is not available in
+  // browser-like (jsdom) test environments and differs across Node versions.
+  setTimeout(() => {
     _persistScheduled = false;
     try {
       const dbPath = getDbPath();
@@ -174,7 +176,7 @@ function persistDb(): void {
     } catch {
       /* disk full or permission error */
     }
-  });
+  }, 0);
 }
 
 // ---- Supabase Column Mapping Helpers ----
