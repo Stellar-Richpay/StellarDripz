@@ -155,8 +155,17 @@ function getDb(): Database {
   return _db;
 }
 
+// Coalesce writes: multiple save calls in the same tick trigger a single disk
+// write, which matters for bursty flows (batch funding, contract polls).
+let _persistScheduled = false;
+
 function persistDb(): void {
-  if (typeof fs !== "undefined") {
+  if (typeof fs === "undefined") return;
+  if (_persistScheduled) return;
+  _persistScheduled = true;
+
+  setImmediate(() => {
+    _persistScheduled = false;
     try {
       const dbPath = getDbPath();
       const dir = path.dirname(dbPath);
@@ -165,7 +174,7 @@ function persistDb(): void {
     } catch {
       /* disk full or permission error */
     }
-  }
+  });
 }
 
 // ---- Supabase Column Mapping Helpers ----
