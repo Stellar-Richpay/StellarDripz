@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAddressError } from "@/lib/stellar/address";
+import { getNetworkState } from "@/lib/stellar/networkGuard";
 import QrModal from "./QrModal";
 import AddressBook from "./AddressBook";
 
@@ -24,7 +25,11 @@ export default function SendForm() {
   if (!wallet.connected) return null;
 
   const isPending = txInProgress === "pending";
-  const isOnMainnet = wallet.network === "MAINNET";
+  // Block sends when the wallet sits on a different network than the app
+  // (e.g. mainnet wallet on a testnet deployment). On a mainnet deployment
+  // a mainnet wallet is correct, so the check is a mismatch, not a
+  // hardcoded "mainnet is wrong".
+  const { mismatch: isNetworkMismatch, appLabel } = getNetworkState(wallet.network);
 
   const validateDestination = (val: string) => {
     setDestination(val);
@@ -114,7 +119,7 @@ export default function SendForm() {
   const hasValidPaymentInfo = destination.trim() && !destError && amount.trim() && !amountError;
   const submitDisabled =
     isPending ||
-    isOnMainnet ||
+    isNetworkMismatch ||
     !destination.trim() ||
     !amount.trim() ||
     !!destError ||
@@ -165,9 +170,9 @@ export default function SendForm() {
           </div>
         </div>
 
-        {isOnMainnet && (
+        {isNetworkMismatch && (
           <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-            ⚠️ Cannot send on Mainnet. Switch to Testnet.
+            ⚠️ Wallet on wrong network — switch to {appLabel} to send.
           </div>
         )}
 
@@ -179,7 +184,7 @@ export default function SendForm() {
               <button
                 type="button"
                 onClick={() => setShowAddressBook(true)}
-                disabled={isPending || isOnMainnet}
+                disabled={isPending || isNetworkMismatch}
                 className="text-xs text-stellar-blue/60 hover:text-stellar-blue transition-colors disabled:opacity-30"
               >
                 📖 Address Book
@@ -191,7 +196,7 @@ export default function SendForm() {
                 value={destination}
                 onChange={(e) => validateDestination(e.target.value)}
                 placeholder="G..."
-                disabled={isPending || isOnMainnet}
+                disabled={isPending || isNetworkMismatch}
                 className={`w-full rounded-xl border bg-white/5 px-4 py-2.5 pr-9 font-mono text-sm text-white placeholder:text-white/20 transition-all focus:outline-none focus:ring-2 ${
                   destError
                     ? "border-red-500/50 focus:ring-red-500/30"
@@ -225,7 +230,7 @@ export default function SendForm() {
                 setAmount("");
                 setAmountError("");
               }}
-              disabled={isPending || isOnMainnet}
+              disabled={isPending || isNetworkMismatch}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white transition-all focus:outline-none focus:ring-2 focus:border-stellar-blue/50 focus:ring-stellar-blue/30 disabled:opacity-50 disabled:cursor-not-allowed appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-9"
             >
               <option value="XLM">XLM (native)</option>
@@ -247,7 +252,7 @@ export default function SendForm() {
               <button
                 type="button"
                 onClick={handleMax}
-                disabled={isPending || isOnMainnet}
+                disabled={isPending || isNetworkMismatch}
                 className="text-xs font-semibold text-stellar-blue/60 hover:text-stellar-blue transition-colors disabled:opacity-30"
               >
                 Max
@@ -260,7 +265,7 @@ export default function SendForm() {
               placeholder="0.0"
               min="0.0000001"
               step="0.0000001"
-              disabled={isPending || isOnMainnet}
+              disabled={isPending || isNetworkMismatch}
               className={`w-full rounded-xl border bg-white/5 px-4 py-2.5 font-mono text-sm text-white placeholder:text-white/20 transition-all focus:outline-none focus:ring-2 ${
                 amountError
                   ? "border-red-500/50 focus:ring-red-500/30"
@@ -287,7 +292,7 @@ export default function SendForm() {
                 if (memoError) setMemoError("");
               }}
               placeholder="e.g. Invoice #1234"
-              disabled={isPending || isOnMainnet}
+              disabled={isPending || isNetworkMismatch}
               className={`w-full rounded-xl border bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/20 transition-all focus:outline-none focus:ring-2 ${
                 memoError
                   ? "border-red-500/50 focus:ring-red-500/30"
@@ -324,7 +329,7 @@ export default function SendForm() {
               <button
                 type="button"
                 onClick={() => setShowPaymentQr(true)}
-                disabled={isPending || isOnMainnet}
+                disabled={isPending || isNetworkMismatch}
                 className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/60 transition-all hover:bg-white/10 hover:text-white/80 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Generate payment QR"
               >

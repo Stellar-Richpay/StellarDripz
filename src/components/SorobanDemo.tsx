@@ -5,6 +5,7 @@ import { useAppContext } from "@/context/AppContext";
 import { directSimulateContract } from "@/lib/client/directClient";
 import { useContractEvents } from "@/hooks/useContractEvents";
 import { getContractExplorerUrl } from "@/lib/stellar/explorer";
+import { getNetworkState } from "@/lib/stellar/networkGuard";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
@@ -26,9 +27,11 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
   const [newGreeting, setNewGreeting] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // The demo targets testnet-deployed contracts, so state-changing calls must
-  // not fire from a wallet on another network (matching the Send/Faucet guards).
-  const isOnMainnet = state.wallet.network === "MAINNET";
+  // State-changing contract calls must not fire from a wallet on a different
+  // network than the app (matching the Send guard). On a mainnet deployment a
+  // mainnet wallet is correct, so this is a mismatch check, not a hardcoded
+  // "mainnet is wrong".
+  const { mismatch: isNetworkMismatch, appLabel } = getNetworkState(state.wallet.network);
 
   // Live contract events (SSE with direct RPC polling fallback).
   const {
@@ -63,7 +66,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
 
   // ---- Proxied write: increment counter ---- //
   const handleIncrement = useCallback(async () => {
-    if (!state.wallet.publicKey || isOnMainnet) return;
+    if (!state.wallet.publicKey || isNetworkMismatch) return;
     setLoading(true);
     try {
       const address = state.wallet.publicKey;
@@ -87,7 +90,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     } finally {
       setLoading(false);
     }
-  }, [state.wallet.publicKey, contractId, counter, isOnMainnet]);
+  }, [state.wallet.publicKey, contractId, counter, isNetworkMismatch]);
 
   // ---- Direct read: get greeting ---- //
   const handleGetGreeting = useCallback(async () => {
@@ -110,7 +113,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
 
   // ---- Proxied write: set greeting ---- //
   const handleSetGreeting = useCallback(async () => {
-    if (!state.wallet.publicKey || !newGreeting.trim() || isOnMainnet) return;
+    if (!state.wallet.publicKey || !newGreeting.trim() || isNetworkMismatch) return;
     setLoading(true);
     try {
       const address = state.wallet.publicKey;
@@ -135,7 +138,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     } finally {
       setLoading(false);
     }
-  }, [state.wallet.publicKey, contractId, newGreeting, isOnMainnet]);
+  }, [state.wallet.publicKey, contractId, newGreeting, isNetworkMismatch]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-stellar-purple/20 bg-surface-800/60 p-5 backdrop-blur-md">
@@ -157,9 +160,9 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
         </div>
       </div>
 
-      {isOnMainnet && (
+      {isNetworkMismatch && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-          ⚠️ Contract calls are disabled on Mainnet. Switch to Testnet in your wallet.
+          ⚠️ Wallet on wrong network — switch to {appLabel} to use contracts.
         </div>
       )}
 
@@ -180,7 +183,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             </button>
             <button
               onClick={handleIncrement}
-              disabled={loading || isOnMainnet}
+              disabled={loading || isNetworkMismatch}
               className="rounded-lg bg-gradient-to-r from-stellar-purple to-stellar-blue px-3 py-1.5 text-xs font-semibold text-white hover:shadow-lg active:scale-95 disabled:opacity-50"
             >
               +1
@@ -199,12 +202,12 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             onChange={(e) => setNewGreeting(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSetGreeting()}
             placeholder="New greeting..."
-            disabled={loading || isOnMainnet}
+            disabled={loading || isNetworkMismatch}
             className="flex-1 rounded-lg border border-white/10 bg-surface-950 px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-stellar-purple/50 focus:outline-none disabled:opacity-50"
           />
           <button
             onClick={handleSetGreeting}
-            disabled={loading || !newGreeting.trim() || isOnMainnet}
+            disabled={loading || !newGreeting.trim() || isNetworkMismatch}
             className="rounded-lg border border-stellar-purple/30 bg-stellar-purple/10 px-3 py-1.5 text-xs font-medium text-stellar-purple hover:bg-stellar-purple/20 disabled:opacity-30"
           >
             Set

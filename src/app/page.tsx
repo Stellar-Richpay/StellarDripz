@@ -89,7 +89,10 @@ export default function Home() {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-6">
               <BalanceCard />
-              <FaucetButton />
+              {/* The faucet only exists on testnet; hide it entirely on a
+                  mainnet-configured deployment instead of showing a dead
+                  "switch to testnet" control. */}
+              {!isMainnet && <FaucetButton />}
             </div>
             <div className="space-y-6">
               <SendForm />

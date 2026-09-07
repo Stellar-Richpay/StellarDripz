@@ -10,16 +10,16 @@ export default function NetworkWarning() {
   const appNetwork = STELLAR_NETWORK.network;
 
   // No wallet, or wallet network matches the app — nothing to warn about.
-  if (
-    !wallet.connected ||
-    wallet.network === "UNKNOWN" ||
-    wallet.network === appNetwork
-  ) {
+  if (!wallet.connected || wallet.network === "UNKNOWN" || wallet.network === appNetwork) {
     return null;
   }
 
   const walletLabel =
-    wallet.network === "MAINNET" ? "Mainnet" : wallet.network === "TESTNET" ? "Testnet" : wallet.network;
+    wallet.network === "MAINNET"
+      ? "Mainnet"
+      : wallet.network === "TESTNET"
+        ? "Testnet"
+        : wallet.network;
   const appLabel = appNetwork === "MAINNET" ? "Mainnet" : "Testnet";
 
   return (
