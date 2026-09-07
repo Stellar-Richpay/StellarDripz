@@ -22,6 +22,8 @@ pub enum GovError {
     NotAuthorized = 9,
     InvalidParameter = 10,
     InvalidVoteTotal = 11,
+    QuorumNotMet = 12,
+    QuorumTooHigh = 13,
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
@@ -93,11 +95,16 @@ const KEY_TOKEN_ID: Symbol = symbol_short!("TOK_ID");
 const KEY_POOL_ID: Symbol = symbol_short!("POOL_ID");
 const KEY_VOTING_PERIOD: Symbol = symbol_short!("VOT_PER");
 const KEY_MIN_POWER: Symbol = symbol_short!("MIN_POW");
+const KEY_QUORUM_BPS: Symbol = symbol_short!("QUORUM");
 
 /// Titles longer than this are rejected to bound storage usage per proposal.
 const MAX_TITLE_BYTES: u32 = 256;
 /// Descriptions longer than this are rejected to bound storage usage.
 const MAX_DESC_BYTES: u32 = 4096;
+
+/// Quorum is expressed in basis points (1/10000) of the total token supply
+/// that must participate for a proposal to be executable. 0 disables quorum.
+const MAX_QUORUM_BPS: u32 = 10_000;
 
 #[contract]
 pub struct DripGovernance;
@@ -137,6 +144,7 @@ impl DripGovernance {
         s::set_persistent(&env, &KEY_POOL_ID, &pool_contract_id);
         s::set_persistent(&env, &KEY_VOTING_PERIOD, &voting_period);
         s::set_persistent(&env, &KEY_MIN_POWER, &min_voting_power);
+        s::set_persistent(&env, &KEY_QUORUM_BPS, &0u32);
         s::set_persistent(&env, &KEY_PROPOSAL_COUNT, &0u64);
 
         e::publish(&env, (symbol_short!("gov_init"), &admin), voting_period);
@@ -319,6 +327,19 @@ impl DripGovernance {
             return Err(GovError::InvalidVoteTotal);
         }
 
+        // Quorum check: a minimum share of the total supply must have
+        // participated (For + Against + Abstain) for the outcome to bind.
+        let quorum_bps: u32 = s::get_persistent(&env, &KEY_QUORUM_BPS, 0u32);
+        if quorum_bps > 0 && quorum_bps <= MAX_QUORUM_BPS {
+            let threshold = total_supply
+                .checked_mul(quorum_bps as i128)
+                .map(|v| v / MAX_QUORUM_BPS as i128)
+                .unwrap_or(i128::MAX);
+            if total_votes < threshold {
+                return Err(GovError::QuorumNotMet);
+            }
+        }
+
         // Check if proposal passed
         if proposal.for_votes > proposal.against_votes {
             proposal.passed = true;
@@ -409,12 +430,36 @@ impl DripGovernance {
         Self::get_voting_power_internal(&env, &voter, &token_id)
     }
 
+    /// Set the quorum requirement in basis points of total supply.
+    /// 0 disables quorum entirely. Only the admin can change it.
+    pub fn set_quorum(env: Env, admin: Address, quorum_bps: u32) -> Result<(), GovError> {
+        let stored_admin: Address = s::get_persistent(
+            &env, &s::KEY_ADMIN,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
+        if admin != stored_admin {
+            return Err(GovError::NotAuthorized);
+        }
+        if quorum_bps > MAX_QUORUM_BPS {
+            return Err(GovError::QuorumTooHigh);
+        }
+        admin.require_auth();
+        s::set_persistent(&env, &KEY_QUORUM_BPS, &quorum_bps);
+        e::publish(&env, (symbol_short!("quorum"), &admin), quorum_bps);
+        Ok(())
+    }
+
     pub fn get_gov_config(env: Env) -> (Address, Address, u32, i128) {
         let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let pool_id: Address = s::get_persistent(&env, &KEY_POOL_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let voting_period: u32 = s::get_persistent(&env, &KEY_VOTING_PERIOD, 100u32);
         let min_power: i128 = s::get_persistent(&env, &KEY_MIN_POWER, 0i128);
         (token_id, pool_id, voting_period, min_power)
+    }
+
+    /// Current quorum threshold in basis points (0 = disabled).
+    pub fn get_quorum(env: Env) -> u32 {
+        s::get_persistent(&env, &KEY_QUORUM_BPS, 0u32)
     }
 }
 
@@ -647,6 +692,91 @@ mod governance_test {
 
         let err = client.try_initialize_governance(&admin, &token_id, &pool_id, &0u32, &1i128);
         assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+    }
+
+    #[test]
+    fn test_quorum_required_for_execution() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        // Supply = 1900; 50% quorum requires 950 participating votes.
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &900i128);
+
+        let governance_id = env.register(DripGovernance, ());
+        // Real pool with governance as admin so execute() can apply actions.
+        let pool_id = env.register(DripPool, ());
+        let pool_client = pool::DripPoolClient::new(&env, &pool_id);
+        pool_client.initialize_pool(&governance_id, &token_id, &100i128, &10i128, &100u32);
+
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+        // Require 50% participation (5000 bps).
+        client.set_quorum(&admin, &5000u32);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Q"),
+            &String::from_str(&env, "D"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+
+        // Only 900 of 1900 supply votes — under the 950 quorum threshold.
+        client.vote(&voter, &id, &VoteChoice::For);
+        env.ledger().set_sequence_number(500);
+        let err = client.try_execute(&admin, &id);
+        assert_eq!(err, Err(Ok(GovError::QuorumNotMet)));
+        assert!(!client.get_proposal(&id).unwrap().executed);
+
+        // A second proposal that receives 1900 votes passes the quorum.
+        let id2 = client.propose(
+            &proposer,
+            &String::from_str(&env, "Q2"),
+            &String::from_str(&env, "D"),
+            &GovernanceAction::SetRewardRate(2i128),
+        );
+        client.vote(&voter, &id2, &VoteChoice::For);
+        client.vote(&proposer, &id2, &VoteChoice::For);
+        env.ledger().set_sequence_number(900);
+        client.execute(&admin, &id2);
+        assert!(client.get_proposal(&id2).unwrap().passed);
+
+        // Verify the pool reward rate was applied.
+        let pool_config = pool_client.get_pool_config();
+        assert_eq!(pool_config.reward_rate, 2i128);
+    }
+
+    #[test]
+    fn test_quorum_validation() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let attacker = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let pool_id = Address::generate(&env);
+        let governance_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        // Over 100% quorum is rejected.
+        let err = client.try_set_quorum(&admin, &10_001u32);
+        assert_eq!(err, Err(Ok(GovError::QuorumTooHigh)));
+
+        // Non-admin cannot change quorum.
+        let err = client.try_set_quorum(&attacker, &1000u32);
+        assert_eq!(err, Err(Ok(GovError::NotAuthorized)));
+
+        client.set_quorum(&admin, &2500u32);
+        assert_eq!(client.get_quorum(), 2500u32);
     }
 
     #[test]
