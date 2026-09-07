@@ -15,12 +15,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
+import { isValidContractId } from "@/lib/stellar/contractId";
 import {
   simulateContractCallServer,
   buildContractInvocation,
   submitContractInvocation,
 } from "@/lib/server/sorobanService";
 import * as StellarSdk from "@stellar/stellar-sdk";
+
+/** Upper bounds that keep request bodies within Soroban's practical limits. */
+const MAX_ARGS = 32;
+const MAX_FUNCTION_NAME_LENGTH = 64;
+const FUNCTION_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /** Convert a JSON argument to Soroban ScVal */
 function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
@@ -133,6 +139,26 @@ export async function POST(request: NextRequest) {
     if (!body.contractId || !body.functionName || !body.signerAddress) {
       return NextResponse.json(
         { error: "contractId, functionName, signerAddress required" },
+        { status: 400 },
+      );
+    }
+
+    // Checksum-validate the contract ID (not just the C-prefix regex) so
+    // malformed IDs fail fast instead of confusing RPC errors, and keep the
+    // function name within identifier bounds so it cannot be used as a
+    // smuggling vector.
+    if (!isValidContractId(body.contractId)) {
+      return NextResponse.json({ error: "Invalid contract ID" }, { status: 400 });
+    }
+    if (
+      body.functionName.length > MAX_FUNCTION_NAME_LENGTH ||
+      !FUNCTION_NAME_RE.test(body.functionName)
+    ) {
+      return NextResponse.json({ error: "Invalid function name" }, { status: 400 });
+    }
+    if ((body.args || []).length > MAX_ARGS) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_ARGS} arguments per invocation` },
         { status: 400 },
       );
     }
