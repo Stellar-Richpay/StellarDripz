@@ -10,6 +10,22 @@ interface UseContractEventsOptions {
   enabled?: boolean;
 }
 
+/** Stable identity for an event, used to drop duplicates across SSE + polling. */
+function eventKey(evt: ContractEvent): string {
+  return [evt.contractId, evt.topic, evt.value, evt.ledgerSequence || "", evt.txHash || ""].join(
+    "|",
+  );
+}
+
+/** Prepend incoming events, skipping any whose key already exists. */
+function appendUnique(prev: ContractEvent[], incoming: ContractEvent[]): ContractEvent[] {
+  if (incoming.length === 0) return prev;
+  const known = new Set(prev.map(eventKey));
+  const fresh = incoming.filter((e) => !known.has(eventKey(e)));
+  if (fresh.length === 0) return prev;
+  return [...fresh, ...prev].slice(0, 100);
+}
+
 /**
  * Hook for subscribing to real-time contract events.
  * Uses SSE (via API proxy) with direct Soroban RPC polling as fallback.
@@ -67,7 +83,7 @@ export function useContractEvents({
               timestamp: new Date(),
               txHash: "",
             };
-            setEvents((prev) => [mapped, ...prev].slice(0, 100));
+            setEvents((prev) => appendUnique(prev, [mapped]));
           }
         }
         setConnected(true);
@@ -109,7 +125,13 @@ export function useContractEvents({
         if (cancelled || !mountedRef.current) return;
         try {
           const parsed: ContractEvent = JSON.parse(event.data);
-          setEvents((prev) => [parsed, ...prev].slice(0, 100));
+          // SSE events lack id/ledgerSequence, so give them a stable id so
+          // duplicates are dropped rather than stacking up.
+          const normalized: ContractEvent = {
+            ...parsed,
+            id: parsed.id || eventKey(parsed),
+          };
+          setEvents((prev) => appendUnique(prev, [normalized]));
         } catch {
           /* skip malformed */
         }
