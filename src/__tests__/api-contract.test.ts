@@ -104,7 +104,7 @@ describe("POST /api/contract/invoke", () => {
   describe("simulate mode", () => {
     it("simulates a contract call and returns result", async () => {
       const req = createReq({
-        contractId: "CCONTRACT123",
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "get_counter",
         signerAddress: "GSIGNER12345678901234567890123456789012345678",
         simulate: true,
@@ -121,7 +121,7 @@ describe("POST /api/contract/invoke", () => {
   describe("build mode", () => {
     it("builds a contract invocation and returns XDR", async () => {
       const req = createReq({
-        contractId: "CCONTRACT123",
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
         signerAddress: "GSIGNER12345678901234567890123456789012345678",
         args: ["test_arg"],
@@ -135,7 +135,7 @@ describe("POST /api/contract/invoke", () => {
   describe("submit mode", () => {
     it("submits signed contract invocation", async () => {
       const req = createReq({
-        contractId: "CCONTRACT123",
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
         signerAddress: "GSIGNER12345678901234567890123456789012345678",
         signedXdr: "AAAA...==",
@@ -152,7 +152,7 @@ describe("POST /api/contract/invoke", () => {
     it("returns 500 on contract error", async () => {
       mockSubmit.mockRejectedValueOnce(new Error("Contract call reverted"));
       const req = createReq({
-        contractId: "CCONTRACT123",
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "bad_function",
         signerAddress: "GSIGNER12345678901234567890123456789012345678",
         signedXdr: "AAAA...==",
