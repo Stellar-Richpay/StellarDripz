@@ -94,10 +94,27 @@ describe("useWallet", () => {
         expect(mockClearPersistedWallet).toHaveBeenCalled();
       });
 
-      // Should remain disconnected
+      // Should remain disconnected and surface the reason instead of
+      // silently dropping the user on a disconnected screen.
       await waitFor(() => {
         expect(result.current.wallet.connected).toBe(false);
       });
+      expect(result.current.error).toBe("Connection failed.");
+    });
+
+    it("keeps the session when only backend registration fails on reconnect", async () => {
+      mockLoadPersistedWallet.mockReturnValue({ walletId: "freighter" });
+      mockConnectAndRegister.mockRejectedValue(new Error("NETWORK_ERROR"));
+
+      const { result } = renderHook(() => useWallet());
+
+      // Wallet stays connected and the persisted session is NOT cleared, so
+      // the next page load will try to reconnect again.
+      await waitFor(() => {
+        expect(result.current.wallet.connected).toBe(true);
+      });
+      expect(mockClearPersistedWallet).not.toHaveBeenCalled();
+      expect(result.current.error).toMatch(/session couldn't be registered/);
     });
   });
 
