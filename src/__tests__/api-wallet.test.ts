@@ -24,6 +24,9 @@ jest.mock("next/server", () => {
         return {};
       }
     }
+    async text() {
+      return this.bodyStr;
+    }
   }
   class MockNextResponse {
     status: number;

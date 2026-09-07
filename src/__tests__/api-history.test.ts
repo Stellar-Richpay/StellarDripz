@@ -88,7 +88,7 @@ describe("GET /api/history", () => {
       "http://localhost:3000/api/history?address=GADDR123&type=faucet&limit=10",
     ) as InstanceType<typeof NextRequest>;
     await GET(req);
-    expect(mockGetTransactions).toHaveBeenCalledWith("GADDR123", "faucet", 10);
+    expect(mockGetTransactions).toHaveBeenCalledWith("GADDR123", "faucet", 10, 0);
   });
 
   it("clamps limit to 100", async () => {
@@ -96,7 +96,7 @@ describe("GET /api/history", () => {
       typeof NextRequest
     >;
     await GET(req);
-    expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 100);
+    expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 100, 0);
   });
 
   it("returns empty array when no transactions", async () => {

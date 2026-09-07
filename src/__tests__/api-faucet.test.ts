@@ -30,6 +30,9 @@ jest.mock("next/server", () => ({
         return {};
       }
     }
+    async text() {
+      return this.bodyStr;
+    }
   },
   NextResponse: class {
     status: number;
@@ -61,6 +64,7 @@ jest.mock("next/server", () => ({
 
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: jest.fn().mockReturnValue(null),
+  attachRateLimitHeaders: jest.fn((_req: unknown, res: unknown) => res),
   clearRateLimits: jest.fn(),
 }));
 

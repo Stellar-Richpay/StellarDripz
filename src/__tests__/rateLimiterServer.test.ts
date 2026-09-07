@@ -25,8 +25,19 @@ jest.mock("next/server", () => ({
   },
   NextResponse: class {
     status = 200;
+    headers: { set: (k: string, v: string) => void; get: (k: string) => string | null };
+    constructor() {
+      const store = new Map<string, string>();
+      this.headers = {
+        set: (k: string, v: string) => void store.set(k, v),
+        get: (k: string) => store.get(k) ?? null,
+      };
+    }
     static json(body: unknown, init?: { status?: number }) {
-      return { body, status: init?.status || 200 };
+      const res = new (jest.requireMock("next/server").NextResponse)();
+      res.status = init?.status || 200;
+      res.body = body;
+      return res;
     }
   },
 }));

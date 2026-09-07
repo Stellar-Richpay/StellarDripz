@@ -24,6 +24,9 @@ jest.mock("next/server", () => {
         return {};
       }
     }
+    async text() {
+      return this.bodyStr;
+    }
   }
   class MockNextResponse {
     status: number;
@@ -51,6 +54,7 @@ jest.mock("next/server", () => {
 
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: jest.fn().mockReturnValue(null),
+  attachRateLimitHeaders: jest.fn((_req: unknown, res: unknown) => res),
   clearRateLimits: jest.fn(),
 }));
 
@@ -64,6 +68,8 @@ const mockSendPayment = jest.fn();
 jest.mock("@/lib/server/horizonService", () => ({
   buildPaymentTransaction: (...args: unknown[]) => mockBuildPayment(...args),
   sendPaymentServer: (...args: unknown[]) => mockSendPayment(...args),
+  validateAmount: jest.fn().mockReturnValue(null),
+  validateAssetCode: jest.fn().mockReturnValue(null),
 }));
 
 import { NextRequest, NextResponse } from "next/server";
