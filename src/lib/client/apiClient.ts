@@ -55,11 +55,19 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
 
   if (!res.ok) {
     const retryAfter = res.headers.get("Retry-After");
+    const requestId = res.headers.get("x-request-id");
     const message =
       (json as { error?: string } | null)?.error || `HTTP ${res.status}`;
-    const error = new Error(message) as Error & { retryAfter?: number; status?: number };
+    const error = new Error(message) as Error & {
+      retryAfter?: number;
+      status?: number;
+      requestId?: string;
+    };
     if (retryAfter) error.retryAfter = parseInt(retryAfter, 10);
     error.status = res.status;
+    // Server-side correlation id (set in src/middleware.ts) — attaching it to
+    // the error means support reports can name the exact server request.
+    if (requestId) error.requestId = requestId;
     throw error;
   }
 
