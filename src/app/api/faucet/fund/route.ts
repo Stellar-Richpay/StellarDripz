@@ -3,6 +3,7 @@
  * Body: { address: string }
  */
 import { NextRequest, NextResponse } from "next/server";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { requestFaucetFundsServer } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
@@ -25,7 +26,10 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = checkRateLimit(request, "faucet", address);
     if (rateLimitResponse) return rateLimitResponse;
 
-    if (!/^G[A-Z2-7]{55}$/.test(address)) {
+    // Full StrKey checksum validation (not just the character set) — a
+    // wrong-checksum address otherwise sails past the regex and comes back as
+    // a confusing Friendbot 5xx instead of a clean 400.
+    if (!isValidStellarAddress(address)) {
       return NextResponse.json({ error: "Invalid address" }, { status: 400 });
     }
 

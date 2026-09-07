@@ -122,7 +122,7 @@ describe("POST /api/faucet/fund", () => {
 
   it("funds a valid address successfully", async () => {
     const req = createReq("POST", {
-      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
     });
     const res = await POST(req);
     expect(res.status).toBe(200);
@@ -135,10 +135,22 @@ describe("POST /api/faucet/fund", () => {
   it("returns 500 on faucet failure", async () => {
     mockRequestFaucetFundsServer.mockRejectedValueOnce(new Error("Friendbot down"));
     const req = createReq("POST", {
-      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
     });
     const res = await POST(req);
     expect(res.status).toBe(500);
+  });
+
+  it("rejects a wrong-checksum address that matches the character set", async () => {
+    // 56 G-address chars but an invalid StrKey checksum — passes a regex,
+    // must fail checksum validation.
+    const req = createReq("POST", {
+      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("Invalid");
   });
 });
 // Edge case: handles empty address string gracefully
