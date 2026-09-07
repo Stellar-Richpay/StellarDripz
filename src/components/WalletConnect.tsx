@@ -11,6 +11,7 @@ import {
   clearWalletConnectPairing,
 } from "@/lib/wallets/walletKit";
 import { getWalletErrorMessage } from "@/lib/wallets/errors";
+import { getWalletConnectStatus } from "@/lib/wallets/walletconnect";
 
 /** Resolve the icon for a connected wallet ID from the registry. */
 function walletIcon(id: string | null): string {
@@ -266,7 +267,11 @@ export default function WalletConnect() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-white">{w.name}</p>
                     <p className="text-[10px] text-white/40">
-                      {w.installed ? "Available" : "Not detected"}
+                      {w.id === "walletconnect" && !w.installed
+                        ? getWalletConnectStatus().message
+                        : w.installed
+                          ? "Available"
+                          : "Not detected"}
                     </p>
                   </div>
                   <span className="text-white/20">→</span>
