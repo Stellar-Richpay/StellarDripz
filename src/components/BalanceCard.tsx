@@ -87,6 +87,15 @@ export default function BalanceCard() {
             <span className="text-lg font-semibold text-stellar-blue">XLM</span>
           </div>
 
+          {/* Unfunded account — point at the faucet */}
+          {parseFloat(balance.raw) === 0 && (
+            <div className="mt-3 rounded-xl border border-stellar-blue/20 bg-stellar-blue/5 px-3 py-2">
+              <p className="text-xs text-stellar-blue/80">
+                No XLM yet — use the faucet below to fund this account.
+              </p>
+            </div>
+          )}
+
           {/* Other assets */}
           {nonNativeAssets.length > 0 && (
             <div className="mt-3">
