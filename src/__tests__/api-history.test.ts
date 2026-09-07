@@ -40,8 +40,10 @@ jest.mock("next/server", () => {
 });
 
 const mockGetTransactions = jest.fn();
+const mockGetTransactionsCount = jest.fn();
 jest.mock("@/lib/server/dbService", () => ({
   getTransactions: (...args: unknown[]) => mockGetTransactions(...args),
+  getTransactionsCount: (...args: unknown[]) => mockGetTransactionsCount(...args),
   clearDb: jest.fn(),
 }));
 
@@ -68,6 +70,7 @@ beforeEach(() => {
       timestamp: 1700000000000,
     },
   ]);
+  mockGetTransactionsCount.mockReturnValue(1);
 });
 
 describe("GET /api/history", () => {
@@ -101,6 +104,7 @@ describe("GET /api/history", () => {
 
   it("returns empty array when no transactions", async () => {
     mockGetTransactions.mockReturnValueOnce([]);
+    mockGetTransactionsCount.mockReturnValueOnce(0);
     const req = new NextRequest("http://localhost:3000/api/history") as InstanceType<
       typeof NextRequest
     >;
@@ -109,5 +113,19 @@ describe("GET /api/history", () => {
     const json = await res.json();
     expect(json.transactions).toEqual([]);
     expect(json.total).toBe(0);
+    expect(json.hasMore).toBe(false);
+  });
+
+  it("reports the true filtered total and hasMore for paging", async () => {
+    mockGetTransactionsCount.mockReturnValueOnce(137);
+    const req = new NextRequest(
+      "http://localhost:3000/api/history?limit=50&offset=0",
+    ) as InstanceType<typeof NextRequest>;
+    const res = await GET(req);
+
+    const json = await res.json();
+    expect(json.transactions.length).toBe(1);
+    expect(json.total).toBe(137);
+    expect(json.hasMore).toBe(true);
   });
 });

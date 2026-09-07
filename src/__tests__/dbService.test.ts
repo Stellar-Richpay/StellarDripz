@@ -4,6 +4,7 @@
 import {
   saveTransaction,
   getTransactions,
+  getTransactionsCount,
   logAnalytics,
   getAnalyticsSummary,
   clearDb,
@@ -90,6 +91,37 @@ describe("dbService", () => {
       if (transactions.length >= 2) {
         expect(transactions[0].timestamp).toBeGreaterThan(transactions[9].timestamp);
       }
+    });
+
+    it("counts transactions with the same filters as getTransactions", async () => {
+      await saveTransaction({
+        id: "tx-c1",
+        type: "faucet",
+        status: "success",
+        hash: "h1",
+        amount: "10000",
+        senderAddress: "f",
+        destinationAddress: "d1",
+        timestamp: Date.now(),
+      });
+      await saveTransaction({
+        id: "tx-c2",
+        type: "send",
+        status: "success",
+        hash: "h2",
+        amount: "50",
+        senderAddress: "f",
+        destinationAddress: "d2",
+        timestamp: Date.now(),
+      });
+
+      expect(await getTransactionsCount()).toBe(2);
+      expect(await getTransactionsCount("f")).toBe(2);
+      expect(await getTransactionsCount("f", "faucet")).toBe(1);
+      expect(await getTransactionsCount("nobody")).toBe(0);
+      // Count is unaffected by paging parameters.
+      expect((await getTransactions(undefined, undefined, 1)).length).toBe(1);
+      expect(await getTransactionsCount()).toBe(2);
     });
   });
 

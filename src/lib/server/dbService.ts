@@ -332,6 +332,41 @@ export async function getTransactions(
   return txs.slice(offset, offset + limit);
 }
 
+/**
+ * Count transactions matching the given filters (no paging).
+ * Lets clients report an accurate total and compute hasMore instead of
+ * mistaking the page length for the full result set.
+ */
+export async function getTransactionsCount(
+  address?: string,
+  type?: TxRecord["type"],
+): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  if (supabase) {
+    let query = supabase
+      .from("transactions")
+      .select("*", { count: "exact", head: true });
+
+    if (address) query = query.eq("sender_address", address);
+    if (type) query = query.eq("type", type);
+
+    const { count, error } = await query;
+    if (error) {
+      logger.error("Supabase getTransactionsCount failed", new Error(error.message));
+      return 0;
+    }
+    return count ?? 0;
+  }
+
+  // Fallback: in-memory
+  const db = getDb();
+  let txs = db.transactions;
+  if (address) txs = txs.filter((t) => t.senderAddress === address);
+  if (type) txs = txs.filter((t) => t.type === type);
+  return txs.length;
+}
+
 // ---- Analytics ----
 
 export async function logAnalytics(
