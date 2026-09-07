@@ -47,7 +47,12 @@ export function useFaucet({ address, cooldownMs = 60000 }: UseFaucetOptions): Us
     cooldownMsRef.current = cooldownMs;
   }, [cooldownMs]);
 
+  // Reset the mounted flag on every mount (not just the first). React 18
+  // StrictMode mounts → unmounts → remounts effects in development; without
+  // re-setting the flag here, the second mount would permanently believe it
+  // is unmounted and every fetch would be dropped.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (timerRef.current) clearInterval(timerRef.current);

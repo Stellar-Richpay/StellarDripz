@@ -159,3 +159,22 @@ describe("useFaucet", () => {
   });
 });
 // Edge case: validates request during active cooldown
+
+describe("useFaucet StrictMode remount", () => {
+  it("can request again after unmount + remount (regression: mountedRef stuck false)", async () => {
+    const first = renderHook(() => useFaucet({ address: "GADDR123" }));
+    await act(async () => {
+      await first.result.current.request();
+    });
+    expect(first.result.current.lastHash).toBe("tx-hash-faucet-abc123");
+    first.unmount();
+
+    const second = renderHook(() => useFaucet({ address: "GADDR123" }));
+    await act(async () => {
+      await second.result.current.request();
+    });
+    expect(second.result.current.lastHash).toBe("tx-hash-faucet-abc123");
+    expect(second.result.current.success).toBe(true);
+    second.unmount();
+  });
+});
