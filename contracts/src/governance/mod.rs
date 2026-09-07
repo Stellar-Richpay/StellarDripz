@@ -1,9 +1,12 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, Vec, symbol_short};
-use crate::common::storage as s;
-use crate::common::events as e;
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
-use crate::token;
+use crate::common::events as e;
+use crate::common::storage as s;
 use crate::pool;
+use crate::token;
+use soroban_sdk::{
+    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, Address, Env,
+    String, Symbol, Vec,
+};
 
 // ---- Contract Errors ----
 
@@ -154,7 +157,13 @@ impl DripGovernance {
     }
 
     /// Create a new proposal. Requires minimum voting power.
-    pub fn propose(env: Env, proposer: Address, title: String, description: String, action: GovernanceAction) -> Result<u64, GovError> {
+    pub fn propose(
+        env: Env,
+        proposer: Address,
+        title: String,
+        description: String,
+        action: GovernanceAction,
+    ) -> Result<u64, GovError> {
         proposer.require_auth();
 
         if title.is_empty() {
@@ -165,7 +174,8 @@ impl DripGovernance {
         }
 
         let token_id: Address = s::get_persistent(
-            &env, &KEY_TOKEN_ID,
+            &env,
+            &KEY_TOKEN_ID,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
 
@@ -184,7 +194,9 @@ impl DripGovernance {
 
         let current_ledger = env.ledger().sequence();
         let voting_period: u32 = s::get_persistent(&env, &KEY_VOTING_PERIOD, 100u32);
-        let voting_end = current_ledger.checked_add(voting_period).expect("Voting end overflow");
+        let voting_end = current_ledger
+            .checked_add(voting_period)
+            .expect("Voting end overflow");
 
         let proposal = Proposal {
             id: count,
@@ -212,7 +224,12 @@ impl DripGovernance {
     }
 
     /// Vote on a proposal. Voting power = token balance via cross-contract call.
-    pub fn vote(env: Env, voter: Address, proposal_id: u64, choice: VoteChoice) -> Result<(), GovError> {
+    pub fn vote(
+        env: Env,
+        voter: Address,
+        proposal_id: u64,
+        choice: VoteChoice,
+    ) -> Result<(), GovError> {
         voter.require_auth();
 
         let key = (KEY_PROPOSAL, proposal_id);
@@ -236,7 +253,8 @@ impl DripGovernance {
 
         // --- CROSS-CONTRACT CALL: Get voting power from token balance ---
         let token_id: Address = s::get_persistent(
-            &env, &KEY_TOKEN_ID,
+            &env,
+            &KEY_TOKEN_ID,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         let power = Self::get_voting_power_internal(&env, &voter, &token_id);
@@ -247,12 +265,31 @@ impl DripGovernance {
         }
 
         match choice {
-            VoteChoice::For => proposal.for_votes = proposal.for_votes.checked_add(power).expect("Vote overflow"),
-            VoteChoice::Against => proposal.against_votes = proposal.against_votes.checked_add(power).expect("Vote overflow"),
-            VoteChoice::Abstain => proposal.abstain_votes = proposal.abstain_votes.checked_add(power).expect("Vote overflow"),
+            VoteChoice::For => {
+                proposal.for_votes = proposal
+                    .for_votes
+                    .checked_add(power)
+                    .expect("Vote overflow")
+            }
+            VoteChoice::Against => {
+                proposal.against_votes = proposal
+                    .against_votes
+                    .checked_add(power)
+                    .expect("Vote overflow")
+            }
+            VoteChoice::Abstain => {
+                proposal.abstain_votes = proposal
+                    .abstain_votes
+                    .checked_add(power)
+                    .expect("Vote overflow")
+            }
         }
 
-        let vote_record = VoteRecord { proposal_id, vote: choice, power };
+        let vote_record = VoteRecord {
+            proposal_id,
+            vote: choice,
+            power,
+        };
         s::set_and_extend(&env, &vote_key, &vote_record, TTL_REFRESH_THRESHOLD);
         s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
@@ -288,7 +325,9 @@ impl DripGovernance {
             ..proposal
         };
         s::set_and_extend(&env, &key, &cancelled, TTL_REFRESH_THRESHOLD);
-        env.storage().persistent().remove(&(KEY_PROPOSAL, symbol_short!("action"), proposal_id));
+        env.storage()
+            .persistent()
+            .remove(&(KEY_PROPOSAL, symbol_short!("action"), proposal_id));
 
         e::publish(&env, (symbol_short!("cancel"), &caller, proposal_id), true);
         Ok(())
@@ -315,7 +354,8 @@ impl DripGovernance {
         // token supply. If it does, the votes could not have come from
         // genuinely held balances at any single point in time.
         let token_id: Address = s::get_persistent(
-            &env, &KEY_TOKEN_ID,
+            &env,
+            &KEY_TOKEN_ID,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         let token_client = token::DripTokenClient::new(&env, &token_id);
@@ -348,14 +388,22 @@ impl DripGovernance {
 
             // Apply the governance action on-chain via cross-contract calls
             let action_key = (KEY_PROPOSAL, symbol_short!("action"), proposal_id);
-            if let Some(action) = env.storage().persistent().get::<_, GovernanceAction>(&action_key) {
+            if let Some(action) = env
+                .storage()
+                .persistent()
+                .get::<_, GovernanceAction>(&action_key)
+            {
                 Self::apply_action(&env, &action);
             }
         }
         proposal.executed = true;
         s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (symbol_short!("execute"), &executor, proposal_id), proposal.passed);
+        e::publish(
+            &env,
+            (symbol_short!("execute"), &executor, proposal_id),
+            proposal.passed,
+        );
         Ok(())
     }
 
@@ -368,11 +416,13 @@ impl DripGovernance {
     fn apply_action(env: &Env, action: &GovernanceAction) {
         let admin_addr = env.current_contract_address();
         let pool_id: Address = s::get_persistent(
-            env, &KEY_POOL_ID,
+            env,
+            &KEY_POOL_ID,
             Address::from_string(&String::from_str(env, ZERO_ADDRESS_STR)),
         );
         let token_id: Address = s::get_persistent(
-            env, &KEY_TOKEN_ID,
+            env,
+            &KEY_TOKEN_ID,
             Address::from_string(&String::from_str(env, ZERO_ADDRESS_STR)),
         );
 
@@ -399,8 +449,7 @@ impl DripGovernance {
             }
             GovernanceAction::MintTokens(to, amount) => {
                 let token_client = token::DripTokenClient::new(env, &token_id);
-                token_client
-                    .mint(&admin_addr, to, amount);
+                token_client.mint(&admin_addr, to, amount);
             }
         }
     }
@@ -455,7 +504,8 @@ impl DripGovernance {
 
     pub fn get_voting_power(env: Env, voter: Address) -> i128 {
         let token_id: Address = s::get_persistent(
-            &env, &KEY_TOKEN_ID,
+            &env,
+            &KEY_TOKEN_ID,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         Self::get_voting_power_internal(&env, &voter, &token_id)
@@ -465,7 +515,8 @@ impl DripGovernance {
     /// 0 disables quorum entirely. Only the admin can change it.
     pub fn set_quorum(env: Env, admin: Address, quorum_bps: u32) -> Result<(), GovError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -481,8 +532,16 @@ impl DripGovernance {
     }
 
     pub fn get_gov_config(env: Env) -> (Address, Address, u32, i128) {
-        let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
-        let pool_id: Address = s::get_persistent(&env, &KEY_POOL_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
+        let token_id: Address = s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
+        let pool_id: Address = s::get_persistent(
+            &env,
+            &KEY_POOL_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
         let voting_period: u32 = s::get_persistent(&env, &KEY_VOTING_PERIOD, 100u32);
         let min_power: i128 = s::get_persistent(&env, &KEY_MIN_POWER, 0i128);
         (token_id, pool_id, voting_period, min_power)
@@ -498,12 +557,12 @@ impl DripGovernance {
 
 #[cfg(test)]
 mod governance_test {
+    use super::*;
+    use crate::pool::DripPool;
+    use crate::token::DripToken;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::testutils::Ledger as _;
-    use super::*;
     use soroban_sdk::Env;
-    use crate::token::DripToken;
-    use crate::pool::DripPool;
 
     #[test]
     fn test_create_proposal() {
@@ -516,7 +575,12 @@ mod governance_test {
         // Deploy token and mint to proposer for voting power
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
 
         let pool_id = Address::generate(&env);
@@ -551,7 +615,12 @@ mod governance_test {
         // Deploy token and mint to both proposer and voter
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
         token_client.mint(&admin, &voter, &5000i128);
 
@@ -604,7 +673,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
 
         let pool_id = Address::generate(&env);
@@ -645,7 +719,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
 
         let pool_id = Address::generate(&env);
@@ -683,7 +762,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
 
         let pool_id = Address::generate(&env);
@@ -735,7 +819,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
 
         let pool_id = Address::generate(&env);
@@ -784,7 +873,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         // Supply = 1900; 50% quorum requires 950 participating votes.
         token_client.mint(&admin, &proposer, &1000i128);
         token_client.mint(&admin, &voter, &900i128);
@@ -869,7 +963,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
         token_client.mint(&admin, &voter, &1000i128);
 
@@ -910,7 +1009,12 @@ mod governance_test {
 
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &proposer, &1000i128);
         token_client.mint(&admin, &voter, &5000i128);
 
@@ -938,4 +1042,3 @@ mod governance_test {
         assert_eq!(config.max_stake, 50_000i128);
     }
 }
-

@@ -1,7 +1,10 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, symbol_short, Vec};
-use crate::common::storage as s;
-use crate::common::events as e;
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
+use crate::common::events as e;
+use crate::common::storage as s;
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String,
+    Symbol, Vec,
+};
 
 // ---- Contract Errors ----
 
@@ -88,7 +91,8 @@ impl DripBadge {
         tier: u32,
     ) -> Result<u64, BadgeError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -130,7 +134,8 @@ impl DripBadge {
         tier: u32,
     ) -> Result<(), BadgeError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -157,7 +162,11 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &key, &updated, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (symbol_short!("bdg_updte"), &admin, badge_id), updated.tier);
+        e::publish(
+            &env,
+            (symbol_short!("bdg_updte"), &admin, badge_id),
+            updated.tier,
+        );
         Ok(())
     }
 
@@ -183,14 +192,24 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (e::EVENT_BADGE_CLAIM, &user, badge_id), env.ledger().sequence());
+        e::publish(
+            &env,
+            (e::EVENT_BADGE_CLAIM, &user, badge_id),
+            env.ledger().sequence(),
+        );
         Ok(())
     }
 
     /// Revoke a badge from a user. Only admin.
-    pub fn revoke_badge(env: Env, admin: Address, user: Address, badge_id: u64) -> Result<(), BadgeError> {
+    pub fn revoke_badge(
+        env: Env,
+        admin: Address,
+        user: Address,
+        badge_id: u64,
+    ) -> Result<(), BadgeError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -204,7 +223,11 @@ impl DripBadge {
         }
 
         env.storage().persistent().remove(&claim_key);
-        e::publish(&env, (symbol_short!("bdg_revke"), &admin, user, badge_id), env.ledger().sequence());
+        e::publish(
+            &env,
+            (symbol_short!("bdg_revke"), &admin, user, badge_id),
+            env.ledger().sequence(),
+        );
         Ok(())
     }
 
@@ -257,9 +280,15 @@ impl DripBadge {
     }
 
     /// Grant a badge directly (admin only, no user auth required).
-    pub fn grant_badge(env: Env, admin: Address, user: Address, badge_id: u64) -> Result<(), BadgeError> {
+    pub fn grant_badge(
+        env: Env,
+        admin: Address,
+        user: Address,
+        badge_id: u64,
+    ) -> Result<(), BadgeError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -283,7 +312,11 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (e::EVENT_BADGE_CLAIM, &user, badge_id), env.ledger().sequence());
+        e::publish(
+            &env,
+            (e::EVENT_BADGE_CLAIM, &user, badge_id),
+            env.ledger().sequence(),
+        );
         Ok(())
     }
 
@@ -310,7 +343,8 @@ impl DripBadge {
 
     pub fn get_admin(env: Env) -> Address {
         s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         )
     }
@@ -320,8 +354,8 @@ impl DripBadge {
 
 #[cfg(test)]
 mod badge_test {
-    use soroban_sdk::testutils::Address as _;
     use super::*;
+    use soroban_sdk::testutils::Address as _;
     use soroban_sdk::Env;
 
     #[test]
@@ -399,7 +433,11 @@ mod badge_test {
 
         client.initialize_badge(&admin);
         client.create_badge(
-            &admin, &String::from_str(&env, "B"), &String::from_str(&env, "D"), &String::from_str(&env, ""), &1u32,
+            &admin,
+            &String::from_str(&env, "B"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &1u32,
         );
 
         client.claim_badge(&user, &1);
@@ -461,7 +499,11 @@ mod badge_test {
 
         client.initialize_badge(&admin);
         client.create_badge(
-            &admin, &String::from_str(&env, "R"), &String::from_str(&env, "D"), &String::from_str(&env, ""), &2u32,
+            &admin,
+            &String::from_str(&env, "R"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &2u32,
         );
 
         client.claim_badge(&user, &1);

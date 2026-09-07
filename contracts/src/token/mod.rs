@@ -1,7 +1,10 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, symbol_short};
-use crate::common::storage as s;
-use crate::common::events as e;
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
+use crate::common::events as e;
+use crate::common::storage as s;
+use soroban_sdk::{
+    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, Address, Env,
+    String, Symbol,
+};
 
 // ---- Data Types ----
 
@@ -79,7 +82,13 @@ pub struct DripToken;
 impl DripToken {
     /// Initialize the token with name, symbol, and decimals.
     /// Can only be called once.
-    pub fn initialize_token(env: Env, admin: Address, name: String, symbol: String, decimals: u32) -> Result<(), TokenError> {
+    pub fn initialize_token(
+        env: Env,
+        admin: Address,
+        name: String,
+        symbol: String,
+        decimals: u32,
+    ) -> Result<(), TokenError> {
         if env.storage().persistent().has(&s::KEY_ADMIN) {
             return Err(TokenError::AlreadyInitialized);
         }
@@ -115,9 +124,15 @@ impl DripToken {
     /// Authorize or revoke a minter. Only the token admin can call this.
     /// Authorized minters (e.g., governance contract) can mint tokens on behalf
     /// of the admin.
-    pub fn set_minter(env: Env, admin: Address, minter: Address, authorized: bool) -> Result<(), TokenError> {
+    pub fn set_minter(
+        env: Env,
+        admin: Address,
+        minter: Address,
+        authorized: bool,
+    ) -> Result<(), TokenError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
@@ -153,7 +168,8 @@ impl DripToken {
     /// Mint tokens to a recipient. Only admin or authorized minter.
     pub fn mint(env: Env, admin: Address, to: Address, amount: i128) -> Result<(), TokenError> {
         let stored_admin: Address = s::get_persistent(
-            &env, &s::KEY_ADMIN,
+            &env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         let caller_is_admin = admin == stored_admin;
@@ -179,8 +195,15 @@ impl DripToken {
         s::set_and_extend(&env, &balance_key, &new_balance, TTL_REFRESH_THRESHOLD);
 
         let current_total: i128 = s::get_persistent(&env, &s::KEY_TOTAL_SUPPLY, 0i128);
-        let new_total = current_total.checked_add(amount).expect("Total supply overflow");
-        s::set_and_extend(&env, &s::KEY_TOTAL_SUPPLY, &new_total, TTL_REFRESH_THRESHOLD);
+        let new_total = current_total
+            .checked_add(amount)
+            .expect("Total supply overflow");
+        s::set_and_extend(
+            &env,
+            &s::KEY_TOTAL_SUPPLY,
+            &new_total,
+            TTL_REFRESH_THRESHOLD,
+        );
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &zero, &to, amount);
@@ -212,7 +235,9 @@ impl DripToken {
 
         let to_key = (s::KEY_BALANCE, &to);
         let to_current: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
-        let new_to = to_current.checked_add(amount).expect("Recipient balance overflow");
+        let new_to = to_current
+            .checked_add(amount)
+            .expect("Recipient balance overflow");
         s::set_and_extend(&env, &to_key, &new_to, TTL_REFRESH_THRESHOLD);
 
         e::emit_transfer(&env, &from, &to, amount);
@@ -221,7 +246,13 @@ impl DripToken {
 
     /// Transfer tokens using an allowance (spend on behalf of owner).
     /// Uses checked arithmetic throughout.
-    pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) -> Result<(), TokenError> {
+    pub fn transfer_from(
+        env: Env,
+        spender: Address,
+        from: Address,
+        to: Address,
+        amount: i128,
+    ) -> Result<(), TokenError> {
         spender.require_auth();
 
         if amount <= 0 {
@@ -236,7 +267,10 @@ impl DripToken {
             .storage()
             .persistent()
             .get(&allowance_key)
-            .unwrap_or(AllowanceValue { amount: 0, expiration_ledger: 0 });
+            .unwrap_or(AllowanceValue {
+                amount: 0,
+                expiration_ledger: 0,
+            });
 
         let current_ledger = env.ledger().sequence();
         if allowance_val.expiration_ledger > 0 && current_ledger > allowance_val.expiration_ledger {
@@ -272,7 +306,9 @@ impl DripToken {
 
         let to_key = (s::KEY_BALANCE, &to);
         let to_current: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
-        let new_to = to_current.checked_add(amount).expect("Recipient balance overflow");
+        let new_to = to_current
+            .checked_add(amount)
+            .expect("Recipient balance overflow");
         s::set_and_extend(&env, &to_key, &new_to, TTL_REFRESH_THRESHOLD);
 
         e::emit_transfer(&env, &from, &to, amount);
@@ -281,7 +317,13 @@ impl DripToken {
 
     /// Approve a spender to use tokens on behalf of the owner.
     /// The allowance expires after `expiration_ledger` (current ledger + desired duration).
-    pub fn approve(env: Env, owner: Address, spender: Address, amount: i128, expiration_ledger: u32) -> Result<(), TokenError> {
+    pub fn approve(
+        env: Env,
+        owner: Address,
+        spender: Address,
+        amount: i128,
+        expiration_ledger: u32,
+    ) -> Result<(), TokenError> {
         owner.require_auth();
 
         if owner == spender {
@@ -297,7 +339,10 @@ impl DripToken {
         }
 
         let key = (KEY_ALLOWANCES, &owner, &spender);
-        let allowance = AllowanceValue { amount, expiration_ledger };
+        let allowance = AllowanceValue {
+            amount,
+            expiration_ledger,
+        };
         s::set_and_extend(&env, &key, &allowance, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_APPROVE, &owner, &spender), amount);
@@ -322,7 +367,12 @@ impl DripToken {
 
         let total: i128 = s::get_persistent(&env, &s::KEY_TOTAL_SUPPLY, 0i128);
         let new_total = total.checked_sub(amount).expect("Total supply underflow");
-        s::set_and_extend(&env, &s::KEY_TOTAL_SUPPLY, &new_total, TTL_REFRESH_THRESHOLD);
+        s::set_and_extend(
+            &env,
+            &s::KEY_TOTAL_SUPPLY,
+            &new_total,
+            TTL_REFRESH_THRESHOLD,
+        );
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &from, &zero, amount);
@@ -340,7 +390,10 @@ impl DripToken {
     }
 
     pub fn decimals(env: Env) -> u32 {
-        env.storage().persistent().get(&s::KEY_DECIMALS).unwrap_or(7)
+        env.storage()
+            .persistent()
+            .get(&s::KEY_DECIMALS)
+            .unwrap_or(7)
     }
 
     pub fn balance(env: Env, owner: Address) -> i128 {
@@ -354,7 +407,14 @@ impl DripToken {
 
     pub fn allowance(env: Env, owner: Address, spender: Address) -> i128 {
         let key = (KEY_ALLOWANCES, &owner, &spender);
-        let val: AllowanceValue = env.storage().persistent().get(&key).unwrap_or(AllowanceValue { amount: 0, expiration_ledger: 0 });
+        let val: AllowanceValue = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AllowanceValue {
+                amount: 0,
+                expiration_ledger: 0,
+            });
         // Return 0 if expired. This is a read-only getter — do NOT mutate
         // storage here (removing the expired entry is transfer_from's job).
         let current_ledger = env.ledger().sequence();
@@ -365,7 +425,11 @@ impl DripToken {
     }
 
     pub fn admin(env: Env) -> Address {
-        s::get_persistent(&env, &s::KEY_ADMIN, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)))
+        s::get_persistent(
+            &env,
+            &s::KEY_ADMIN,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        )
     }
 
     pub fn metadata(env: Env) -> TokenMetadata {
@@ -396,8 +460,8 @@ impl DripToken {
 #[cfg(test)]
 #[allow(unused_imports)]
 mod token_test {
-    use soroban_sdk::testutils::Address as _;
     use super::*;
+    use soroban_sdk::testutils::Address as _;
     use soroban_sdk::Env;
 
     #[test]
@@ -417,8 +481,7 @@ mod token_test {
             &String::from_str(&env, "DripToken"),
             &String::from_str(&env, "DRIP"),
             &7u32,
-        )
-        ;
+        );
 
         assert_eq!(client.name(), String::from_str(&env, "DripToken"));
         assert_eq!(client.symbol(), String::from_str(&env, "DRIP"));
@@ -441,9 +504,19 @@ mod token_test {
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
 
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         assert!(matches!(
-            client.try_initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32),
+            client.try_initialize_token(
+                &admin,
+                &String::from_str(&env, "DT"),
+                &String::from_str(&env, "D"),
+                &7u32
+            ),
             Err(Ok(TokenError::AlreadyInitialized))
         ));
     }
@@ -458,7 +531,12 @@ mod token_test {
         let client = DripTokenClient::new(&env, &contract_id);
 
         assert!(matches!(
-            client.try_initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &19u32),
+            client.try_initialize_token(
+                &admin,
+                &String::from_str(&env, "DT"),
+                &String::from_str(&env, "D"),
+                &19u32
+            ),
             Err(Ok(TokenError::InvalidDecimals))
         ));
     }
@@ -474,7 +552,12 @@ mod token_test {
         let contract_id = env.register(DripToken, ());
 
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         client.mint(&admin, &alice, &1000i128);
 
         // Transfer
@@ -493,7 +576,12 @@ mod token_test {
         let alice = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         client.mint(&admin, &alice, &1000i128);
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
@@ -513,7 +601,12 @@ mod token_test {
         let bob = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         client.mint(&admin, &alice, &100i128);
 
         assert!(matches!(
@@ -534,7 +627,12 @@ mod token_test {
         let contract_id = env.register(DripToken, ());
 
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         client.mint(&admin, &owner, &1000i128);
         let exp_ledger = env.ledger().sequence() + 9999u32;
         client.approve(&owner, &spender, &500i128, &exp_ledger);
@@ -555,7 +653,12 @@ mod token_test {
         let owner = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         let exp_ledger = env.ledger().sequence() + 9999u32;
         assert!(matches!(
@@ -574,7 +677,12 @@ mod token_test {
         let contract_id = env.register(DripToken, ());
 
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         client.mint(&admin, &alice, &1000i128);
 
         client.burn(&alice, &400i128);
@@ -594,7 +702,12 @@ mod token_test {
         let contract_id = env.register(DripToken, ());
 
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         // Authorize minter
         client.set_minter(&admin, &minter, &true);
@@ -621,7 +734,12 @@ mod token_test {
         let minter = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         assert!(matches!(
             client.try_set_minter(&attacker, &minter, &true),
@@ -652,7 +770,12 @@ mod token_test {
         ));
 
         assert!(matches!(
-            client.try_initialize_token(&admin, &String::from_str(&env, ""), &String::from_str(&env, "D"), &7u32),
+            client.try_initialize_token(
+                &admin,
+                &String::from_str(&env, ""),
+                &String::from_str(&env, "D"),
+                &7u32
+            ),
             Err(Ok(TokenError::InvalidMetadata))
         ));
     }
@@ -668,7 +791,12 @@ mod token_test {
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         assert!(matches!(
             client.try_mint(&admin, &zero, &100i128),
@@ -690,7 +818,12 @@ mod token_test {
         let alice = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         client.mint(&admin, &alice, &1000i128);
         let balance_key = (s::KEY_BALANCE, &alice);
@@ -713,7 +846,12 @@ mod token_test {
         let spender = Address::generate(&env);
         let contract_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &contract_id);
-        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
 
         let exp_ledger = env.ledger().sequence() + 9999u32;
         assert!(matches!(

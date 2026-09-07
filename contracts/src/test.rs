@@ -6,9 +6,9 @@
 // — they are maintained in src/token/mod.rs, src/pool/mod.rs, etc.
 
 mod counter_test {
-    use soroban_sdk::testutils::Address as _;
     use crate::counter::{StellarDripzCounter, StellarDripzCounterClient};
-    use soroban_sdk::{Env, Address, String};
+    use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::{Address, Env, String};
 
     #[test]
     fn test_counter_increment() {

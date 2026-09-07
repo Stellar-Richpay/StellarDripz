@@ -10,24 +10,22 @@
 //   - Badge:     DripBadge — Achievement NFT badges
 //   - Common:     Shared storage, types, and events
 
+pub mod badge;
 mod common;
 pub mod counter;
-pub mod token;
-pub mod pool;
 pub mod governance;
-pub mod badge;
+pub mod pool;
+pub mod token;
 
 // Re-export all contract types for external use
-pub use counter::StellarDripzCounter;
-pub use token::DripToken;
-pub use pool::DripPool;
-pub use governance::DripGovernance;
 pub use badge::DripBadge;
+pub use counter::StellarDripzCounter;
+pub use governance::DripGovernance;
+pub use pool::DripPool;
+pub use token::DripToken;
 
 #[cfg(test)]
 mod test;
 
 #[cfg(test)]
 mod fuzz_tests;
-
-

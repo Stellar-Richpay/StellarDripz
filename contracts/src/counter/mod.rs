@@ -1,6 +1,9 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contractevent, symbol_short, Env, Symbol, String, Address};
-use crate::common::storage as s;
 use crate::common::constants::TTL_REFRESH_THRESHOLD;
+use crate::common::storage as s;
+use soroban_sdk::{
+    contract, contracterror, contractevent, contractimpl, symbol_short, Address, Env, String,
+    Symbol,
+};
 
 // ---- Contract Errors ----
 
@@ -43,21 +46,13 @@ impl StellarDripzCounter {
     pub fn increment(env: Env, user: Address) -> u32 {
         user.require_auth();
 
-        let mut global: u32 = env
-            .storage()
-            .persistent()
-            .get(&GLOBAL_COUNTER)
-            .unwrap_or(0);
+        let mut global: u32 = env.storage().persistent().get(&GLOBAL_COUNTER).unwrap_or(0);
         global = global.checked_add(1).expect("Counter overflow");
         s::set_and_extend(&env, &GLOBAL_COUNTER, &global, TTL_REFRESH_THRESHOLD);
 
         // Per-user counter — keyed by user address
         let user_key = (USER_COUNTER, &user);
-        let mut user_count: u32 = env
-            .storage()
-            .persistent()
-            .get(&user_key)
-            .unwrap_or(0);
+        let mut user_count: u32 = env.storage().persistent().get(&user_key).unwrap_or(0);
         user_count = user_count.checked_add(1).expect("Counter overflow");
         s::set_and_extend(&env, &user_key, &user_count, TTL_REFRESH_THRESHOLD);
 
@@ -77,10 +72,7 @@ impl StellarDripzCounter {
 
     pub fn get_user(env: Env, user: Address) -> u32 {
         let user_key = (USER_COUNTER, &user);
-        env.storage()
-            .persistent()
-            .get(&user_key)
-            .unwrap_or(0)
+        env.storage().persistent().get(&user_key).unwrap_or(0)
     }
 
     /// Greetings are stored per-user so one user cannot overwrite another's.

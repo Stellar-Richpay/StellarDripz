@@ -1,8 +1,10 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, symbol_short};
-use crate::common::storage as s;
-use crate::common::events as e;
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
+use crate::common::events as e;
+use crate::common::storage as s;
 use crate::token;
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+};
 
 // ---- Contract Errors ----
 
@@ -61,7 +63,14 @@ pub enum StakeKey {
 
 #[contractimpl]
 impl DripPool {
-    pub fn initialize_pool(env: Env, admin: Address, token_contract_id: Address, reward_rate: i128, min_stake: i128, lock_period: u32) -> Result<(), PoolError> {
+    pub fn initialize_pool(
+        env: Env,
+        admin: Address,
+        token_contract_id: Address,
+        reward_rate: i128,
+        min_stake: i128,
+        lock_period: u32,
+    ) -> Result<(), PoolError> {
         if env.storage().persistent().has(&s::KEY_ADMIN) {
             return Err(PoolError::AlreadyInitialized);
         }
@@ -76,12 +85,22 @@ impl DripPool {
         admin.require_auth();
         s::set_persistent(&env, &s::KEY_ADMIN, &admin);
         s::set_persistent(&env, &KEY_TOKEN_ID, &token_contract_id);
-        let config = PoolConfig { reward_rate, min_stake, max_stake: DEFAULT_MAX_STAKE, lock_period, active: true };
+        let config = PoolConfig {
+            reward_rate,
+            min_stake,
+            max_stake: DEFAULT_MAX_STAKE,
+            lock_period,
+            active: true,
+        };
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &0i128);
         s::set_persistent(&env, &KEY_REWARD_POOL, &0i128);
         s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
-        e::publish(&env, (symbol_short!("pool_init"), &admin), config.reward_rate);
+        e::publish(
+            &env,
+            (symbol_short!("pool_init"), &admin),
+            config.reward_rate,
+        );
         Ok(())
     }
 
@@ -90,20 +109,55 @@ impl DripPool {
         if amount <= 0 {
             return Err(PoolError::InvalidParameter);
         }
-        let config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
-        if !config.active { return Err(PoolError::PoolNotActive); }
-        if amount < config.min_stake { return Err(PoolError::BelowMinStake); }
-        let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
+        let config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
+        if !config.active {
+            return Err(PoolError::PoolNotActive);
+        }
+        if amount < config.min_stake {
+            return Err(PoolError::BelowMinStake);
+        }
+        let token_id: Address = s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client
-            .transfer_from(&pool_address, &user, &pool_address, &amount);
+        token_client.transfer_from(&pool_address, &user, &pool_address, &amount);
         let stake_key = StakeKey::Stake(user.clone());
-        let existing = env.storage().persistent().get(&stake_key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 });
+        let existing = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or(StakeInfo {
+                amount: 0,
+                start_ledger: 0,
+                reward_claimed: 0,
+            });
         let new_total = existing.amount.checked_add(amount).expect("Stake overflow");
-        if new_total > config.max_stake { return Err(PoolError::ExceedsMaxStake); }
+        if new_total > config.max_stake {
+            return Err(PoolError::ExceedsMaxStake);
+        }
         let mut existing_stake = existing;
-        if existing_stake.amount > 0 { let pending = Self::calculate_reward(env.clone(), user.clone()); if pending > 0 { existing_stake.reward_claimed = existing_stake.reward_claimed.checked_add(pending).expect("Reward overflow"); } }
+        if existing_stake.amount > 0 {
+            let pending = Self::calculate_reward(env.clone(), user.clone());
+            if pending > 0 {
+                existing_stake.reward_claimed = existing_stake
+                    .reward_claimed
+                    .checked_add(pending)
+                    .expect("Reward overflow");
+            }
+        }
         let current_ledger = env.ledger().sequence();
         existing_stake.amount = new_total;
         existing_stake.start_ledger = current_ledger;
@@ -120,29 +174,69 @@ impl DripPool {
         if amount <= 0 {
             return Err(PoolError::InvalidParameter);
         }
-        let config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         let stake_key = StakeKey::Stake(user.clone());
-        let existing = env.storage().persistent().get(&stake_key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 });
-        if existing.amount < amount { return Err(PoolError::InsufficientStake); }
+        let existing = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or(StakeInfo {
+                amount: 0,
+                start_ledger: 0,
+                reward_claimed: 0,
+            });
+        if existing.amount < amount {
+            return Err(PoolError::InsufficientStake);
+        }
         let mut existing_stake = existing;
         let current_ledger = env.ledger().sequence();
         let locked_until = existing_stake
             .start_ledger
             .checked_add(config.lock_period)
             .expect("Lock period overflow");
-        if current_ledger < locked_until { return Err(PoolError::TokensLocked); }
-        if existing_stake.amount > 0 { let pending = Self::calculate_reward(env.clone(), user.clone()); if pending > 0 { existing_stake.reward_claimed = existing_stake.reward_claimed.checked_add(pending).expect("Reward overflow"); } }
-        existing_stake.amount = existing_stake.amount.checked_sub(amount).expect("Stake underflow");
+        if current_ledger < locked_until {
+            return Err(PoolError::TokensLocked);
+        }
+        if existing_stake.amount > 0 {
+            let pending = Self::calculate_reward(env.clone(), user.clone());
+            if pending > 0 {
+                existing_stake.reward_claimed = existing_stake
+                    .reward_claimed
+                    .checked_add(pending)
+                    .expect("Reward overflow");
+            }
+        }
+        existing_stake.amount = existing_stake
+            .amount
+            .checked_sub(amount)
+            .expect("Stake underflow");
         existing_stake.start_ledger = current_ledger;
-        if existing_stake.amount == 0 { env.storage().persistent().remove(&stake_key); } else { s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD); }
+        if existing_stake.amount == 0 {
+            env.storage().persistent().remove(&stake_key);
+        } else {
+            s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD);
+        }
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total = total.checked_sub(amount).expect("Total staked underflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total);
-        let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
+        let token_id: Address = s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client
-            .transfer(&pool_address, &user, &amount);
+        token_client.transfer(&pool_address, &user, &amount);
         e::publish(&env, (e::EVENT_UNSTAKE, &user), amount);
         Ok(())
     }
@@ -150,31 +244,54 @@ impl DripPool {
     pub fn claim_reward(env: Env, user: Address) -> Result<i128, PoolError> {
         user.require_auth();
         let stake_key = StakeKey::Stake(user.clone());
-        let mut existing_stake: StakeInfo = env.storage().persistent().get(&stake_key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 });
+        let mut existing_stake: StakeInfo =
+            env.storage()
+                .persistent()
+                .get(&stake_key)
+                .unwrap_or(StakeInfo {
+                    amount: 0,
+                    start_ledger: 0,
+                    reward_claimed: 0,
+                });
         let pending = Self::calculate_reward(env.clone(), user.clone());
         let total_reward = existing_stake
             .reward_claimed
             .checked_add(pending)
             .expect("reward total overflow");
-        if total_reward <= 0 { return Ok(0); }
+        if total_reward <= 0 {
+            return Ok(0);
+        }
 
         // Cap reward at available pool balance (non-panicking partial payout)
         let mut reward_pool: i128 = s::get_persistent(&env, &KEY_REWARD_POOL, 0i128);
-        let claimable = if reward_pool < total_reward { reward_pool } else { total_reward };
-        if claimable <= 0 { return Ok(0); }
+        let claimable = if reward_pool < total_reward {
+            reward_pool
+        } else {
+            total_reward
+        };
+        if claimable <= 0 {
+            return Ok(0);
+        }
 
-        reward_pool = reward_pool.checked_sub(claimable).expect("Reward pool underflow");
+        reward_pool = reward_pool
+            .checked_sub(claimable)
+            .expect("Reward pool underflow");
         s::set_persistent(&env, &KEY_REWARD_POOL, &reward_pool);
 
         // Transfer reward tokens to user via cross-contract call
-        let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
+        let token_id: Address = s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client
-            .transfer(&pool_address, &user, &claimable);
+        token_client.transfer(&pool_address, &user, &claimable);
 
         // Carry forward unclaimed portion if pool was insufficient
-        let unclaimed = total_reward.checked_sub(claimable).expect("Unclaimed underflow");
+        let unclaimed = total_reward
+            .checked_sub(claimable)
+            .expect("Unclaimed underflow");
         existing_stake.reward_claimed = unclaimed;
         existing_stake.start_ledger = env.ledger().sequence();
         s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD);
@@ -184,13 +301,35 @@ impl DripPool {
     }
 
     pub fn calculate_reward(env: Env, user: Address) -> i128 {
-        let config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         let stake_key = StakeKey::Stake(user.clone());
-        let stake: StakeInfo = env.storage().persistent().get(&stake_key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 });
-        if stake.amount == 0 || config.reward_rate == 0 { return 0; }
+        let stake: StakeInfo = env
+            .storage()
+            .persistent()
+            .get(&stake_key)
+            .unwrap_or(StakeInfo {
+                amount: 0,
+                start_ledger: 0,
+                reward_claimed: 0,
+            });
+        if stake.amount == 0 || config.reward_rate == 0 {
+            return 0;
+        }
         let current_ledger = env.ledger().sequence();
         let elapsed = (current_ledger as i128) - (stake.start_ledger as i128);
-        if elapsed <= 0 { return 0; }
+        if elapsed <= 0 {
+            return 0;
+        }
         // Checked math: a malicious reward_rate/stake/elapsed combination
         // must not be able to overflow i128 and wrap to a negative reward.
         match stake
@@ -204,29 +343,56 @@ impl DripPool {
     }
 
     pub fn fund_rewards(env: Env, admin: Address, amount: i128) -> Result<(), PoolError> {
-        let stored_admin: Address = s::get_persistent(&env, &s::KEY_ADMIN, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
-        if admin != stored_admin { return Err(PoolError::NotAuthorized); }
-        if amount <= 0 { return Err(PoolError::InvalidParameter); }
+        let stored_admin: Address = s::get_persistent(
+            &env,
+            &s::KEY_ADMIN,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
+        if admin != stored_admin {
+            return Err(PoolError::NotAuthorized);
+        }
+        if amount <= 0 {
+            return Err(PoolError::InvalidParameter);
+        }
         admin.require_auth();
         // Transfer reward tokens from admin to pool's token balance
-        let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
+        let token_id: Address = s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client
-            .transfer_from(&pool_address, &admin, &pool_address, &amount);
+        token_client.transfer_from(&pool_address, &admin, &pool_address, &amount);
         // Update on-chain reward pool tracking
         let mut reward_pool: i128 = s::get_persistent(&env, &KEY_REWARD_POOL, 0i128);
-        reward_pool = reward_pool.checked_add(amount).expect("Reward pool overflow");
+        reward_pool = reward_pool
+            .checked_add(amount)
+            .expect("Reward pool overflow");
         s::set_persistent(&env, &KEY_REWARD_POOL, &reward_pool);
         e::publish(&env, (symbol_short!("rew_fund"), &admin), amount);
         Ok(())
     }
 
     pub fn set_reward_rate(env: Env, admin: Address, reward_rate: i128) -> Result<(), PoolError> {
-        if !Self::is_admin(&env, &admin) { return Err(PoolError::NotAuthorized); }
-        if reward_rate < 0 { return Err(PoolError::InvalidParameter); }
+        if !Self::is_admin(&env, &admin) {
+            return Err(PoolError::NotAuthorized);
+        }
+        if reward_rate < 0 {
+            return Err(PoolError::InvalidParameter);
+        }
         admin.require_auth();
-        let mut config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let mut config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         config.reward_rate = reward_rate;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("rew_rate"), &admin), reward_rate);
@@ -234,10 +400,24 @@ impl DripPool {
     }
 
     pub fn set_min_stake(env: Env, admin: Address, min_stake: i128) -> Result<(), PoolError> {
-        if !Self::is_admin(&env, &admin) { return Err(PoolError::NotAuthorized); }
-        if min_stake < 0 { return Err(PoolError::InvalidParameter); }
+        if !Self::is_admin(&env, &admin) {
+            return Err(PoolError::NotAuthorized);
+        }
+        if min_stake < 0 {
+            return Err(PoolError::InvalidParameter);
+        }
         admin.require_auth();
-        let mut config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let mut config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         config.min_stake = min_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("min_stk"), &admin), min_stake);
@@ -247,10 +427,24 @@ impl DripPool {
     /// Set a new maximum stake. Existing stakes above the new max are not
     /// touched; only new stakes / top-ups are bounded.
     pub fn set_max_stake(env: Env, admin: Address, max_stake: i128) -> Result<(), PoolError> {
-        if !Self::is_admin(&env, &admin) { return Err(PoolError::NotAuthorized); }
-        if max_stake < 0 { return Err(PoolError::InvalidParameter); }
+        if !Self::is_admin(&env, &admin) {
+            return Err(PoolError::NotAuthorized);
+        }
+        if max_stake < 0 {
+            return Err(PoolError::InvalidParameter);
+        }
         admin.require_auth();
-        let mut config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let mut config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         config.max_stake = max_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("max_stk"), &admin), max_stake);
@@ -258,9 +452,21 @@ impl DripPool {
     }
 
     pub fn set_lock_period(env: Env, admin: Address, lock_period: u32) -> Result<(), PoolError> {
-        if !Self::is_admin(&env, &admin) { return Err(PoolError::NotAuthorized); }
+        if !Self::is_admin(&env, &admin) {
+            return Err(PoolError::NotAuthorized);
+        }
         admin.require_auth();
-        let mut config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let mut config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         config.lock_period = lock_period;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("lock_per"), &admin), lock_period);
@@ -268,9 +474,21 @@ impl DripPool {
     }
 
     pub fn set_active(env: Env, admin: Address, active: bool) -> Result<(), PoolError> {
-        if !Self::is_admin(&env, &admin) { return Err(PoolError::NotAuthorized); }
+        if !Self::is_admin(&env, &admin) {
+            return Err(PoolError::NotAuthorized);
+        }
         admin.require_auth();
-        let mut config: PoolConfig = s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false });
+        let mut config: PoolConfig = s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        );
         config.active = active;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("pool_act"), &admin), active);
@@ -285,7 +503,8 @@ impl DripPool {
     /// True when the caller is the stored admin.
     fn is_admin(env: &Env, candidate: &Address) -> bool {
         let stored_admin: Address = s::get_persistent(
-            env, &s::KEY_ADMIN,
+            env,
+            &s::KEY_ADMIN,
             Address::from_string(&String::from_str(env, ZERO_ADDRESS_STR)),
         );
         *candidate == stored_admin
@@ -293,15 +512,33 @@ impl DripPool {
 
     pub fn get_stake(env: Env, user: Address) -> StakeInfo {
         let key = StakeKey::Stake(user);
-        env.storage().persistent().get(&key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 })
+        env.storage().persistent().get(&key).unwrap_or(StakeInfo {
+            amount: 0,
+            start_ledger: 0,
+            reward_claimed: 0,
+        })
     }
 
     pub fn get_token_id(env: Env) -> Address {
-        s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)))
+        s::get_persistent(
+            &env,
+            &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        )
     }
 
     pub fn get_pool_config(env: Env) -> PoolConfig {
-        s::get_persistent(&env, &KEY_POOL_CONFIG, PoolConfig { reward_rate: 0, min_stake: 0, max_stake: 0, lock_period: 0, active: false })
+        s::get_persistent(
+            &env,
+            &KEY_POOL_CONFIG,
+            PoolConfig {
+                reward_rate: 0,
+                min_stake: 0,
+                max_stake: 0,
+                lock_period: 0,
+                active: false,
+            },
+        )
     }
 
     pub fn get_total_staked(env: Env) -> i128 {
@@ -317,11 +554,11 @@ impl DripPool {
 
 #[cfg(test)]
 mod pool_test {
+    use super::*;
+    use crate::token::DripToken;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::testutils::Ledger as _;
-    use super::*;
     use soroban_sdk::Env;
-    use crate::token::DripToken;
 
     #[test]
     fn test_stake_and_unstake() {
@@ -331,7 +568,12 @@ mod pool_test {
         let user = Address::generate(&env);
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DripToken"), &String::from_str(&env, "DRIP"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DripToken"),
+            &String::from_str(&env, "DRIP"),
+            &7u32,
+        );
         token_client.mint(&admin, &user, &5000i128);
         let contract_id = env.register(DripPool, ());
         let client = DripPoolClient::new(&env, &contract_id);
@@ -355,7 +597,12 @@ mod pool_test {
         let user = Address::generate(&env);
         let token_id = env.register(DripToken, ());
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
         token_client.mint(&admin, &user, &5000i128);
         let contract_id = env.register(DripPool, ());
         let client = DripPoolClient::new(&env, &contract_id);
@@ -386,16 +633,15 @@ mod pool_test {
     }
 }
 
-
 // ---- Additional tests for typed errors and admin controls ----
 
 #[cfg(test)]
 mod pool_error_test {
+    use super::*;
+    use crate::token::DripToken;
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::testutils::Ledger as _;
-    use super::*;
     use soroban_sdk::Env;
-    use crate::token::DripToken;
 
     fn setup<'a>(
         env: &'a Env,

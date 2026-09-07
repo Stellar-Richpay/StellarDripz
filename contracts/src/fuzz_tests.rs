@@ -1,22 +1,23 @@
-/**
- * Property-based (fuzz) test example for DripToken.
- *
- * Uses Soroban SDK testutils to verify that token invariants hold
- * across a wide range of random inputs — a lightweight alternative
- * to full proptest/proptest-rs frameworks.
- *
- * Invariants tested:
- *   1. Total supply = sum of all balances (conservation of tokens)
- *   2. Transfer of 0 or negative amount panics
- *
- * To run: cargo test -- fuzz
- */
+//! Property-based (fuzz) test example for DripToken.
+//!
+//! Uses Soroban SDK testutils to verify that token invariants hold
+//! across a wide range of random inputs — a lightweight alternative
+//! to full proptest/proptest-rs frameworks.
+//!
+//! Invariants tested:
+//!   1. Total supply = sum of all balances (conservation of tokens)
+//!   2. Transfer of 0 or negative amount panics
+//!
+//! To run: cargo test -- fuzz
 
 #[cfg(test)]
+// The outer module shares this file's name; clippy's module_inception
+// lint flags it, but the separation keeps the parent file a pure re-export.
+#[allow(clippy::module_inception)]
 mod fuzz_tests {
+    use crate::token::{DripToken, DripTokenClient};
     use soroban_sdk::testutils::Address as _;
     use soroban_sdk::{Address, Env, String, Vec};
-    use crate::token::{DripToken, DripTokenClient};
 
     /// Verify the token conservation invariant: after any number of random
     /// transfers between random users, total_supply == sum of all balances.
@@ -98,7 +99,10 @@ mod fuzz_tests {
         let token_id = env.register(DripToken, ());
         let client = DripTokenClient::new(&env, &token_id);
         client.initialize_token(
-            &admin, &String::from_str(&env, "FB"), &String::from_str(&env, "F"), &7u32,
+            &admin,
+            &String::from_str(&env, "FB"),
+            &String::from_str(&env, "F"),
+            &7u32,
         );
         client.mint(&admin, &alice, &100i128);
         assert!(matches!(
@@ -138,9 +142,9 @@ mod fuzz_tests {
     /// users' individual stake amounts.
     #[test]
     fn fuzz_pool_total_staked_conservation() {
-        use soroban_sdk::testutils::Ledger as _;
         use crate::pool::{DripPool, DripPoolClient};
         use crate::token::DripToken as PoolToken;
+        use soroban_sdk::testutils::Ledger as _;
 
         let env = Env::default();
         env.mock_all_auths();
@@ -149,7 +153,10 @@ mod fuzz_tests {
         let token_id = env.register(PoolToken, ());
         let token_client = DripTokenClient::new(&env, &token_id);
         token_client.initialize_token(
-            &admin, &String::from_str(&env, "PT"), &String::from_str(&env, "P"), &7u32,
+            &admin,
+            &String::from_str(&env, "PT"),
+            &String::from_str(&env, "P"),
+            &7u32,
         );
 
         let pool_id = env.register(DripPool, ());
@@ -172,7 +179,8 @@ mod fuzz_tests {
             let idx = i % 8u32;
             let user = users.get(idx).unwrap();
             // Advance the ledger so lock periods elapse between operations.
-            env.ledger().set_sequence_number(env.ledger().sequence() + 6);
+            env.ledger()
+                .set_sequence_number(env.ledger().sequence() + 6);
 
             let current = user_stakes.get(idx).unwrap();
             if i % 2 == 0 {

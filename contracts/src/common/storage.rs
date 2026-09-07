@@ -1,4 +1,4 @@
-use soroban_sdk::{Env, IntoVal, Symbol, symbol_short};
+use soroban_sdk::{symbol_short, Env, IntoVal, Symbol};
 
 // ---- Storage Keys ----
 
@@ -8,7 +8,6 @@ pub const KEY_DECIMALS: Symbol = symbol_short!("DECIMALS");
 pub const KEY_ADMIN: Symbol = symbol_short!("ADMIN");
 pub const KEY_TOTAL_SUPPLY: Symbol = symbol_short!("TOT_SUP");
 pub const KEY_BALANCE: Symbol = symbol_short!("BALANCE");
-
 
 // ---- Storage Helpers ----
 
@@ -67,4 +66,3 @@ pub fn set_and_extend<K: IntoVal<Env, soroban_sdk::Val>, V: IntoVal<Env, soroban
     bump_persistent_ttl(env, key, threshold);
     bump_instance_ttl(env, threshold);
 }
-
