@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { directSimulateContract } from "@/lib/client/directClient";
 import { useContractEvents } from "@/hooks/useContractEvents";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
@@ -140,7 +141,15 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-white">Soroban Demo</h3>
-          <p className="font-mono text-[10px] text-white/30">{contractId.slice(0, 12)}...</p>
+          <a
+            href={`${STELLAR_NETWORK.contractExplorerUrl}/${contractId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[10px] text-white/30 hover:text-stellar-blue transition-colors"
+            title="Open contract on StellarExpert"
+          >
+            {contractId.slice(0, 12)}... ↗
+          </a>
         </div>
       </div>
       {/* Counter */}
