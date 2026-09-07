@@ -1,7 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import type { TransactionRecord } from "@/types/stellar";
+
+type TxFilter = "all" | TransactionRecord["type"];
+
+const FILTERS: { id: TxFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "send", label: "Sends" },
+  { id: "faucet", label: "Faucet" },
+  { id: "contract", label: "Contracts" },
+];
 
 function TxStatusBadge({ status }: { status: TransactionRecord["status"] }) {
   const styles = {
@@ -64,6 +74,14 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
       </div>
 
       {/* Hash / Error */}
+      {/* Memo (sends only) */}
+      {tx.type === "send" && (tx as TransactionRecord & { memo?: string }).memo && (
+        <div className="mt-1.5 text-[11px] text-white/40">
+          <span className="text-white/30">Memo: </span>
+          <span className="font-mono">{(tx as TransactionRecord & { memo?: string }).memo}</span>
+        </div>
+      )}
+
       {tx.hash && tx.status === "success" && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {tx.explorerUrl ? (
@@ -98,8 +116,11 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
 export default function TransactionHistory() {
   const { state } = useAppContext();
   const { wallet, transactions } = state;
+  const [filter, setFilter] = useState<TxFilter>("all");
 
   if (!wallet.connected) return null;
+
+  const visible = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-surface-800/60 p-6 backdrop-blur-md animate-slide-up">
@@ -112,13 +133,37 @@ export default function TransactionHistory() {
         )}
       </div>
 
-      {transactions.length === 0 ? (
+      {transactions.length > 0 && (
+        <div className="mb-3 flex gap-1.5" role="tablist" aria-label="Filter transactions by type">
+          {FILTERS.map(({ id, label }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={filter === id}
+              onClick={() => setFilter(id)}
+              className={`rounded-lg px-3 py-1 text-xs transition-colors ${
+                filter === id
+                  ? "bg-stellar-purple/20 text-white border border-stellar-purple/30"
+                  : "border border-white/10 text-white/40 hover:text-white/70 hover:border-white/20"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 ? (
         <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
-          <p className="text-sm text-white/40">No transactions yet. Try the faucet or send XLM!</p>
+          <p className="text-sm text-white/40">
+            {transactions.length === 0
+              ? "No transactions yet. Try the faucet or send XLM!"
+              : `No ${filter} transactions yet.`}
+          </p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-          {transactions.map((tx) => (
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+          {visible.map((tx) => (
             <TxRow key={tx.id} tx={tx} />
           ))}
         </div>
