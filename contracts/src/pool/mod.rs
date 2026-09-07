@@ -307,6 +307,12 @@ impl DripPool {
     pub fn get_total_staked(env: Env) -> i128 {
         s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128)
     }
+
+    /// Remaining reward-pool balance the contract can pay out. Lets frontends
+    /// show pool health before users stake.
+    pub fn get_reward_pool(env: Env) -> i128 {
+        s::get_persistent(&env, &KEY_REWARD_POOL, 0i128)
+    }
 }
 
 #[cfg(test)]
@@ -462,6 +468,20 @@ mod pool_error_test {
             client.try_set_active(&attacker, &false),
             Err(Ok(PoolError::NotAuthorized))
         ));
+    }
+
+    #[test]
+    fn test_reward_pool_getter_reflects_funding() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+        // Give the admin spendable tokens, approve the pool, then fund it.
+        token_client.mint(&admin, &admin, &5000i128);
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        token_client.approve(&admin, &client.address, &5000i128, &exp_ledger);
+        client.fund_rewards(&admin, &3000i128);
+        assert_eq!(client.get_reward_pool(), 3000i128);
     }
 
     #[test]
