@@ -5,8 +5,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { createSession } from "@/lib/server/sessionManager";
+import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 
 export async function POST(request: NextRequest) {
+  // CSRF validation — this endpoint creates a server-side session
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
+
   // Rate limit
   const rateLimitResponse = checkRateLimit(request, "wallet");
   if (rateLimitResponse) return rateLimitResponse;
@@ -33,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     const session = await createSession(address, walletId, walletName || walletId, { ip, userAgent: ua });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       session: {
         address: session.address,
@@ -41,6 +46,8 @@ export async function POST(request: NextRequest) {
         connectedAt: session.connectedAt,
       },
     });
+    setCsrfCookie(response);
+    return response;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to create session" },
