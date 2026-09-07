@@ -5,26 +5,23 @@ export interface AddressBookEntry {
   createdAt: number;
 }
 
+import { storageGetJSON, storageSetJSON } from "@/lib/storage";
+
+export interface AddressBookEntry {
+  id: string;
+  name: string;
+  address: string;
+  createdAt: number;
+}
+
 const STORAGE_KEY = "stellardripz_address_book";
 
 function getAll(): AddressBookEntry[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as AddressBookEntry[];
-  } catch {
-    return [];
-  }
+  return storageGetJSON<AddressBookEntry[]>(STORAGE_KEY) ?? [];
 }
 
 function saveAll(entries: AddressBookEntry[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  } catch {
-    // storage full or blocked
-  }
+  storageSetJSON(STORAGE_KEY, entries);
 }
 
 export function getAddressBookEntries(): AddressBookEntry[] {

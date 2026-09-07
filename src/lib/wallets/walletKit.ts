@@ -12,6 +12,7 @@ import {
   signWalletConnect,
   disconnectWalletConnect,
 } from "./walletconnect";
+import { storageGetJSON, storageRemove, storageSetJSON } from "../storage";
 import type { NetworkType, SupportedWallet } from "@/types/stellar";
 
 // ---- Wallet Registry ----
@@ -85,39 +86,23 @@ interface StoredWallet {
 }
 
 export function persistWallet(wallet: StoredWallet): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(wallet));
-  } catch {
-    /* blocked */
-  }
+  storageSetJSON(STORAGE_KEY, wallet);
 }
 
 export function loadPersistedWallet(): StoredWallet | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredWallet;
-    if (!parsed.publicKey || !parsed.walletId) return null;
-    if (Date.now() - parsed.connectedAt > 24 * 60 * 60 * 1000) {
-      clearPersistedWallet();
-      return null;
-    }
-    return parsed;
-  } catch {
+  const parsed = storageGetJSON<StoredWallet>(STORAGE_KEY);
+  if (!parsed?.publicKey || !parsed.walletId) return null;
+  if (Date.now() - parsed.connectedAt > 24 * 60 * 60 * 1000) {
+    clearPersistedWallet();
     return null;
   }
+  return parsed;
 }
 
 export function clearPersistedWallet(): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem("stellardripz_wc_topic");
-  } catch {
-    /* ignore */
-  }
+  storageRemove(STORAGE_KEY);
+  storageRemove("stellardripz_wc_topic");
   disconnectWalletConnect().catch(() => {});
   _wcPairing = null;
 }
