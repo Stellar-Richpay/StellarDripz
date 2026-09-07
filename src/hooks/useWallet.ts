@@ -11,6 +11,7 @@ import {
   resetKit,
 } from "@/lib/wallets/walletKit";
 import { connectAndRegister } from "@/lib/client/walletClient";
+import { getWalletErrorMessage } from "@/lib/wallets/errors";
 
 interface UseWalletReturn {
   /** Current wallet state */
@@ -89,9 +90,11 @@ export function useWallet(): UseWalletReturn {
       }));
       await connectAndRegister(result.publicKey, result.walletId, result.walletName);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Wallet connection failed";
-      setError(message);
-      throw err;
+      setError(getWalletErrorMessage(err));
+      // Intentionally do NOT rethrow: callers that fail to catch would get an
+      // unhandled promise rejection, and the error is already surfaced via
+      // state (and returned as a boolean for programmatic use).
+      return;
     } finally {
       setConnecting(false);
     }

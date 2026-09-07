@@ -10,6 +10,7 @@ import {
   getWalletConnectPairingUri,
   clearWalletConnectPairing,
 } from "@/lib/wallets/walletKit";
+import { getWalletErrorMessage } from "@/lib/wallets/errors";
 
 function walletIcon(id: string): string {
   if (id.includes("freighter")) return "🦊";
@@ -96,7 +97,7 @@ export default function WalletConnect() {
     try {
       await connect(walletId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connection failed");
+      setError(getWalletErrorMessage(err));
     } finally {
       setConnecting(false);
       stopWcPoll();
@@ -302,13 +303,7 @@ export default function WalletConnect() {
 
       {error && (
         <p className="mb-3 text-sm text-red-400 bg-red-500/5 rounded-lg py-2 px-3 border border-red-500/20">
-          {error === "USER_REJECTED"
-            ? "Connection rejected."
-            : error === "CONNECTION_FAILED"
-              ? "Connection failed."
-              : error === "WC_NO_PROJECT_ID"
-                ? "WalletConnect not configured."
-                : error}
+          {error}
         </p>
       )}
 
