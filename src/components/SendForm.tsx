@@ -94,13 +94,31 @@ export default function SendForm() {
 
     const assetCode = selectedAsset !== "XLM" ? selectedAsset : undefined;
     const assetIssuer = selectedAsset !== "XLM" ? selectedAssetIssuer : undefined;
-    await doSendPayment(destination.trim(), amount.trim(), assetCode, assetIssuer, memoTrimmed || undefined);
-    setDestination("");
-    setAmount("");
-    setMemo("");
+    const ok = await doSendPayment(
+      destination.trim(),
+      amount.trim(),
+      assetCode,
+      assetIssuer,
+      memoTrimmed || undefined,
+    );
+    // Only clear the form on a confirmed submission. A failed send (rejected
+    // by the wallet, rate-limited, network error) must leave the user's input
+    // intact so they can retry instead of retyping everything.
+    if (ok) {
+      setDestination("");
+      setAmount("");
+      setMemo("");
+    }
   };
 
   const hasValidPaymentInfo = destination.trim() && !destError && amount.trim() && !amountError;
+  const submitDisabled =
+    isPending ||
+    isOnMainnet ||
+    !destination.trim() ||
+    !amount.trim() ||
+    !!destError ||
+    !!amountError;
 
   /** Fill the amount with everything spendable for the selected asset. */
   const handleMax = () => {
@@ -283,7 +301,7 @@ export default function SendForm() {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={isPending || isOnMainnet || !destination || !amount}
+              disabled={submitDisabled}
               className={`flex-1 rounded-xl px-5 py-3 text-sm font-semibold transition-all active:scale-[0.98] ${
                 isPending
                   ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 cursor-not-allowed"

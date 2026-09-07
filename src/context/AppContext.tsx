@@ -126,7 +126,7 @@ interface AppContextValue {
     assetCode?: string,
     assetIssuer?: string,
     memo?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   addContractEvent: (event: ContractEvent) => void;
   clearContractEvents: () => void;
   checkCooldown: () => void;
@@ -319,8 +319,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       assetCode?: string,
       assetIssuer?: string,
       memo?: string,
-    ) => {
-      if (!state.wallet.publicKey) return;
+    ): Promise<boolean> => {
+      // Returns true on a confirmed, submitted payment so the caller (SendForm)
+      // only clears its fields when the send actually succeeded — previously
+      // failures wiped the form and forced users to retype everything.
+      if (!state.wallet.publicKey) return false;
       const txId = `send-${Date.now()}`;
       const pendingTx: TransactionRecord = {
         id: txId,
@@ -374,6 +377,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         dispatch({ type: "SET_TX_IN_PROGRESS", payload: "success" });
         await refreshBalance();
+        return true;
       } catch (err) {
         dispatch({
           type: "UPDATE_TRANSACTION",
@@ -384,6 +388,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           },
         });
         dispatch({ type: "SET_TX_IN_PROGRESS", payload: "error" });
+        return false;
       }
     },
     [state.wallet.publicKey, refreshBalance],
