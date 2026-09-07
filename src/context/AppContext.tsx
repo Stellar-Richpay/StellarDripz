@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useReducer, useCallback, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import type {
   AppState,
   WalletState,
@@ -133,6 +140,12 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  // Monotonic id for balance fetches: refreshBalance can be triggered from
+  // several places at once (connect, auto-refresh on focus, faucet/send
+  // completion, manual click). Horizon responses can resolve out of order,
+  // so a slow older fetch must not overwrite a newer one.
+  const balanceFetchSeq = useRef(0);
+
   useEffect(() => {
     dispatch({
       type: "SET_WALLET",
@@ -217,9 +230,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ---- BALANCE: Direct Horizon read (hybrid) ---- //
   const refreshBalance = useCallback(async () => {
     if (!state.wallet.publicKey) return;
+    const seq = ++balanceFetchSeq.current;
     dispatch({ type: "SET_BALANCE_LOADING", payload: true });
     try {
       const info = await directFetchBalance(state.wallet.publicKey);
+      // A newer refresh started while this one was in flight — drop this
+      // response so an older, slower fetch can't overwrite the freshest one.
+      if (seq !== balanceFetchSeq.current) return;
       dispatch({
         type: "SET_BALANCE",
         payload: {
@@ -240,6 +257,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       });
     } catch (err) {
+      if (seq !== balanceFetchSeq.current) return;
       dispatch({
         type: "SET_BALANCE_ERROR",
         payload: err instanceof Error ? err.message : "Balance fetch failed",
