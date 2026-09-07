@@ -196,7 +196,10 @@ async function connectXBull(
     const pubkey = await (xbull.connect as () => Promise<string>)();
     if (!pubkey) throw new Error("NO_ACCOUNT");
     persistWallet({ publicKey: pubkey, walletId, walletName, connectedAt: Date.now() });
-    return { publicKey: pubkey, network: "TESTNET", walletId, walletName };
+    // Report the app's configured network, not a hardcoded testnet: a
+    // mainnet deployment that reported TESTNET would trip the wallet/app
+    // mismatch guard and block every legitimate send.
+    return { publicKey: pubkey, network: STELLAR_NETWORK.network, walletId, walletName };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message.toLowerCase() : "";
     if (msg.includes("reject") || msg.includes("denied")) throw new Error("USER_REJECTED");
@@ -218,7 +221,9 @@ async function connectAlbedo(
     const result = await albedo.default.publicKey({});
     if (!result.pubkey) throw new Error("NO_ACCOUNT");
     persistWallet({ publicKey: result.pubkey, walletId, walletName, connectedAt: Date.now() });
-    return { publicKey: result.pubkey, network: "TESTNET", walletId, walletName };
+    // Report the app's configured network (not a hardcoded testnet) so the
+    // wallet/app mismatch guard behaves correctly on mainnet deployments.
+    return { publicKey: result.pubkey, network: STELLAR_NETWORK.network, walletId, walletName };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message.toLowerCase() : "";
     if (msg.includes("reject") || msg.includes("denied") || msg.includes("closed"))
@@ -320,7 +325,11 @@ export async function signTx(xdr: string, publicKey: string): Promise<string> {
     }
     case "albedo": {
       const albedo = await import("@albedo-link/intent");
-      const result = await albedo.default.tx({ xdr, network: "testnet" });
+      // Albedo signs against a network passphrase chosen by its `network`
+      // param — sign against the app's configured network so a mainnet
+      // deployment doesn't produce testnet-signed transactions.
+      const albedoNetwork = STELLAR_NETWORK.network === "MAINNET" ? "mainnet" : "testnet";
+      const result = await albedo.default.tx({ xdr, network: albedoNetwork });
       return result.signed_envelope_xdr;
     }
     case "lobstr":
