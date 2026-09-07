@@ -9,6 +9,7 @@
  */
 import { NextRequest } from "next/server";
 import { getClientIp } from "@/lib/server/rateLimiter";
+import { logger } from "@/lib/logger";
 
 export class HttpError extends Error {
   readonly status: number;
@@ -56,10 +57,23 @@ export async function parseJsonBody(
   }
 }
 
-/** Convert any error into an HttpError (500 fallback keeps messages). */
+/**
+ * Convert any error into an HttpError. Client errors (4xx HttpError) pass
+ * through unchanged. Unknown errors become 500s whose message is logged
+ * server-side but only surfaced to the client in non-production environments
+ * — production callers get a generic message instead of raw SDK error text,
+ * which can embed XDRs, Horizon/RPC response bodies, or internals.
+ */
 export function toHttpError(err: unknown): HttpError {
   if (isHttpError(err)) return err;
-  return new HttpError(500, err instanceof Error ? err.message : "Internal server error");
+
+  const message = err instanceof Error ? err.message : "Internal server error";
+  logger.error("Unhandled route error", err instanceof Error ? err : new Error(String(err)));
+
+  if (process.env.NODE_ENV !== "production") {
+    return new HttpError(500, message);
+  }
+  return new HttpError(500, "Internal server error");
 }
 
 /**
