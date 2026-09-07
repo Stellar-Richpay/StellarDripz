@@ -514,11 +514,24 @@ export async function getActiveSessions(): Promise<SessionEntry[]> {
 
 // ---- Cleanup ----
 
-/** Clear all database data (for testing). */
+/**
+ * Clear all database data.
+ *
+ * DANGER: when Supabase is configured this deletes every row in every table.
+ * That is only allowed when ALLOW_DANGEROUS_DB_OPS=true is explicitly set in
+ * the environment — a stray call from a bug or a misconfigured admin route
+ * must never be able to wipe production data. The in-memory fallback is always
+ * cleared so unit/integration tests keep working.
+ */
 export async function clearDb(): Promise<void> {
   const supabase = getSupabaseAdmin();
 
   if (supabase) {
+    if (process.env.ALLOW_DANGEROUS_DB_OPS !== "true") {
+      throw new Error(
+        "clearDb() with Supabase requires ALLOW_DANGEROUS_DB_OPS=true (refusing to wipe production data)",
+      );
+    }
     await supabase.from("transactions").delete().neq("id", "__never__");
     await supabase.from("analytics").delete().neq("id", "__never__");
     await supabase.from("sessions").delete().neq("address", "__never__");
