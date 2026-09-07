@@ -205,15 +205,24 @@ export async function POST(request: NextRequest) {
     // Convert args to ScVal with comprehensive type support
     const scValArgs: StellarSdk.xdr.ScVal[] = (body.args || []).map(argToScVal);
 
-    // Read-only simulation
+    // Read-only simulation. Both this and the build branch below drive a
+    // Soroban RPC simulateContractCall — real compute on the RPC provider's
+    // dime — so they get a per-IP general-bucket limit instead of being free
+    // (the per-address contract bucket is reserved for actual submissions).
     if (body.simulate) {
+      const rateLimitResponse = checkRateLimit(request, "general");
+      if (rateLimitResponse) return rateLimitResponse;
       const result = await simulateContractCallServer(
         body.contractId,
         body.functionName,
         scValArgs,
         body.signerAddress,
       );
-      return NextResponse.json({ resultValue: result.resultValue });
+      return attachRateLimitHeaders(
+        request,
+        NextResponse.json({ resultValue: result.resultValue }),
+        "general",
+      );
     }
 
     // Submit signed invocation (state-changing — requires CSRF)
@@ -247,14 +256,17 @@ export async function POST(request: NextRequest) {
       return response;
     }
 
-    // Build transaction for signing
+    // Build transaction for signing — also triggers an RPC simulation for
+    // the footprint, so rate-limit it per IP like the simulate branch.
+    const rateLimitResponse = checkRateLimit(request, "general");
+    if (rateLimitResponse) return rateLimitResponse;
     const { xdr } = await buildContractInvocation(
       body.contractId,
       body.functionName,
       scValArgs,
       body.signerAddress,
     );
-    return NextResponse.json({ xdr });
+    return attachRateLimitHeaders(request, NextResponse.json({ xdr }), "general");
   } catch (err) {
     const httpError = toHttpError(err);
     return NextResponse.json({ error: httpError.message }, { status: httpError.status });

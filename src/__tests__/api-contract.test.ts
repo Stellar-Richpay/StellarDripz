@@ -120,6 +120,11 @@ describe("POST /api/contract/invoke", () => {
 
       const json = await res.json();
       expect(json.resultValue).toBe("42");
+
+      // Simulate drives an RPC call, so it must consume the per-IP general
+      // bucket rather than being unrate-limited.
+      const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+      expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "general");
     });
   });
 
@@ -134,6 +139,10 @@ describe("POST /api/contract/invoke", () => {
       const res = await POST(req);
       expect(res.status).toBe(200);
       expect((await res.json()).xdr).toBe("AAAA...==");
+
+      // Building also runs an RPC simulation for the footprint — same cap.
+      const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+      expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "general");
     });
   });
 
@@ -152,6 +161,14 @@ describe("POST /api/contract/invoke", () => {
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(json.hash).toBe("contract-hash-abc");
+
+      // Submissions keep the tighter per-address contract bucket.
+      const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+      expect(checkRateLimit).toHaveBeenCalledWith(
+        expect.anything(),
+        "contract",
+        "GSIGNER12345678901234567890123456789012345678",
+      );
     });
 
     it("returns 500 on contract error", async () => {
