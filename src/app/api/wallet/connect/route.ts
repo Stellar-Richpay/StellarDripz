@@ -4,12 +4,16 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 import { createSession } from "@/lib/server/sessionManager";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 /** Known wallet IDs the dApp supports — reject anything else up front. */
 const SUPPORTED_WALLET_IDS = new Set(["freighter", "xbull", "albedo", "lobstr", "walletconnect"]);
+
+/** Cap wallet display names so sessions/analytics rows can't be bloated. */
+const MAX_WALLET_NAME_LENGTH = 120;
 
 export async function POST(request: NextRequest) {
   // CSRF validation — this endpoint creates a server-side session
@@ -39,9 +43,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unsupported wallet" }, { status: 400 });
     }
 
-    // Validate Stellar address format
-    if (!/^G[A-Z2-7]{55}$/.test(address)) {
+    // Validate Stellar address with the StrKey checksum — the character regex
+    // alone lets malformed addresses pollute the sessions table and analytics.
+    if (!isValidStellarAddress(address)) {
       return NextResponse.json({ error: "Invalid Stellar address" }, { status: 400 });
+    }
+    if (walletName && walletName.length > MAX_WALLET_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `walletName must be ${MAX_WALLET_NAME_LENGTH} characters or fewer` },
+        { status: 400 },
+      );
     }
 
     const ip = request.headers.get("x-forwarded-for") || undefined;

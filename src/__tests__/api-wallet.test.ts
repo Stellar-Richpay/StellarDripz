@@ -81,7 +81,7 @@ beforeAll(async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockCreateSession.mockReturnValue({
-    address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
     walletId: "freighter",
     walletName: "Freighter",
     connectedAt: 1700000000000,
@@ -112,7 +112,7 @@ describe("POST /api/wallet/connect", () => {
 
   it("creates a session successfully", async () => {
     const req = createReq({
-      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
       walletId: "freighter",
       walletName: "Freighter",
     });
@@ -121,7 +121,26 @@ describe("POST /api/wallet/connect", () => {
 
     const json = await res.json();
     expect(json.success).toBe(true);
-    expect(json.session.address).toBe("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    expect(json.session.address).toBe("GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX");
+  });
+
+  it("rejects a wrong-checksum address that matches the character set", async () => {
+    const req = createReq({
+      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      walletId: "freighter",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an oversized wallet name", async () => {
+    const req = createReq({
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
+      walletId: "freighter",
+      walletName: "x".repeat(500),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
   });
 
   it("handles session creation error", async () => {
@@ -129,7 +148,7 @@ describe("POST /api/wallet/connect", () => {
       throw new Error("Session limit reached");
     });
     const req = createReq({
-      address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
       walletId: "freighter",
     });
     const res = await POST(req);
