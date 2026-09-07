@@ -8,6 +8,7 @@
  * the local cleanup server-side.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { isValidStellarAddress } from "@/lib/stellar/address";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { removeSession } from "@/lib/server/dbService";
@@ -16,6 +17,11 @@ import { parseJsonBody, toHttpError } from "@/lib/server/http";
 export async function POST(request: NextRequest) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
+
+  // Rate limit per IP — this unauthenticated endpoint can delete any
+  // address's session, so it must not be scriptable in a tight loop.
+  const rateLimitResponse = checkRateLimit(request, "wallet");
+  if (rateLimitResponse) return rateLimitResponse;
 
   try {
     const body = await parseJsonBody(request);
