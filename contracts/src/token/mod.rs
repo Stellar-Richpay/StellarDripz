@@ -36,6 +36,7 @@ pub enum TokenError {
     InvalidRecipient = 8,
     SpenderEqualsOwner = 9,
     InvalidDecimals = 10,
+    InvalidMetadata = 11,
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
@@ -64,6 +65,10 @@ const KEY_MINTER: Symbol = symbol_short!("MINTER");
 
 /// SEP-41: decimals must be between 0 and 18.
 const MAX_DECIMALS: u32 = 18;
+/// SEP-41: symbols are typically 1-12 alphanumeric characters.
+const MAX_SYMBOL_BYTES: u32 = 12;
+/// Reasonable upper bound on the display name.
+const MAX_NAME_BYTES: u32 = 64;
 
 #[contract]
 pub struct DripToken;
@@ -80,6 +85,12 @@ impl DripToken {
         }
         if decimals > MAX_DECIMALS {
             return Err(TokenError::InvalidDecimals);
+        }
+        if name.is_empty() || symbol.is_empty() {
+            return Err(TokenError::InvalidMetadata);
+        }
+        if name.len() > MAX_NAME_BYTES || symbol.len() > MAX_SYMBOL_BYTES {
+            return Err(TokenError::InvalidMetadata);
         }
 
         admin.require_auth();
@@ -615,6 +626,34 @@ mod token_test {
         assert!(matches!(
             client.try_set_minter(&attacker, &minter, &true),
             Err(Ok(TokenError::NotAuthorized))
+        ));
+    }
+
+    /// SEP-41 symbols and token names have bounded lengths.
+    #[test]
+    fn test_initialize_rejects_invalid_metadata() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+
+        let long_name = String::from_str(&env, &"A".repeat(200));
+        assert!(matches!(
+            client.try_initialize_token(&admin, &long_name, &String::from_str(&env, "D"), &7u32),
+            Err(Ok(TokenError::InvalidMetadata))
+        ));
+
+        let long_symbol = String::from_str(&env, &"S".repeat(20));
+        assert!(matches!(
+            client.try_initialize_token(&admin, &String::from_str(&env, "DT"), &long_symbol, &7u32),
+            Err(Ok(TokenError::InvalidMetadata))
+        ));
+
+        assert!(matches!(
+            client.try_initialize_token(&admin, &String::from_str(&env, ""), &String::from_str(&env, "D"), &7u32),
+            Err(Ok(TokenError::InvalidMetadata))
         ));
     }
 
