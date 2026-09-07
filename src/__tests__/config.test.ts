@@ -2,7 +2,7 @@
  * Unit tests for config and transaction service pure functions
  */
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
-import { getExplorerUrl } from "@/lib/stellar/horizon";
+import { getExplorerUrl } from "@/lib/stellar/explorer";
 
 describe("STELLAR_NETWORK", () => {
   it("has required Stellar testnet configuration", () => {

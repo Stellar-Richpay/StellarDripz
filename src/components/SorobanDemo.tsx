@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { directSimulateContract } from "@/lib/client/directClient";
 import { useContractEvents } from "@/hooks/useContractEvents";
-import { STELLAR_NETWORK } from "@/lib/stellar/network";
+import { getContractExplorerUrl } from "@/lib/stellar/explorer";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
@@ -142,7 +142,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
         <div>
           <h3 className="text-sm font-semibold text-white">Soroban Demo</h3>
           <a
-            href={`${STELLAR_NETWORK.contractExplorerUrl}/${contractId}`}
+            href={getContractExplorerUrl(contractId)}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-[10px] text-white/30 hover:text-stellar-blue transition-colors"

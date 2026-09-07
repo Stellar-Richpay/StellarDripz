@@ -22,7 +22,7 @@ import {
 import { connectAndRegister, disconnectAndUnregister } from "@/lib/client/walletClient";
 import * as apiClient from "@/lib/client/apiClient";
 import { directFetchBalance } from "@/lib/client/directClient";
-import { getExplorerUrl } from "@/lib/stellar/horizon";
+import { getExplorerUrl } from "@/lib/stellar/explorer";
 import {
   getCooldownRemaining,
   recordCooldown,
