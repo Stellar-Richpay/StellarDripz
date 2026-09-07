@@ -5,7 +5,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
-import { sendPaymentServer, buildPaymentTransaction } from "@/lib/server/horizonService";
+import {
+  sendPaymentServer,
+  buildPaymentTransaction,
+  validateAmount,
+  validateAssetCode,
+} from "@/lib/server/horizonService";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +36,21 @@ export async function POST(request: NextRequest) {
       body.senderAddress.trim() === body.destination.trim()
     ) {
       return NextResponse.json({ error: "Sender and destination must differ" }, { status: 400 });
+    }
+
+    // Validate amount/asset format up front (the build path also validates,
+    // but the submit path must not depend on a prior build call).
+    if (body.amount) {
+      const amountError = validateAmount(body.amount, body.assetCode);
+      if (amountError) {
+        return NextResponse.json({ error: amountError }, { status: 400 });
+      }
+    }
+    if (body.assetCode && body.assetCode !== "XLM") {
+      const codeError = validateAssetCode(body.assetCode);
+      if (codeError) {
+        return NextResponse.json({ error: codeError }, { status: 400 });
+      }
     }
 
     // If no signed XDR, just build the transaction for the frontend

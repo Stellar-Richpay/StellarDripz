@@ -242,6 +242,38 @@ function verifyPaymentTransaction(
 
 // ---- Build Transaction (returns XDR for frontend to sign) ----
 
+/**
+ * Validate a Stellar amount string: positive, decimal, and within the
+ * asset's precision (7 decimals for XLM/alphanum4, 12 for alphanum12).
+ * Returns an error message or null.
+ */
+export function validateAmount(amount: string, assetCode?: string): string | null {
+  const value = amount.trim();
+  if (!value) return "Amount is required";
+  if (!/^\d+(\.\d+)?$/.test(value)) return "Amount must be a positive number";
+
+  const maxDecimals = assetCode && assetCode !== "XLM" ? 12 : 7;
+  const [, fraction = ""] = value.split(".");
+  if (fraction.length > maxDecimals) {
+    return `Amount has too many decimal places (max ${maxDecimals})`;
+  }
+
+  const num = parseFloat(value);
+  if (!Number.isFinite(num) || num <= 0) return "Amount must be greater than zero";
+  return null;
+}
+
+/**
+ * Validate an asset code: 1–12 alphanumeric characters (upper case).
+ * Returns an error message or null.
+ */
+export function validateAssetCode(assetCode: string): string | null {
+  if (!/^[A-Z0-9]{1,12}$/.test(assetCode)) {
+    return "Invalid asset code (1-12 upper-case alphanumeric characters)";
+  }
+  return null;
+}
+
 export async function buildPaymentTransaction(
   senderPublicKey: string,
   destination: string,
@@ -253,6 +285,13 @@ export async function buildPaymentTransaction(
     StellarSdk.StrKey.decodeEd25519PublicKey(destination);
   } catch {
     throw new Error("Invalid destination address.");
+  }
+
+  const amountError = validateAmount(amount, assetCode);
+  if (amountError) throw new Error(amountError);
+  if (assetCode && assetCode !== "XLM") {
+    const codeError = validateAssetCode(assetCode);
+    if (codeError) throw new Error(codeError);
   }
 
   // Non-native assets require an issuer — previously the sender was used as
