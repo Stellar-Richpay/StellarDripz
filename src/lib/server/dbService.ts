@@ -471,7 +471,14 @@ export async function saveSession(session: SessionEntry): Promise<void> {
   const db = getDb();
   const idx = db.sessions.findIndex((s) => s.address === session.address);
   if (idx !== -1) db.sessions[idx] = session;
-  else db.sessions.push(session);
+  else {
+    db.sessions.push(session);
+    // Cap the in-memory session table (transactions/analytics are already
+    // capped) so a long-running dev instance can't grow without bound.
+    if (db.sessions.length > 5000) {
+      db.sessions = db.sessions.slice(-5000);
+    }
+  }
   persistDb();
 }
 
