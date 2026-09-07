@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true, error };
   }
 
-  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+  override componentDidUpdate(prevProps: ErrorBoundaryProps): void {
     // When the parent supplies a new resetKey while an error is showing,
     // clear the error so children remount (a structured way to retry).
     if (this.state.hasError && this.props.resetKey !== prevProps.resetKey) {
@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  componentDidCatch(error: Error, info: { componentStack: string }): void {
+  override componentDidCatch(error: Error, info: { componentStack: string }): void {
     console.error("[ErrorBoundary]", error.message, info.componentStack);
     this.props.onError?.(error, info);
   }
@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     this.setState({ hasError: false, error: null });
   };
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
 
