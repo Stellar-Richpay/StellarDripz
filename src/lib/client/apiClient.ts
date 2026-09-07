@@ -60,7 +60,11 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
       status?: number;
       requestId?: string;
     };
-    if (retryAfter) error.retryAfter = parseInt(retryAfter, 10);
+    if (retryAfter) {
+      // NaN-safe: Retry-After can be a delta-seconds or a full HTTP date.
+      const parsedRetryAfter = parseInt(retryAfter, 10);
+      error.retryAfter = Number.isFinite(parsedRetryAfter) ? parsedRetryAfter : undefined;
+    }
     error.status = res.status;
     // Server-side correlation id (set in src/middleware.ts) — attaching it to
     // the error means support reports can name the exact server request.
