@@ -17,11 +17,26 @@ let cachedStatus: {
 } | null = null;
 const CACHE_TTL = 30_000; // 30 seconds
 
+// In-flight promise so concurrent checks (e.g. load balancer probes, CI
+// uptime pings) share one round of external calls instead of stampeding
+// Horizon/RPC on a cold cache.
+let inflightCheck: Promise<{ horizonOk: boolean; sorobanOk: boolean }> | null = null;
+
 async function checkServices(): Promise<{ horizonOk: boolean; sorobanOk: boolean }> {
   if (cachedStatus && Date.now() - cachedStatus.lastCheck < CACHE_TTL) {
     return { horizonOk: cachedStatus.horizonOk, sorobanOk: cachedStatus.sorobanOk };
   }
 
+  // Reuse an ongoing check; don't launch parallel probes.
+  if (inflightCheck) return inflightCheck;
+
+  inflightCheck = doCheckServices().finally(() => {
+    inflightCheck = null;
+  });
+  return inflightCheck;
+}
+
+async function doCheckServices(): Promise<{ horizonOk: boolean; sorobanOk: boolean }> {
   const config = getAppConfig();
 
   // Check Horizon

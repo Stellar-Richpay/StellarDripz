@@ -150,4 +150,37 @@ describe("GET /api/health", () => {
     const json = (await res.json()) as Record<string, unknown>;
     expect(json.warnings as string[]).toContain("No contract IDs configured");
   });
+
+  it("dedupes concurrent probes into one round of external calls", async () => {
+    // Use a deferred so both GETs are truly in flight at the same time.
+    let resolveFetch: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+    const gate = new Promise<{ ok: boolean; json: () => Promise<unknown> }>((r) => {
+      resolveFetch = r;
+    });
+    mockFetch.mockImplementation(() => gate);
+
+    jest.resetModules();
+    const mod = await import("@/app/api/health/route");
+
+    // Kick off two concurrent health checks against a cold cache.
+    const first = mod.GET();
+    const second = mod.GET();
+
+    // The second check must not have issued its own probes: only the first
+    // check's Horizon probe is in flight so far.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    // Both probes consume the same deferred response; the RPC branch reads
+    // result.status while the Horizon branch only checks ok.
+    resolveFetch!({
+      ok: true,
+      json: () => Promise.resolve({ result: { status: "healthy" } }),
+    });
+    const [res1, res2] = await Promise.all([first, second]);
+
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+    // Exactly one probe round for both requests (cache is now warm).
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
 });
