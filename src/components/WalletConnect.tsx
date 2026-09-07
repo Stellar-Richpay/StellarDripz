@@ -12,6 +12,7 @@ import {
 } from "@/lib/wallets/walletKit";
 import { copyToClipboard } from "@/lib/clipboard";
 import { getAccountExplorerUrl } from "@/lib/stellar/explorer";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { getWalletErrorMessage } from "@/lib/wallets/errors";
 import { getWalletConnectStatus } from "@/lib/wallets/walletconnect";
 
@@ -175,7 +176,9 @@ export default function WalletConnect() {
             >
               📱 QR
             </button>
-            <QRFundModal address={wallet.publicKey} />
+            {/* Friendbot funding only exists on testnet — on a mainnet
+            deployment this button would produce a dead URL. */}
+            {STELLAR_NETWORK.network === "TESTNET" && <QRFundModal address={wallet.publicKey} />}
           </div>
         </div>
       </>
