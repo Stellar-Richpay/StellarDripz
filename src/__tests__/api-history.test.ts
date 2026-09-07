@@ -128,4 +128,31 @@ describe("GET /api/history", () => {
     expect(json.total).toBe(137);
     expect(json.hasMore).toBe(true);
   });
+
+  it("falls back to the default limit on a non-numeric limit", async () => {
+    const req = new NextRequest(
+      "http://localhost:3000/api/history?limit=abc",
+    ) as InstanceType<typeof NextRequest>;
+    await GET(req);
+    expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 50, 0);
+  });
+
+  it("falls back to zero offset on a negative offset", async () => {
+    const req = new NextRequest(
+      "http://localhost:3000/api/history?offset=-50",
+    ) as InstanceType<typeof NextRequest>;
+    await GET(req);
+    expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 50, 0);
+  });
+
+  it("rejects an unknown type filter with 400", async () => {
+    const req = new NextRequest(
+      "http://localhost:3000/api/history?type=not_real",
+    ) as InstanceType<typeof NextRequest>;
+    const res = await GET(req);
+    expect(res.status).toBe(400);
+    expect(mockGetTransactions).not.toHaveBeenCalled();
+  });
 });
+
+export {};

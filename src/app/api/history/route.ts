@@ -17,9 +17,25 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const address = url.searchParams.get("address") || undefined;
-  const type = url.searchParams.get("type") as TxRecord["type"] | null;
-  const limit = Math.max(1, Math.min(parseInt(url.searchParams.get("limit") || "50", 10), 100));
-  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
+  const rawType = url.searchParams.get("type");
+  // NaN-safe clamping: a non-numeric limit/offset (or one out of range)
+  // must fall back to sane defaults, not propagate NaN into the query.
+  const rawLimit = parseInt(url.searchParams.get("limit") || "", 10);
+  const limit = Number.isFinite(rawLimit)
+    ? Math.max(1, Math.min(rawLimit, 100))
+    : 50;
+  const rawOffset = parseInt(url.searchParams.get("offset") || "", 10);
+  const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
+
+  // Validate the type filter rather than passing an arbitrary string to the
+  // DB layer (which silently matches nothing).
+  if (rawType !== null) {
+    const VALID_TYPES: TxRecord["type"][] = ["faucet", "send", "contract"];
+    if (!VALID_TYPES.includes(rawType as TxRecord["type"])) {
+      return NextResponse.json({ error: `Invalid type: ${rawType}` }, { status: 400 });
+    }
+  }
+  const type = rawType as TxRecord["type"] | null;
 
   const [transactions, total] = await Promise.all([
     getTransactions(address, type || undefined, limit, offset),
