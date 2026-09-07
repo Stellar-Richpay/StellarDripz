@@ -30,6 +30,10 @@ async function* streamEvents(contractId: string, pollMs: number) {
     startLedger = 0;
   }
 
+  // Instruct browsers (EventSource) to reconnect after 3s when the stream
+  // drops, instead of their default polling backoff.
+  yield `retry: 3000\n\n`;
+
   while (true) {
     try {
       const result = await getContractEventsServer(contractId, startLedger);
@@ -40,10 +44,20 @@ async function* streamEvents(contractId: string, pollMs: number) {
         }
       }
 
+      // Advance the cursor past what we've seen. When the RPC returned events
+      // we move past the last seen ledger; otherwise we jump to the current
+      // chain head so empty polls don't re-scan the same window forever
+      // (previously startLedger only advanced when events were found, so a
+      // quiet contract re-delivered duplicates on every poll).
+      if (result.events.length > 0) {
+        startLedger = result.latestLedger + 1;
+      } else {
+        const latest = await getLatestLedgerServer();
+        startLedger = Math.max(startLedger + 1, latest);
+      }
+
       // Send a heartbeat to keep connection alive
       yield `: heartbeat ${Date.now()}\n\n`;
-
-      startLedger = result.latestLedger || startLedger;
     } catch (err) {
       logger.error("SSE event stream error", err instanceof Error ? err : new Error(String(err)));
       yield `event: error\ndata: ${JSON.stringify({ error: "Stream error, reconnecting..." })}\n\n`;
@@ -91,4 +105,5 @@ export async function GET(request: NextRequest) {
       "X-Accel-Buffering": "no",
     },
   });
+}
 }
