@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContractEventsServer, getLatestLedgerServer } from "@/lib/server/sorobanService";
 import { getClientIp } from "@/lib/server/rateLimiter";
+import { isValidContractId } from "@/lib/stellar/contractId";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -89,6 +90,12 @@ export async function GET(request: NextRequest) {
 
   if (!contractId) {
     return NextResponse.json({ error: "contractId query parameter required" }, { status: 400 });
+  }
+  // Checksum-validate up front: an malformed ID would otherwise open a
+  // stream that errors on every poll instead of failing fast, and would
+  // hold a per-IP stream slot while doing so.
+  if (!isValidContractId(contractId)) {
+    return NextResponse.json({ error: "Invalid contract ID" }, { status: 400 });
   }
 
   const ip = getClientIp(request);
