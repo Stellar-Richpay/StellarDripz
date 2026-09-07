@@ -199,6 +199,9 @@ export function fetchHistory(address?: string, type?: string, limit?: number) {
       timestamp: number;
     }>;
     total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
   }>(`/api/history?${params.toString()}`);
 }
 
