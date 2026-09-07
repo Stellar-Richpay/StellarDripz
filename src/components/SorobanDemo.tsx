@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { directSimulateContract } from "@/lib/client/directClient";
+import { useContractEvents } from "@/hooks/useContractEvents";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
@@ -23,6 +24,14 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
   const [greeting, setGreeting] = useState("");
   const [newGreeting, setNewGreeting] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Live contract events (SSE with direct RPC polling fallback).
+  const {
+    events: contractEvents,
+    connected: eventsConnected,
+    error: eventsError,
+    clearEvents,
+  } = useContractEvents({ contractId, enabled: true });
 
   // ---- Direct read: get counter ---- //
   const handleGetCounter = useCallback(async () => {
@@ -188,6 +197,58 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             Read
           </button>
         </div>
+      </div>
+
+      {/* Live events */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] text-white/30">Live Events</p>
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1 text-[10px] ${
+                eventsConnected ? "text-stellar-green" : "text-yellow-400"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  eventsConnected ? "bg-stellar-green" : "bg-yellow-400 animate-pulse"
+                }`}
+              />
+              {eventsConnected ? "live" : "connecting…"}
+            </span>
+            {contractEvents.length > 0 && (
+              <button
+                onClick={clearEvents}
+                className="text-[10px] text-white/30 hover:text-white/70 transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        {eventsError && <p className="text-[10px] text-yellow-400/80 mb-1">{eventsError}</p>}
+        {contractEvents.length === 0 ? (
+          <p className="text-[10px] text-white/20 py-1">
+            No events yet — increment the counter or set a greeting to see one.
+          </p>
+        ) : (
+          <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
+            {contractEvents.slice(0, 20).map((evt) => (
+              <li
+                key={evt.id}
+                className="flex items-start gap-2 rounded-lg bg-white/[0.02] px-2 py-1"
+              >
+                <span className="text-[10px]">⚡</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-[10px] text-stellar-purple/80 break-all">
+                    {evt.topic || "event"}
+                  </p>
+                  <p className="font-mono text-[10px] text-white/50 break-all">{evt.value}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
