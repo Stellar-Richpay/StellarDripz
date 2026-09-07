@@ -41,6 +41,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — hardening wave (post 2.2.0)
+
+### Added
+- **Payment memos**: Full end-to-end memo support (validation on build+submit, wallet signing, persisted transaction records, history display)
+- **Governance quorum**: Basis-point participation threshold enforced before proposals pass; `set_quorum`/`get_quorum` admin API
+- **TTL maintenance**: Threshold-based `extend_ttl` on every persistent write across token/pool/governance/badge so balances and state never expire
+- **Read APIs**: `get_reward_pool` (pool), paginated `list_proposals` (governance), paginated badge listing, `SetMaxStake` governance action, governance + pool fuzz tests
+- **History pagination**: `GET /api/history` returns true filtered `total` + `hasMore`; new `getTransactionsCount`
+- **Request correlation**: `X-Request-Id` minted/echoed on all API responses and attached to client errors
+- **Concurrent SSE caps**: Per-IP stream limits (429 past 5) and poll-interval clamping on `/api/events`
+- **Network-fee surfacing**: Built payment fee returned in stroops and shown on send transaction rows
+- **Explorer deep links**: Connected wallet address and transaction recipients link out to StellarExpert
+- **Balance auto-refresh**: Visibility/focus listener refreshes balances (15s throttle) when the tab returns
+- **Dependabot**: Weekly grouped updates for npm, cargo, and GitHub Actions
+
+### Changed
+- **Address validation**: Shared `isValidStellarAddress` (StrKey checksum) now used by faucet and wallet-connect routes, which previously accepted any well-formed G-address
+- **Dedup consolidation**: Shared address/format/explorer/clipboard/storage utilities; removed dead client modules (soroban, horizon, events, db) and unused wallet pub/sub
+- **Form safety**: Failed sends no longer clear the form; submit disabled state now respects inline validation
+- **Tooling**: `npm run verify` (lint + typecheck + test + format) and `verify:contracts` (fmt + clippy + test); prettier/rustfmt/clippy wired into scripts and CI; stricter tsconfig flags
+- **Coverage gate**: Local `jest --coverage` thresholds aligned with CI (45/50/55/55)
+
+### Fixed
+- **Wrong-network guard**: Soroban demo writes now disabled on Mainnet wallets, matching Send/Faucet
+- **Contract exports**: Unique per-contract export names in the shared WASM (fixed `version()` collisions across all five contracts)
+- **Repo hygiene**: Build artifacts under `contracts/target/` untracked
+
+### Security
+- **SSE abuse**: Concurrent-stream caps prevent connection exhaustion
+
+---
+
 ## [2.2.0] — 2026-08-09
 
 ### Added
