@@ -3,7 +3,6 @@
  */
 import {
   directFetchBalance,
-  directRequestFaucet,
   directSimulateContract,
   directFetchContractEvents,
   directGetLatestLedger,
@@ -107,27 +106,6 @@ describe("directClient", () => {
 
       const result = await directFetchBalance("GADDR123");
       expect(result.xlm).toBeTruthy();
-    });
-  });
-
-  describe("directRequestFaucet", () => {
-    it("calls Friendbot and returns hash", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ transaction_hash: "abc123hash" }),
-      });
-
-      const result = await directRequestFaucet("GADDR123");
-      expect(result.hash).toBe("abc123hash");
-    });
-
-    it("throws on Friendbot error", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ detail: "Rate limited" }),
-      });
-
-      await expect(directRequestFaucet("GADDR123")).rejects.toThrow("Friendbot error");
     });
   });
 

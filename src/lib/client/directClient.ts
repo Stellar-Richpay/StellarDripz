@@ -81,24 +81,11 @@ export async function directFetchBalance(address: string): Promise<DirectBalance
   return { xlm, raw, assets };
 }
 
-/**
- * Request faucet funds directly from Friendbot (bypasses API proxy rate limiting).
- * NOTE: Use sparingly — the proxied /api/faucet/fund is preferred for production.
- */
-export async function directRequestFaucet(address: string): Promise<{ hash: string }> {
-  const url = `${STELLAR_NETWORK.friendbotUrl}?addr=${encodeURIComponent(address)}`;
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const detail = body?.detail || body?.title || `HTTP ${res.status}`;
-    throw new Error(`Friendbot error: ${detail}`);
-  }
-
-  const data = await res.json();
-  const hash = data?.transaction_hash || data?.hash || data?.id || `faucet-${Date.now()}`;
-  return { hash };
-}
+// NOTE: There is intentionally NO direct faucet helper here. Faucet funding
+// must go through the proxied /api/faucet/fund route so the server-side
+// per-address rate limiter and analytics apply; a browser-direct Friendbot
+// call would bypass both. See QRFundModal for the read-only faucet URL that
+// is safe to share off-device.
 
 // ---- Soroban Reads ---- //
 
