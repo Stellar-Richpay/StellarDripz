@@ -31,6 +31,22 @@ function releaseStreamSlot(ip: string): void {
   else activeStreams.set(ip, current - 1);
 }
 
+/**
+ * Idempotent per-stream slot release. A disconnect can surface twice — the
+ * ReadableStream's cancel() fires and start()'s enqueue also throws, breaking
+ * its loop — so both paths share one guard. Without it a single stream could
+ * release two slots, letting per-IP accounting drift below the real count and
+ * defeating the concurrent-stream cap.
+ */
+function releaseOnce(ip: string) {
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    releaseStreamSlot(ip);
+  };
+}
+
 async function* streamEvents(contractId: string, pollMs: number) {
   // Start near the head of the chain instead of ledger 0 (fast cold starts).
   let startLedger = 0;
@@ -114,6 +130,7 @@ export async function GET(request: NextRequest) {
   logger.info("SSE stream started", { contractId, pollInterval, ip });
 
   const encoder = new TextEncoder();
+  const release = releaseOnce(ip);
   const stream = new ReadableStream({
     async start(controller) {
       const eventStream = streamEvents(contractId, pollInterval);
@@ -122,15 +139,16 @@ export async function GET(request: NextRequest) {
         try {
           controller.enqueue(encoder.encode(chunk));
         } catch {
-          // Client disconnected
+          // Client disconnected — the cancel() path also fires; the slot is
+          // released exactly once via the shared releaseOnce guard.
           break;
         }
       }
-      releaseStreamSlot(ip);
+      release();
     },
     cancel() {
       logger.info("SSE stream cancelled", { contractId, ip });
-      releaseStreamSlot(ip);
+      release();
     },
   });
 
