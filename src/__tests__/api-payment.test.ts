@@ -115,6 +115,11 @@ describe("POST /api/payment/send", () => {
 
       const json = await res.json();
       expect(json.xdr).toBe("AAAAAg...=");
+
+      // Building loads the account from Horizon, so it must consume the
+      // per-IP general bucket rather than being unrate-limited.
+      const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+      expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "general");
     });
   });
 

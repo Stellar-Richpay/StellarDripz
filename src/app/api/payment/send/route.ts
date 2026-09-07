@@ -57,7 +57,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If no signed XDR, just build the transaction for the frontend
+    // If no signed XDR, just build the transaction for the frontend.
+    // Building loads the account + sequence from Horizon, so it gets a
+    // per-IP general-bucket cap (the per-address payment bucket is reserved
+    // for actual submissions).
     if (!body.signedXdr) {
       if (!body.senderAddress || !body.destination || !body.amount) {
         return NextResponse.json(
@@ -65,6 +68,8 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
+      const rateLimitResponse = checkRateLimit(request, "general");
+      if (rateLimitResponse) return rateLimitResponse;
       const { xdr, feeStroops } = await buildPaymentTransaction(
         body.senderAddress,
         body.destination,
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest) {
         body.assetIssuer,
         typeof body.memo === "string" ? body.memo : undefined,
       );
-      return NextResponse.json({ xdr, feeStroops });
+      return attachRateLimitHeaders(request, NextResponse.json({ xdr, feeStroops }), "general");
     }
 
     // Submit signed payment
