@@ -314,9 +314,11 @@ export async function getTransactions(
     return (data as Record<string, unknown>[]).map(mapTxRow);
   }
 
-  // Fallback: in-memory
+  // Fallback: in-memory. Mirror the Supabase path's ordering (most recent
+  // first) so pagination behaves identically across backends — without the
+  // sort, offsets walked oldest-first here while Supabase walked newest-first.
   const db = getDb();
-  let txs = db.transactions;
+  let txs = [...db.transactions].sort((a, b) => b.timestamp - a.timestamp);
   if (address) txs = txs.filter((t) => t.senderAddress === address);
   if (type) txs = txs.filter((t) => t.type === type);
   return txs.slice(offset, offset + limit);
@@ -347,7 +349,7 @@ export async function getTransactionsCount(
     return count ?? 0;
   }
 
-  // Fallback: in-memory
+  // Fallback: in-memory (count is order-independent).
   const db = getDb();
   let txs = db.transactions;
   if (address) txs = txs.filter((t) => t.senderAddress === address);
