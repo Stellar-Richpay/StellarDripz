@@ -1,4 +1,4 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, symbol_short};
+use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, Vec, symbol_short};
 use crate::common::storage as s;
 use crate::common::events as e;
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
@@ -418,6 +418,31 @@ impl DripGovernance {
         s::get_persistent(&env, &KEY_PROPOSAL_COUNT, 0u64)
     }
 
+    /// List proposals, most recent first, with a paginated (start, limit)
+    /// window. start = 0 begins at the newest proposal. Caps the returned
+    /// Vec to avoid unbounded reads.
+    pub fn list_proposals(env: Env, start: u64, limit: u32) -> Vec<Proposal> {
+        let mut out = Vec::new(&env);
+        let count: u64 = s::get_persistent(&env, &KEY_PROPOSAL_COUNT, 0u64);
+        if count == 0 || limit == 0 {
+            return out;
+        }
+
+        let newest = count.saturating_sub(start);
+        let window: u64 = limit as u64;
+        let mut cursor = newest;
+        let mut remaining = window;
+        while cursor > 0 && remaining > 0 {
+            let key = (KEY_PROPOSAL, cursor);
+            if let Some(p) = env.storage().persistent().get::<_, Proposal>(&key) {
+                out.push_back(p);
+                remaining -= 1;
+            }
+            cursor -= 1;
+        }
+        out
+    }
+
     pub fn get_vote(env: Env, voter: Address, proposal_id: u64) -> Option<VoteRecord> {
         let key = (KEY_VOTES, proposal_id, voter);
         env.storage().persistent().get(&key)
@@ -693,6 +718,54 @@ mod governance_test {
 
         let err = client.try_initialize_governance(&admin, &token_id, &pool_id, &0u32, &1i128);
         assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+    }
+
+    #[test]
+    fn test_list_proposals_paginates() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        for n in 1u64..=5u64 {
+            client.propose(
+                &proposer,
+                &String::from_str(&env, &format!("P{n}")),
+                &String::from_str(&env, "D"),
+                &GovernanceAction::SetRewardRate(n as i128),
+            );
+        }
+        assert_eq!(client.get_proposal_count(), 5u64);
+
+        // Page 1: newest two first (5, 4).
+        let page1 = client.list_proposals(&0u64, &2u32);
+        assert_eq!(page1.len(), 2);
+        assert_eq!(page1.get(0).unwrap().id, 5u64);
+        assert_eq!(page1.get(1).unwrap().id, 4u64);
+
+        // Page 2: (3, 2).
+        let page2 = client.list_proposals(&2u64, &2u32);
+        assert_eq!(page2.len(), 2);
+        assert_eq!(page2.get(0).unwrap().id, 3u64);
+        assert_eq!(page2.get(1).unwrap().id, 2u64);
+
+        // Past the end returns what remains / nothing.
+        let page3 = client.list_proposals(&4u64, &10u32);
+        assert_eq!(page3.len(), 1);
+        assert_eq!(page3.get(0).unwrap().id, 1u64);
+        let empty = client.list_proposals(&5u64, &10u32);
+        assert_eq!(empty.len(), 0);
     }
 
     #[test]
