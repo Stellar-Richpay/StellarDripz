@@ -3,7 +3,7 @@
  * Body: { address: string }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { requestFaucetFundsServer } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 
@@ -33,11 +33,16 @@ export async function POST(request: NextRequest) {
 
     const result = await requestFaucetFundsServer(address, { ip, userAgent: ua });
 
-    const response = NextResponse.json({
-      success: true,
-      hash: result.hash,
-      newBalance: result.newBalance,
-    });
+    const response = attachRateLimitHeaders(
+      request,
+      NextResponse.json({
+        success: true,
+        hash: result.hash,
+        newBalance: result.newBalance,
+      }),
+      "faucet",
+      address,
+    );
     setCsrfCookie(response);
     return response;
   } catch (err) {

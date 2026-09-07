@@ -13,7 +13,7 @@
  *   - { map: [...] } → scvMap
  */
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { isValidContractId } from "@/lib/stellar/contractId";
 import {
@@ -195,11 +195,16 @@ export async function POST(request: NextRequest) {
         body.signerAddress,
         { ip, userAgent: ua },
       );
-      const response = NextResponse.json({
-        success: true,
-        hash: result.hash,
-        resultValue: result.resultValue,
-      });
+      const response = attachRateLimitHeaders(
+        request,
+        NextResponse.json({
+          success: true,
+          hash: result.hash,
+          resultValue: result.resultValue,
+        }),
+        "contract",
+        body.signerAddress,
+      );
       setCsrfCookie(response);
       return response;
     }

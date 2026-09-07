@@ -117,25 +117,54 @@ export function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
+/** Build the standard rate-limit headers for a bucket entry. */
+function rateLimitHeaders(
+  entry: RateLimitEntry | undefined,
+  config: RateLimitConfig,
+  now: number,
+): Record<string, string> {
+  const remaining = entry && now < entry.resetAt ? Math.max(0, config.maxRequests - entry.count) : config.maxRequests;
+  const reset = entry ? Math.ceil((entry.resetAt - now) / 1000) : Math.ceil(config.windowMs / 1000);
+  return {
+    "X-RateLimit-Limit": String(config.maxRequests),
+    "X-RateLimit-Remaining": String(remaining),
+    "X-RateLimit-Reset": String(reset),
+  };
+}
+
+/** Merge rate-limit headers into a response. */
+function withRateLimitHeaders(
+  response: NextResponse,
+  headers: Record<string, string>,
+): NextResponse {
+  for (const [key, value] of Object.entries(headers)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
 export function checkRateLimit(
   request: NextRequest,
   category: keyof typeof DEFAULTS,
   address?: string,
 ): NextResponse | null {
   const config = DEFAULTS[category] || DEFAULTS.general;
+  const now = Date.now();
 
   if (address && (category === "faucet" || category === "payment" || category === "contract")) {
     // Per-address rate limiting
     const key = `${category}:${address}`;
     const entry = addressMap.get(key);
-    const now = Date.now();
 
     if (entry && now < entry.resetAt) {
       if (entry.count >= config.maxRequests) {
         const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-        return NextResponse.json(
-          { error: `Rate limited. Try again in ${retryAfter}s.`, retryAfter },
-          { status: 429, headers: { "Retry-After": String(retryAfter) } },
+        return withRateLimitHeaders(
+          NextResponse.json(
+            { error: `Rate limited. Try again in ${retryAfter}s.`, retryAfter },
+            { status: 429, headers: { "Retry-After": String(retryAfter) } },
+          ),
+          rateLimitHeaders(entry, config, now),
         );
       }
       entry.count++;
@@ -147,14 +176,16 @@ export function checkRateLimit(
     const ip = getClientIp(request);
     const key = `${category}:${ip}`;
     const entry = ipMap.get(key);
-    const now = Date.now();
 
     if (entry && now < entry.resetAt) {
       if (entry.count >= config.maxRequests) {
         const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
-        return NextResponse.json(
-          { error: "Too many requests.", retryAfter },
-          { status: 429, headers: { "Retry-After": String(retryAfter) } },
+        return withRateLimitHeaders(
+          NextResponse.json(
+            { error: "Too many requests.", retryAfter },
+            { status: 429, headers: { "Retry-After": String(retryAfter) } },
+          ),
+          rateLimitHeaders(entry, config, now),
         );
       }
       entry.count++;
@@ -164,4 +195,22 @@ export function checkRateLimit(
   }
 
   return null; // Allowed
+}
+
+/**
+ * Attach rate-limit headers to an allowed response for the given category.
+ * Call after checkRateLimit returned null and the response is built.
+ */
+export function attachRateLimitHeaders(
+  request: NextRequest,
+  response: NextResponse,
+  category: keyof typeof DEFAULTS,
+  address?: string,
+): NextResponse {
+  const config = DEFAULTS[category] || DEFAULTS.general;
+  const key = address
+    ? `${category}:${address}`
+    : `${category}:${getClientIp(request)}`;
+  const entry = address ? addressMap.get(key) : ipMap.get(key);
+  return withRateLimitHeaders(response, rateLimitHeaders(entry, config, Date.now()));
 }

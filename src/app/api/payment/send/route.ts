@@ -3,7 +3,7 @@
  * Body: { signedXdr, destination, amount, assetCode, senderAddress }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { sendPaymentServer, buildPaymentTransaction } from "@/lib/server/horizonService";
 
@@ -65,7 +65,12 @@ export async function POST(request: NextRequest) {
       assetIssuer,
     );
 
-    const response = NextResponse.json({ success: true, hash: result.hash });
+    const response = attachRateLimitHeaders(
+      request,
+      NextResponse.json({ success: true, hash: result.hash }),
+      "payment",
+      senderAddress,
+    );
     setCsrfCookie(response);
     return response;
   } catch (err) {
