@@ -41,6 +41,12 @@ jobs:
       - name: Run contract unit tests
         run: cargo test --verbose -- --nocapture
 
+      - name: Check Rust formatting
+        run: cargo fmt --check
+
+      - name: Lint contracts (clippy, warnings denied)
+        run: cargo clippy --all-targets -- -D warnings
+
       - name: Build WASM (check compilation)
         run: cargo build --target wasm32v1-none --release
 
