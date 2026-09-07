@@ -1,0 +1,49 @@
+# Dependabot keeps the three dependency ecosystems up to date:
+# - npm: Next.js, React, Stellar SDK, wallet SDKs (weekly, grouped by minor)
+# - cargo: Soroban SDK + contract dependencies (weekly)
+# - github-actions: pinned workflow actions (weekly)
+#
+# Version updates open as PRs that the normal CI checks must pass before merge.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      stellar:
+        patterns:
+          - "@stellar/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      next:
+        patterns:
+          - "next"
+          - "eslint-config-next"
+    ignore:
+      # Testnet contract IDs are deployed against pinned Soroban RPC versions;
+      # major SDK bumps need a coordinated re-deploy, so review manually.
+      - dependency-name: "@stellar/stellar-sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "soroban-sdk"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "cargo"
+    directory: "/contracts"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
