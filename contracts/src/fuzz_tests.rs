@@ -132,4 +132,70 @@ mod fuzz_tests {
             Err(Ok(TokenError::AmountNotPositive))
         ));
     }
+
+    /// Pool accounting invariant: across random stake/unstake cycles,
+    /// the contract's recorded total staked always equals the sum of the
+    /// users' individual stake amounts.
+    #[test]
+    fn fuzz_pool_total_staked_conservation() {
+        use soroban_sdk::testutils::Ledger as _;
+        use crate::pool::{DripPool, DripPoolClient};
+        use crate::token::DripToken as PoolToken;
+
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let token_id = env.register(PoolToken, ());
+        let token_client = DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin, &String::from_str(&env, "PT"), &String::from_str(&env, "P"), &7u32,
+        );
+
+        let pool_id = env.register(DripPool, ());
+        let pool_client = DripPoolClient::new(&env, &pool_id);
+        pool_client.initialize_pool(&admin, &token_id, &1i128, &1i128, &5u32);
+
+        // Mint a large budget to each user and pre-approve the pool.
+        let mut users: Vec<Address> = Vec::new(&env);
+        let mut user_stakes: Vec<i128> = Vec::new(&env);
+        for _ in 0u32..8u32 {
+            let user = Address::generate(&env);
+            token_client.mint(&admin, &user, &1_000_000i128);
+            let exp = env.ledger().sequence() + 999_999u32;
+            token_client.approve(&user, &pool_id, &1_000_000i128, &exp);
+            users.push_back(user);
+            user_stakes.push_back(0i128);
+        }
+
+        for i in 0u32..40u32 {
+            let idx = i % 8u32;
+            let user = users.get(idx).unwrap();
+            // Advance the ledger so lock periods elapse between operations.
+            env.ledger().set_sequence_number(env.ledger().sequence() + 6);
+
+            let current = user_stakes.get(idx).unwrap();
+            if i % 2 == 0 {
+                // Stake a pseudo-random amount.
+                let amount = (i as i128 % 7 + 1) * 100i128;
+                if pool_client.try_stake(&user, &amount).is_ok() {
+                    user_stakes.set(idx, current + amount);
+                }
+            } else if current > 0 {
+                // Unstake a pseudo-random portion.
+                let amount = ((i as i128 % 3) + 1) * 50i128;
+                let want = if amount > current { current } else { amount };
+                if pool_client.try_unstake(&user, &want).is_ok() {
+                    user_stakes.set(idx, current - want);
+                }
+            }
+
+            // Invariant holds after every operation.
+            let mut sum: i128 = 0;
+            for j in 0u32..8u32 {
+                sum += user_stakes.get(j).unwrap();
+            }
+            assert_eq!(pool_client.get_total_staked(), sum);
+        }
+    }
 }
