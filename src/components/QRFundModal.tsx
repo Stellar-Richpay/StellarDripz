@@ -8,6 +8,20 @@ interface QRFundModalProps {
   address: string | null;
 }
 
+/** Copy text to the clipboard with a textarea fallback for insecure contexts. */
+function copyText(text: string): void {
+  try {
+    void navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}
+
 /**
  * QR code modal optimized for cross-device faucet funding.
  * Shows wallet address as QR + provides a shareable faucet URL.
@@ -65,9 +79,7 @@ export default function QRFundModal({ address }: QRFundModalProps) {
             </div>
 
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(faucetUrl);
-              }}
+              onClick={() => copyText(faucetUrl)}
               className="mt-3 w-full rounded-xl border border-stellar-blue/30 bg-stellar-blue/10 py-2 text-xs font-medium text-stellar-blue transition-all hover:bg-stellar-blue/20"
             >
               📋 Copy Faucet URL
