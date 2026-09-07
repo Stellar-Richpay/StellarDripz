@@ -22,7 +22,13 @@ export async function GET(
 
   try {
     const balance = await fetchBalanceServer(address);
-    return NextResponse.json(balance);
+    return NextResponse.json(balance, {
+      headers: {
+        // Account balances are account-specific and change with every
+        // transaction — never let a shared cache serve another user's data.
+        "Cache-Control": "private, no-store, max-age=0",
+      },
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Balance fetch failed" },

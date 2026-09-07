@@ -63,9 +63,16 @@ export async function GET() {
     };
   }
 
-  return NextResponse.json({
-    timestamp: new Date().toISOString(),
-    network: STELLAR_NETWORK.network,
-    services: results,
-  });
+  return NextResponse.json(
+    {
+      timestamp: new Date().toISOString(),
+      network: STELLAR_NETWORK.network,
+      services: results,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
