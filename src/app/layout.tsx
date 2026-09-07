@@ -23,14 +23,21 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: isTestnet ? "StellarDripz — Testnet XLM Faucet" : "StellarDripz — Stellar Wallet Interface",
+  // Absolute base for Open Graph URLs and metadata routes (robots.txt uses
+  // it to emit canonical URLs). Deployment can override with NEXT_PUBLIC_SITE_URL.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://stellardripz.vercel.app"),
+  title: isTestnet
+    ? "StellarDripz — Testnet XLM Faucet"
+    : "StellarDripz — Stellar Wallet Interface",
   description: isTestnet
     ? "A lightweight, developer-focused web interface for requesting testnet XLM with a single click. Built for Stellar developers, hackathon participants, and QA testers."
     : "A web interface for sending payments, checking balances, and interacting with Soroban contracts on the Stellar network.",
   keywords: ["Stellar", "XLM", "Faucet", "Freighter", "Blockchain", "Soroban", networkLabel],
   authors: [{ name: "StellarDripz" }],
   openGraph: {
-    title: isTestnet ? "StellarDripz — Testnet XLM Faucet" : "StellarDripz — Stellar Wallet Interface",
+    title: isTestnet
+      ? "StellarDripz — Testnet XLM Faucet"
+      : "StellarDripz — Stellar Wallet Interface",
     description: isTestnet
       ? "Request testnet XLM with a single click. Built for Stellar developers."
       : "Send payments, check balances, and interact with Soroban contracts on the Stellar network.",
