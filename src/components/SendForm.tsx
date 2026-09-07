@@ -12,8 +12,10 @@ export default function SendForm() {
 
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
   const [destError, setDestError] = useState("");
   const [amountError, setAmountError] = useState("");
+  const [memoError, setMemoError] = useState("");
   const [showPaymentQr, setShowPaymentQr] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState("XLM");
   const [selectedAssetIssuer, setSelectedAssetIssuer] = useState<string | undefined>(undefined);
@@ -83,13 +85,19 @@ export default function SendForm() {
       setAmountError("Valid amount required");
       valid = false;
     }
+    const memoTrimmed = memo.trim();
+    if (memoTrimmed.length > 28) {
+      setMemoError("Memo must be 28 characters or fewer");
+      valid = false;
+    }
     if (!valid) return;
 
     const assetCode = selectedAsset !== "XLM" ? selectedAsset : undefined;
     const assetIssuer = selectedAsset !== "XLM" ? selectedAssetIssuer : undefined;
-    await doSendPayment(destination.trim(), amount.trim(), assetCode, assetIssuer);
+    await doSendPayment(destination.trim(), amount.trim(), assetCode, assetIssuer, memoTrimmed || undefined);
     setDestination("");
     setAmount("");
+    setMemo("");
   };
 
   const hasValidPaymentInfo = destination.trim() && !destError && amount.trim() && !amountError;
@@ -242,6 +250,33 @@ export default function SendForm() {
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             />
             {amountError && <p className="mt-1 text-xs text-red-400">{amountError}</p>}
+          </div>
+
+          {/* Memo (optional) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-white/60">Memo (optional)</label>
+              <span className={`text-xs ${memoError ? "text-red-400" : "text-white/30"}`}>
+                {memo.length}/28
+              </span>
+            </div>
+            <input
+              type="text"
+              value={memo}
+              maxLength={28}
+              onChange={(e) => {
+                setMemo(e.target.value);
+                if (memoError) setMemoError("");
+              }}
+              placeholder="e.g. Invoice #1234"
+              disabled={isPending || isOnMainnet}
+              className={`w-full rounded-xl border bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/20 transition-all focus:outline-none focus:ring-2 ${
+                memoError
+                  ? "border-red-500/50 focus:ring-red-500/30"
+                  : "border-white/10 focus:border-stellar-blue/50 focus:ring-stellar-blue/30"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            />
+            {memoError && <p className="mt-1 text-xs text-red-400">{memoError}</p>}
           </div>
 
           {/* Submit */}

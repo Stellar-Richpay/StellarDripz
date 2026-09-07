@@ -125,6 +125,7 @@ interface AppContextValue {
     amount: string,
     assetCode?: string,
     assetIssuer?: string,
+    memo?: string,
   ) => Promise<void>;
   addContractEvent: (event: ContractEvent) => void;
   clearContractEvents: () => void;
@@ -312,7 +313,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ---- PAYMENT: Proxied write (rate-limited, logged) ---- //
   const doSendPayment = useCallback(
-    async (destination: string, amount: string, assetCode?: string, assetIssuer?: string) => {
+    async (
+      destination: string,
+      amount: string,
+      assetCode?: string,
+      assetIssuer?: string,
+      memo?: string,
+    ) => {
       if (!state.wallet.publicKey) return;
       const txId = `send-${Date.now()}`;
       const pendingTx: TransactionRecord = {
@@ -336,6 +343,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           amount,
           assetCode,
           assetIssuer,
+          memo,
         );
         // 2. Sign locally via wallet
         const signedXdr = await signTx(xdr, state.wallet.publicKey);
@@ -347,6 +355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           amount,
           assetCode,
           assetIssuer,
+          memo,
         );
         dispatch({
           type: "UPDATE_TRANSACTION",

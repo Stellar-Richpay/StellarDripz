@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       amount: typeof parsedBody.amount === "string" ? parsedBody.amount : undefined,
       assetCode: typeof parsedBody.assetCode === "string" ? parsedBody.assetCode : undefined,
       assetIssuer: typeof parsedBody.assetIssuer === "string" ? parsedBody.assetIssuer : undefined,
+      memo: typeof parsedBody.memo === "string" ? parsedBody.memo : undefined,
       senderAddress:
         typeof parsedBody.senderAddress === "string" ? parsedBody.senderAddress : undefined,
     };
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
         body.amount,
         body.assetCode,
         body.assetIssuer,
+        typeof body.memo === "string" ? body.memo : undefined,
       );
       return NextResponse.json({ xdr });
     }
@@ -97,6 +99,7 @@ export async function POST(request: NextRequest) {
       assetCode || "XLM",
       { ip, userAgent: ua },
       assetIssuer,
+      typeof body.memo === "string" ? body.memo : undefined,
     );
 
     const response = attachRateLimitHeaders(

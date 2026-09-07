@@ -160,6 +160,7 @@ export async function sendPaymentServer(
   assetCode: string,
   requestInfo: { ip?: string; userAgent?: string },
   assetIssuer?: string,
+  memo?: string,
 ): Promise<{ hash: string }> {
   if (STELLAR_NETWORK.networkPassphrase !== StellarSdk.Networks.TESTNET) {
     throw new Error("Network mismatch — expected Testnet.");
@@ -171,6 +172,11 @@ export async function sendPaymentServer(
   } catch {
     throw new Error("Invalid destination address.");
   }
+
+  // Validate memo up front so a too-long memo is rejected before submission
+  // (Horizon rejects it after the fact with an opaque error).
+  const memoError = validateMemo(memo);
+  if (memoError) throw new Error(memoError);
 
   // Submit the signed transaction
   const signedTx = StellarSdk.TransactionBuilder.fromXDR(
@@ -184,7 +190,7 @@ export async function sendPaymentServer(
   // our analytics/logging would record forged data).
   const innerTx =
     signedTx instanceof StellarSdk.FeeBumpTransaction ? signedTx.innerTransaction : signedTx;
-  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode, assetIssuer);
+  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode, assetIssuer, memo);
 
   const response = await horizonServer.submitTransaction(signedTx);
 
@@ -223,10 +229,23 @@ function verifyPaymentTransaction(
   amount: string,
   assetCode: string,
   assetIssuer?: string,
+  memo?: string,
 ): void {
   // TransactionBuilder.fromXDR already validated the network passphrase by
   // decoding with ours. Check the source account matches the claimed sender.
   const expectedAssetCode = assetCode || "XLM";
+
+  // Memo is part of what makes a signed payment distinguishable; verify it
+  // matches so a submitted XDR can't silently carry different memo text than
+  // the user saw and approved. Only text memos are produced by the build
+  // path, so compare the string value directly.
+  const txMemoValue =
+    tx.memo instanceof StellarSdk.Memo && tx.memo.value !== null && tx.memo.value !== undefined
+      ? String(tx.memo.value)
+      : "";
+  if ((memo || "") !== txMemoValue) {
+    throw new Error("Transaction memo does not match requested memo");
+  }
 
   if (tx.source !== senderPublicKey) {
     throw new Error("Transaction source does not match sender address");
@@ -293,12 +312,25 @@ export function validateAssetCode(assetCode: string): string | null {
   return null;
 }
 
+/**
+ * Validate a text memo: optional, and at most 28 bytes when present (the
+ * Stellar protocol limit for text memos). Returns an error message or null.
+ */
+export function validateMemo(memo?: string): string | null {
+  if (!memo) return null;
+  if (new TextEncoder().encode(memo).length > 28) {
+    return "Memo must be 28 characters or fewer";
+  }
+  return null;
+}
+
 export async function buildPaymentTransaction(
   senderPublicKey: string,
   destination: string,
   amount: string,
   assetCode?: string,
   assetIssuer?: string,
+  memo?: string,
 ): Promise<{ xdr: string }> {
   try {
     StellarSdk.StrKey.decodeEd25519PublicKey(destination);
@@ -312,6 +344,8 @@ export async function buildPaymentTransaction(
     const codeError = validateAssetCode(assetCode);
     if (codeError) throw new Error(codeError);
   }
+  const memoError = validateMemo(memo);
+  if (memoError) throw new Error(memoError);
 
   // Non-native assets require an issuer — previously the sender was used as
   // the issuer, which silently built a payment for a different (usually
@@ -341,8 +375,11 @@ export async function buildPaymentTransaction(
     networkPassphrase: STELLAR_NETWORK.networkPassphrase,
   })
     .addOperation(StellarSdk.Operation.payment({ destination, asset, amount }))
-    .setTimeout(30)
-    .build();
+    .setTimeout(30);
 
-  return { xdr: tx.toXDR() };
+  if (memo) {
+    tx.addMemo(StellarSdk.Memo.text(memo));
+  }
+
+  return { xdr: tx.build().toXDR() };
 }

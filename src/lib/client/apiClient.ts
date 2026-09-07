@@ -102,10 +102,11 @@ export function buildPayment(
   amount: string,
   assetCode?: string,
   assetIssuer?: string,
+  memo?: string,
 ) {
   return request<{ xdr: string }>("/api/payment/send", {
     method: "POST",
-    body: JSON.stringify({ senderAddress, destination, amount, assetCode, assetIssuer }),
+    body: JSON.stringify({ senderAddress, destination, amount, assetCode, assetIssuer, memo }),
   });
 }
 
@@ -116,10 +117,11 @@ export function submitPayment(
   amount: string,
   assetCode?: string,
   assetIssuer?: string,
+  memo?: string,
 ) {
   return request<{ success: boolean; hash: string }>("/api/payment/send", {
     method: "POST",
-    body: JSON.stringify({ signedXdr, senderAddress, destination, amount, assetCode, assetIssuer }),
+    body: JSON.stringify({ signedXdr, senderAddress, destination, amount, assetCode, assetIssuer, memo }),
   });
 }
 
