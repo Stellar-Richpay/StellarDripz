@@ -19,6 +19,7 @@ pub enum GovError {
     AlreadyVoted = 6,
     NoVotingPower = 7,
     InsufficientPower = 8,
+    NotAuthorized = 9,
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
@@ -106,9 +107,9 @@ impl DripGovernance {
         pool_contract_id: Address,
         voting_period: u32,
         min_voting_power: i128,
-    ) {
+    ) -> Result<(), GovError> {
         if env.storage().persistent().has(&s::KEY_ADMIN) {
-            panic!("Already initialized");
+            return Err(GovError::AlreadyInitialized);
         }
         admin.require_auth();
 
@@ -120,10 +121,11 @@ impl DripGovernance {
         s::set_persistent(&env, &KEY_PROPOSAL_COUNT, &0u64);
 
         e::publish(&env, (symbol_short!("gov_init"), &admin), voting_period);
+        Ok(())
     }
 
     /// Create a new proposal. Requires minimum voting power.
-    pub fn propose(env: Env, proposer: Address, title: String, description: String, action: GovernanceAction) -> u64 {
+    pub fn propose(env: Env, proposer: Address, title: String, description: String, action: GovernanceAction) -> Result<u64, GovError> {
         proposer.require_auth();
 
         let token_id: Address = s::get_persistent(
@@ -136,7 +138,7 @@ impl DripGovernance {
 
         let min_power: i128 = s::get_persistent(&env, &KEY_MIN_POWER, 0i128);
         if voting_power < min_power {
-            panic!("Insufficient voting power to propose");
+            return Err(GovError::InsufficientPower);
         }
         // --- END CROSS-CONTRACT CALL ---
 
@@ -170,29 +172,30 @@ impl DripGovernance {
         env.storage().persistent().set(&key, &proposal);
 
         e::publish(&env, (e::EVENT_PROPOSE, &proposer, count), title);
-        count
+        Ok(count)
     }
 
     /// Vote on a proposal. Voting power = token balance via cross-contract call.
-    pub fn vote(env: Env, voter: Address, proposal_id: u64, choice: VoteChoice) {
+    pub fn vote(env: Env, voter: Address, proposal_id: u64, choice: VoteChoice) -> Result<(), GovError> {
         voter.require_auth();
 
         let key = (KEY_PROPOSAL, proposal_id);
-        let mut proposal: Proposal = env.storage().persistent().get(&key).unwrap_or_else(|| {
-            panic!("Proposal not found");
-        });
+        let mut proposal: Proposal = match env.storage().persistent().get(&key) {
+            Some(p) => p,
+            None => return Err(GovError::ProposalNotFound),
+        };
 
         if env.ledger().sequence() > proposal.voting_end {
-            panic!("Voting period has ended");
+            return Err(GovError::VotingEnded);
         }
         if proposal.executed {
-            panic!("Proposal already executed");
+            return Err(GovError::AlreadyExecuted);
         }
 
         // Check for duplicate vote
         let vote_key = (KEY_VOTES, proposal_id, voter.clone());
         if env.storage().persistent().has(&vote_key) {
-            panic!("Already voted");
+            return Err(GovError::AlreadyVoted);
         }
 
         // --- CROSS-CONTRACT CALL: Get voting power from token balance ---
@@ -204,7 +207,7 @@ impl DripGovernance {
         // --- END CROSS-CONTRACT CALL ---
 
         if power <= 0 {
-            panic!("No voting power");
+            return Err(GovError::NoVotingPower);
         }
 
         match choice {
@@ -218,22 +221,58 @@ impl DripGovernance {
         env.storage().persistent().set(&key, &proposal);
 
         e::publish(&env, (e::EVENT_VOTE, &voter, proposal_id), power);
+        Ok(())
+    }
+
+    /// Cancel a proposal before voting ends. Only the proposer may cancel.
+    pub fn cancel_proposal(env: Env, caller: Address, proposal_id: u64) -> Result<(), GovError> {
+        caller.require_auth();
+
+        let key = (KEY_PROPOSAL, proposal_id);
+        let proposal: Proposal = match env.storage().persistent().get(&key) {
+            Some(p) => p,
+            None => return Err(GovError::ProposalNotFound),
+        };
+
+        if proposal.proposer != caller {
+            return Err(GovError::NotAuthorized);
+        }
+        if env.ledger().sequence() > proposal.voting_end {
+            return Err(GovError::VotingEnded);
+        }
+        if proposal.executed {
+            return Err(GovError::AlreadyExecuted);
+        }
+
+        // Mark as executed-and-failed so it can never be executed later, and
+        // drop the stored action.
+        let cancelled = Proposal {
+            executed: true,
+            passed: false,
+            ..proposal
+        };
+        env.storage().persistent().set(&key, &cancelled);
+        env.storage().persistent().remove(&(KEY_PROPOSAL, symbol_short!("action"), proposal_id));
+
+        e::publish(&env, (symbol_short!("cancel"), &caller, proposal_id), true);
+        Ok(())
     }
 
     /// Execute a passed proposal by applying the governance action on-chain.
-    pub fn execute(env: Env, executor: Address, proposal_id: u64) {
+    pub fn execute(env: Env, executor: Address, proposal_id: u64) -> Result<(), GovError> {
         executor.require_auth();
 
         let key = (KEY_PROPOSAL, proposal_id);
-        let mut proposal: Proposal = env.storage().persistent().get(&key).unwrap_or_else(|| {
-            panic!("Proposal not found");
-        });
+        let mut proposal: Proposal = match env.storage().persistent().get(&key) {
+            Some(p) => p,
+            None => return Err(GovError::ProposalNotFound),
+        };
 
         if proposal.executed {
-            panic!("Already executed");
+            return Err(GovError::AlreadyExecuted);
         }
         if env.ledger().sequence() <= proposal.voting_end {
-            panic!("Voting period still active");
+            return Err(GovError::VotingActive);
         }
 
         // Check if proposal passed
@@ -250,6 +289,12 @@ impl DripGovernance {
         env.storage().persistent().set(&key, &proposal);
 
         e::publish(&env, (symbol_short!("execute"), &executor, proposal_id), proposal.passed);
+        Ok(())
+    }
+
+    /// Governance interface version — bump on breaking changes.
+    pub fn version() -> u32 {
+        1
     }
 
     /// Apply a governance action via cross-contract calls to DripPool/DripToken.
@@ -426,6 +471,86 @@ mod governance_test {
         // Verify the pool's reward rate was actually changed
         let pool_config = pool_client.get_pool_config();
         assert_eq!(pool_config.reward_rate, 50i128);
+    }
+
+    #[test]
+    fn test_cancel_proposal() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let stranger = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Cancel me"),
+            &String::from_str(&env, "Should never execute"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+
+        // Non-proposer cannot cancel
+        let err = client.try_cancel_proposal(&stranger, &id);
+        assert!(err.is_err());
+
+        // Proposer can cancel
+        client.cancel_proposal(&proposer, &id);
+        let prop = client.get_proposal(&id).unwrap();
+        assert!(prop.executed);
+        assert!(!prop.passed);
+
+        // Cancelled proposals cannot be executed
+        env.ledger().set_sequence_number(300);
+        let err = client.try_execute(&admin, &id);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_cancel_after_voting_ended_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &10u32, &1i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Too late"),
+            &String::from_str(&env, "Voting period is short"),
+            &GovernanceAction::SetRewardRate(2i128),
+        );
+
+        env.ledger().set_sequence_number(500);
+        let err = client.try_cancel_proposal(&proposer, &id);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_version() {
+        let env = Env::default();
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        assert_eq!(client.version(), 1u32);
     }
 }
 
