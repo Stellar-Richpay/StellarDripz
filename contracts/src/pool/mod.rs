@@ -68,6 +68,11 @@ impl DripPool {
         if reward_rate < 0 || min_stake < 0 {
             return Err(PoolError::InvalidParameter);
         }
+        if admin.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
+            || token_contract_id.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
+        {
+            return Err(PoolError::InvalidParameter);
+        }
         admin.require_auth();
         s::set_persistent(&env, &s::KEY_ADMIN, &admin);
         s::set_persistent(&env, &KEY_TOKEN_ID, &token_contract_id);
@@ -120,7 +125,10 @@ impl DripPool {
         if existing.amount < amount { return Err(PoolError::InsufficientStake); }
         let mut existing_stake = existing;
         let current_ledger = env.ledger().sequence();
-        let locked_until = existing_stake.start_ledger + config.lock_period;
+        let locked_until = existing_stake
+            .start_ledger
+            .checked_add(config.lock_period)
+            .expect("Lock period overflow");
         if current_ledger < locked_until { return Err(PoolError::TokensLocked); }
         if existing_stake.amount > 0 { let pending = Self::calculate_reward(env.clone(), user.clone()); if pending > 0 { existing_stake.reward_claimed = existing_stake.reward_claimed.checked_add(pending).expect("Reward overflow"); } }
         existing_stake.amount = existing_stake.amount.checked_sub(amount).expect("Stake underflow");

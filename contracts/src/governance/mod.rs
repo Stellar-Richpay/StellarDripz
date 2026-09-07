@@ -119,6 +119,12 @@ impl DripGovernance {
         if min_voting_power < 0 {
             return Err(GovError::InvalidParameter);
         }
+        if admin.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
+            || token_contract_id.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
+            || pool_contract_id.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
+        {
+            return Err(GovError::InvalidParameter);
+        }
         admin.require_auth();
 
         s::set_persistent(&env, &s::KEY_ADMIN, &admin);
