@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isValidStellarAddress } from "@/lib/stellar/address";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { fetchBalanceServer } from "@/lib/server/horizonService";
+import { toHttpError } from "@/lib/server/http";
 
 export async function GET(
   request: NextRequest,
@@ -30,9 +31,8 @@ export async function GET(
       },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Balance fetch failed" },
-      { status: 500 },
-    );
+    // Production-safe error text (raw Horizon errors are logged, not echoed).
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }
