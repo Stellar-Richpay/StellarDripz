@@ -24,11 +24,15 @@ jest.mock("next/server", () => {
       return this.body;
     }
   }
-  return { NextResponse: MockNextResponse };
+  return { NextRequest: class {}, NextResponse: MockNextResponse };
 });
 
+jest.mock("@/lib/server/rateLimiter", () => ({
+  checkRateLimit: jest.fn().mockReturnValue(null),
+}));
+
 const mockNetwork = {
-  network: "testnet",
+  network: "TESTNET",
   horizonUrl: "https://horizon-testnet.stellar.org",
   sorobanRpcUrl: "https://soroban-testnet.stellar.org",
   friendbotUrl: "https://friendbot.stellar.org",
@@ -71,6 +75,13 @@ jest.mock("@stellar/stellar-sdk", () => {
   };
 });
 
+import { NextRequest } from "next/server";
+
+function makeReq(): InstanceType<typeof NextRequest> {
+  // The route only passes the request to the (mocked) rate limiter.
+  return new NextRequest("http://localhost:3000/api/status") as InstanceType<typeof NextRequest>;
+}
+
 describe("GET /api/status", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,15 +95,19 @@ describe("GET /api/status", () => {
   it("reports ok for all services when reachable", async () => {
     jest.resetModules();
     const mod = await import("@/app/api/status/route");
-    const res = await mod.GET();
+    const res = await mod.GET(makeReq());
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.network).toBe("testnet");
+    expect(json.network).toBe("TESTNET");
     expect(json.services.horizon.status).toBe("ok");
     expect(json.services.sorobanRpc.status).toBe("ok");
     expect(json.services.friendbot.status).toBe("ok");
     expect(typeof json.services.horizon.latency).toBe("number");
+
+    // Probes must consume the per-IP general bucket.
+    const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+    expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "general");
   });
 
   it("flags friendbot as ok on expected 4xx root responses", async () => {
@@ -104,7 +119,7 @@ describe("GET /api/status", () => {
 
     jest.resetModules();
     const mod = await import("@/app/api/status/route");
-    const res = await mod.GET();
+    const res = await mod.GET(makeReq());
 
     const json = await res.json();
     // Friendbot's root returns 4xx for anonymous requests — that is
@@ -122,7 +137,7 @@ describe("GET /api/status", () => {
 
     jest.resetModules();
     const mod = await import("@/app/api/status/route");
-    const res = await mod.GET();
+    const res = await mod.GET(makeReq());
 
     const json = await res.json();
     expect(json.services.friendbot.status).toBe("error");
@@ -136,10 +151,25 @@ describe("GET /api/status", () => {
 
     jest.resetModules();
     const mod = await import("@/app/api/status/route");
-    const res = await mod.GET();
+    const res = await mod.GET(makeReq());
 
     const json = await res.json();
     expect(json.services.horizon.status).toBe("error");
+  });
+
+  it("skips the friendbot probe and marks it disabled on mainnet", async () => {
+    mockNetwork.network = "MAINNET";
+    jest.resetModules();
+    const mod = await import("@/app/api/status/route");
+    const res = await mod.GET(makeReq());
+
+    const json = await res.json();
+    expect(json.network).toBe("MAINNET");
+    expect(json.services.friendbot.status).toBe("ok");
+    expect(json.services.friendbot.disabled).toBe(true);
+    // No friendbot fetch should have been attempted on mainnet.
+    expect(mockFetch).not.toHaveBeenCalled();
+    mockNetwork.network = "TESTNET";
   });
 });
 
