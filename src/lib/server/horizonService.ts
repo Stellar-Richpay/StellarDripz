@@ -141,6 +141,13 @@ export async function sendPaymentServer(
     signedXdr,
     STELLAR_NETWORK.networkPassphrase,
   );
+
+  // Verify the signed envelope matches the payment the client claimed it
+  // was building. Without this, anyone could POST any pre-signed XDR and
+  // have it attributed to arbitrary sender/destination/amount records (and
+  // our analytics/logging would record forged data).
+  verifyPaymentTransaction(signedTx, senderPublicKey, destination, amount, assetCode);
+
   const response = await horizonServer.submitTransaction(signedTx);
 
   // Log
@@ -165,6 +172,47 @@ export async function sendPaymentServer(
   });
 
   return { hash: response.hash };
+}
+
+/**
+ * Verify a signed transaction envelope matches the claimed payment.
+ * Throws on any mismatch — the caller turns this into a 400/500 response.
+ */
+function verifyPaymentTransaction(
+  tx: StellarSdk.Transaction,
+  senderPublicKey: string,
+  destination: string,
+  amount: string,
+  assetCode: string,
+): void {
+  // TransactionBuilder.fromXDR already validated the network passphrase by
+  // decoding with ours. Check the source account matches the claimed sender.
+  const expectedAssetCode = assetCode || "XLM";
+
+  if (tx.source !== senderPublicKey) {
+    throw new Error("Transaction source does not match sender address");
+  }
+
+  let paymentOps = 0;
+  for (const op of tx.operations) {
+    if (op.type !== "payment") continue;
+    paymentOps++;
+
+    if (op.destination !== destination) {
+      throw new Error("Transaction destination does not match requested recipient");
+    }
+    if (op.amount !== amount) {
+      throw new Error("Transaction amount does not match requested amount");
+    }
+    const actualCode = op.asset.isNative() ? "XLM" : op.asset.code;
+    if (actualCode !== expectedAssetCode) {
+      throw new Error("Transaction asset does not match requested asset");
+    }
+  }
+
+  if (paymentOps === 0) {
+    throw new Error("Transaction contains no payment operation");
+  }
 }
 
 // ---- Build Transaction (returns XDR for frontend to sign) ----
