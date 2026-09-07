@@ -20,6 +20,8 @@ pub enum GovError {
     NoVotingPower = 7,
     InsufficientPower = 8,
     NotAuthorized = 9,
+    InvalidParameter = 10,
+    InvalidVoteTotal = 11,
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
@@ -110,6 +112,12 @@ impl DripGovernance {
     ) -> Result<(), GovError> {
         if env.storage().persistent().has(&s::KEY_ADMIN) {
             return Err(GovError::AlreadyInitialized);
+        }
+        if voting_period == 0 {
+            return Err(GovError::InvalidParameter);
+        }
+        if min_voting_power < 0 {
+            return Err(GovError::InvalidParameter);
         }
         admin.require_auth();
 
@@ -273,6 +281,24 @@ impl DripGovernance {
         }
         if env.ledger().sequence() <= proposal.voting_end {
             return Err(GovError::VotingActive);
+        }
+
+        // Flash-loan sanity check: total votes cast must not exceed the
+        // token supply. If it does, the votes could not have come from
+        // genuinely held balances at any single point in time.
+        let token_id: Address = s::get_persistent(
+            &env, &KEY_TOKEN_ID,
+            Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
+        );
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        let total_supply = token_client.total_supply();
+        let total_votes = proposal
+            .for_votes
+            .checked_add(proposal.against_votes)
+            .and_then(|v| v.checked_add(proposal.abstain_votes))
+            .unwrap_or(i128::MAX);
+        if total_votes > total_supply {
+            return Err(GovError::InvalidVoteTotal);
         }
 
         // Check if proposal passed
@@ -551,6 +577,62 @@ mod governance_test {
         let contract_id = env.register(DripGovernance, ());
         let client = DripGovernanceClient::new(&env, &contract_id);
         assert_eq!(client.version(), 1u32);
+    }
+
+    #[test]
+    fn test_init_rejects_zero_voting_period() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let token_id = env.register(DripToken, ());
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+
+        let err = client.try_initialize_governance(&admin, &token_id, &pool_id, &0u32, &1i128);
+        assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+    }
+
+    #[test]
+    fn test_execute_rejects_votes_exceeding_supply() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &1000i128);
+
+        let governance_id = env.register(DripGovernance, ());
+        let pool_id = Address::generate(&env);
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "P"),
+            &String::from_str(&env, "D"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+
+        // Corrupt the stored vote totals beyond total supply, simulating
+        // double-counted votes.
+        let key = (KEY_PROPOSAL, id);
+        env.as_contract(&governance_id, || {
+            let mut prop: Proposal = env.storage().persistent().get(&key).unwrap();
+            prop.for_votes = 10_000i128;
+            env.storage().persistent().set(&key, &prop);
+        });
+
+        env.ledger().set_sequence_number(500);
+        let err = client.try_execute(&admin, &id);
+        assert_eq!(err, Err(Ok(GovError::InvalidVoteTotal)));
     }
 }
 
