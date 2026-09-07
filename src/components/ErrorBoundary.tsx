@@ -6,6 +6,12 @@ interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, info: { componentStack: string }) => void;
+  /**
+   * When this value changes while an error is showing, the boundary resets
+   * and remounts children. Lets parents force a recovery without unmounting
+   * the boundary itself (e.g. after a retry that should reload data).
+   */
+  resetKey?: unknown;
 }
 
 interface ErrorBoundaryState {
@@ -21,6 +27,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
+  }
+
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    // When the parent supplies a new resetKey while an error is showing,
+    // clear the error so children remount (a structured way to retry).
+    if (this.state.hasError && this.props.resetKey !== prevProps.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }): void {
