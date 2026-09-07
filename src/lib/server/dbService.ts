@@ -100,11 +100,7 @@ export interface TxRecord {
 export interface AnalyticsEntry {
   id: string;
   eventType:
-    | "faucet_request"
-    | "payment_send"
-    | "contract_invoke"
-    | "wallet_connect"
-    | "balance_fetch";
+    "faucet_request" | "payment_send" | "contract_invoke" | "wallet_connect" | "balance_fetch";
   address: string;
   timestamp: number;
   data?: Record<string, unknown>;
@@ -265,10 +261,7 @@ export async function saveTransaction(tx: TxRecord): Promise<void> {
   persistDb();
 }
 
-export async function updateTransaction(
-  id: string,
-  updates: Partial<TxRecord>,
-): Promise<void> {
+export async function updateTransaction(id: string, updates: Partial<TxRecord>): Promise<void> {
   const supabase = getSupabaseAdmin();
 
   if (supabase) {
@@ -277,10 +270,7 @@ export async function updateTransaction(
     if (updates.hash !== undefined) dbUpdates.hash = updates.hash;
     if (updates.errorMessage !== undefined) dbUpdates.error_message = updates.errorMessage;
 
-    const { error } = await supabase
-      .from("transactions")
-      .update(dbUpdates)
-      .eq("id", id);
+    const { error } = await supabase.from("transactions").update(dbUpdates).eq("id", id);
 
     if (error) {
       logger.error("Supabase updateTransaction failed", new Error(error.message));
@@ -344,9 +334,7 @@ export async function getTransactionsCount(
   const supabase = getSupabaseAdmin();
 
   if (supabase) {
-    let query = supabase
-      .from("transactions")
-      .select("*", { count: "exact", head: true });
+    let query = supabase.from("transactions").select("*", { count: "exact", head: true });
 
     if (address) query = query.eq("sender_address", address);
     if (type) query = query.eq("type", type);
@@ -369,9 +357,7 @@ export async function getTransactionsCount(
 
 // ---- Analytics ----
 
-export async function logAnalytics(
-  entry: Omit<AnalyticsEntry, "id" | "timestamp">,
-): Promise<void> {
+export async function logAnalytics(entry: Omit<AnalyticsEntry, "id" | "timestamp">): Promise<void> {
   const supabase = getSupabaseAdmin();
 
   const record = {

@@ -23,11 +23,7 @@ import { connectAndRegister, disconnectAndUnregister } from "@/lib/client/wallet
 import * as apiClient from "@/lib/client/apiClient";
 import { directFetchBalance } from "@/lib/client/directClient";
 import { getExplorerUrl } from "@/lib/stellar/explorer";
-import {
-  getCooldownRemaining,
-  recordCooldown,
-  recordFaucetRequest,
-} from "@/lib/rateLimiter";
+import { getCooldownRemaining, recordCooldown, recordFaucetRequest } from "@/lib/rateLimiter";
 
 /** Client-side cooldown window, mirroring the server's faucet bucket. */
 const FAUCET_COOLDOWN_MS = 60_000;
@@ -184,9 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let lastFocusRefresh = 0;
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
-      const lastFetchedMs = state.balance.lastFetched
-        ? state.balance.lastFetched.getTime()
-        : 0;
+      const lastFetchedMs = state.balance.lastFetched ? state.balance.lastFetched.getTime() : 0;
       const now = Date.now();
       if (now - Math.max(lastFetchedMs, lastFocusRefresh) < MIN_REFRESH_GAP_MS) return;
       lastFocusRefresh = now;

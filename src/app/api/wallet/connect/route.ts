@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
     const ip = request.headers.get("x-forwarded-for") || undefined;
     const ua = request.headers.get("user-agent") || undefined;
 
-    const session = await createSession(address, walletId, walletName || walletId, { ip, userAgent: ua });
+    const session = await createSession(address, walletId, walletName || walletId, {
+      ip,
+      userAgent: ua,
+    });
 
     const response = NextResponse.json({
       success: true,

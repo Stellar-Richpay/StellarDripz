@@ -37,8 +37,7 @@ export function middleware(request: NextRequest) {
   // Correlate every API call across logs, rate-limiter records, and client
   // debugging. Honor an upstream X-Request-Id (proxies/load balancers) so
   // traces stay consistent end to end; otherwise mint one per request.
-  const requestId =
-    request.headers.get("x-request-id") || crypto.randomUUID();
+  const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
   response.headers.set("x-request-id", requestId);
 
   return response;

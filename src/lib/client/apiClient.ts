@@ -18,9 +18,7 @@ const CSRF_HEADER = "x-csrf-token";
 /** Read the current CSRF token from document.cookie, if present. */
 function getCsrfToken(): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`),
-  );
+  const match = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -56,8 +54,7 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   if (!res.ok) {
     const retryAfter = res.headers.get("Retry-After");
     const requestId = res.headers.get("x-request-id");
-    const message =
-      (json as { error?: string } | null)?.error || `HTTP ${res.status}`;
+    const message = (json as { error?: string } | null)?.error || `HTTP ${res.status}`;
     const error = new Error(message) as Error & {
       retryAfter?: number;
       status?: number;
@@ -129,7 +126,15 @@ export function submitPayment(
 ) {
   return request<{ success: boolean; hash: string }>("/api/payment/send", {
     method: "POST",
-    body: JSON.stringify({ signedXdr, senderAddress, destination, amount, assetCode, assetIssuer, memo }),
+    body: JSON.stringify({
+      signedXdr,
+      senderAddress,
+      destination,
+      amount,
+      assetCode,
+      assetIssuer,
+      memo,
+    }),
   });
 }
 

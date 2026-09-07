@@ -197,19 +197,11 @@ export default function WalletConnect() {
           aria-label="Scan with WalletConnect"
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={handleCancelWc}
-          />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCancelWc} />
           <div className="relative z-10 w-full max-w-sm rounded-2xl border border-stellar-blue/20 bg-surface-800 p-6 shadow-2xl animate-scale-in">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                📱 Scan with WalletConnect
-              </h3>
-              <button
-                onClick={handleCancelWc}
-                className="text-white/40 hover:text-white/80"
-              >
+              <h3 className="text-lg font-semibold text-white">📱 Scan with WalletConnect</h3>
+              <button onClick={handleCancelWc} className="text-white/40 hover:text-white/80">
                 ✕
               </button>
             </div>
@@ -309,8 +301,7 @@ export default function WalletConnect() {
       </div>
       <h2 className="text-lg font-semibold text-white mb-2">Connect Wallet</h2>
       <p className="mb-4 text-sm text-white/60 max-w-xs mx-auto">
-        Link any Stellar wallet to get testnet XLM, send assets, and interact with smart
-        contracts.
+        Link any Stellar wallet to get testnet XLM, send assets, and interact with smart contracts.
       </p>
 
       {error && (

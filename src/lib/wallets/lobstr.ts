@@ -26,9 +26,7 @@ export function isLobstrInstalled(): boolean {
   try {
     // Check for the LOBSTR extension object in window
     _lobstrInstalled =
-      typeof window !== "undefined" &&
-      ("lobstrSignerExtension" in window ||
-        "lobstr" in window);
+      typeof window !== "undefined" && ("lobstrSignerExtension" in window || "lobstr" in window);
   } catch {
     _lobstrInstalled = false;
   }
@@ -45,9 +43,7 @@ export async function connectLobstr(
   walletName: string;
 }> {
   try {
-    const { isConnected, getPublicKey } = await import(
-      "@lobstrco/signer-extension-api"
-    );
+    const { isConnected, getPublicKey } = await import("@lobstrco/signer-extension-api");
 
     const connected = await isConnected();
     if (!connected) throw new Error("LOBSTR_NOT_CONNECTED");
@@ -69,9 +65,7 @@ export async function connectLobstr(
 
 export async function signLobstr(xdr: string): Promise<string> {
   try {
-    const { signTransaction } = await import(
-      "@lobstrco/signer-extension-api"
-    );
+    const { signTransaction } = await import("@lobstrco/signer-extension-api");
 
     const result = await signTransaction(xdr);
 

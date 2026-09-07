@@ -1,4 +1,8 @@
-import { isValidStellarAddress, isValidStellarAddressTrimmed, getAddressError } from "@/lib/stellar/address";
+import {
+  isValidStellarAddress,
+  isValidStellarAddressTrimmed,
+  getAddressError,
+} from "@/lib/stellar/address";
 
 // Real, checksum-valid testnet addresses (derived with StrKey).
 const VALID_G = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
@@ -13,7 +17,9 @@ describe("isValidStellarAddress", () => {
   it("rejects wrong-length, wrong-prefix, and empty inputs", () => {
     expect(isValidStellarAddress("")).toBe(false);
     expect(isValidStellarAddress("GAAA")).toBe(false);
-    expect(isValidStellarAddress("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")).toBe(false);
+    expect(isValidStellarAddress("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")).toBe(
+      false,
+    );
     // G with a corrupted trailing char breaks the CRC16 checksum.
     expect(isValidStellarAddress(`${VALID_G.slice(0, -1)}X`)).toBe(false);
   });
@@ -32,7 +38,9 @@ describe("getAddressError", () => {
   it("explains why an address is invalid", () => {
     expect(getAddressError("")).toMatch(/required/i);
     expect(getAddressError("GAAA")).toMatch(/56 characters/i);
-    expect(getAddressError("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")).toMatch(/start with 'G'/i);
+    expect(getAddressError("CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4")).toMatch(
+      /start with 'G'/i,
+    );
     expect(getAddressError(`${VALID_G.slice(0, -1)}X`)).toMatch(/checksum/i);
   });
 

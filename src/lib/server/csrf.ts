@@ -54,17 +54,11 @@ export function validateCsrf(request: NextRequest): NextResponse | null {
   const headerToken = request.headers.get(CSRF_HEADER) || "";
 
   if (!cookieToken || !headerToken) {
-    return NextResponse.json(
-      { error: "CSRF token missing" },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: "CSRF token missing" }, { status: 403 });
   }
 
   if (cookieToken !== headerToken) {
-    return NextResponse.json(
-      { error: "CSRF token mismatch" },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: "CSRF token mismatch" }, { status: 403 });
   }
 
   return null;

@@ -233,8 +233,8 @@ export default function SendForm() {
                 .filter((a) => a.asset.type !== "native")
                 .map((a) => (
                   <option key={`${a.asset.code}-${a.asset.issuer}`} value={a.asset.code}>
-                    {a.asset.code} · {a.asset.issuer.slice(0, 6)}…{a.asset.issuer.slice(-4)}{" "}
-                    ({a.formatted})
+                    {a.asset.code} · {a.asset.issuer.slice(0, 6)}…{a.asset.issuer.slice(-4)} (
+                    {a.formatted})
                   </option>
                 ))}
             </select>

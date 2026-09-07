@@ -190,7 +190,15 @@ export async function sendPaymentServer(
   // our analytics/logging would record forged data).
   const innerTx =
     signedTx instanceof StellarSdk.FeeBumpTransaction ? signedTx.innerTransaction : signedTx;
-  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode, assetIssuer, memo);
+  verifyPaymentTransaction(
+    innerTx,
+    senderPublicKey,
+    destination,
+    amount,
+    assetCode,
+    assetIssuer,
+    memo,
+  );
 
   const response = await horizonServer.submitTransaction(signedTx);
 

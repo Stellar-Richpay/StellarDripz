@@ -123,7 +123,10 @@ function rateLimitHeaders(
   config: RateLimitConfig,
   now: number,
 ): Record<string, string> {
-  const remaining = entry && now < entry.resetAt ? Math.max(0, config.maxRequests - entry.count) : config.maxRequests;
+  const remaining =
+    entry && now < entry.resetAt
+      ? Math.max(0, config.maxRequests - entry.count)
+      : config.maxRequests;
   const reset = entry ? Math.ceil((entry.resetAt - now) / 1000) : Math.ceil(config.windowMs / 1000);
   return {
     "X-RateLimit-Limit": String(config.maxRequests),
@@ -208,9 +211,7 @@ export function attachRateLimitHeaders(
   address?: string,
 ): NextResponse {
   const config = DEFAULTS[category] || DEFAULTS.general;
-  const key = address
-    ? `${category}:${address}`
-    : `${category}:${getClientIp(request)}`;
+  const key = address ? `${category}:${address}` : `${category}:${getClientIp(request)}`;
   const entry = address ? addressMap.get(key) : ipMap.get(key);
   return withRateLimitHeaders(response, rateLimitHeaders(entry, config, Date.now()));
 }

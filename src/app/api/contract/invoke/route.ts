@@ -75,9 +75,7 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       return StellarSdk.xdr.ScVal.scvI32(arg);
     }
     if (arg >= -9223372036854775808 && arg <= 9223372036854775807) {
-      return StellarSdk.xdr.ScVal.scvI64(
-        StellarSdk.xdr.Int64.fromString(String(arg)),
-      );
+      return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(String(arg)));
     }
     throw new Error(`Numeric argument out of range: ${arg}`);
   }
@@ -107,9 +105,7 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       );
     }
     if (obj.u64 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvU64(
-        StellarSdk.xdr.Uint64.fromString(String(obj.u64)),
-      );
+      return StellarSdk.xdr.ScVal.scvU64(StellarSdk.xdr.Uint64.fromString(String(obj.u64)));
     }
     if (obj.u128 !== undefined) {
       const num = BigInt(String(obj.u128));
@@ -123,9 +119,7 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       );
     }
     if (obj.i64 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvI64(
-        StellarSdk.xdr.Int64.fromString(String(obj.i64)),
-      );
+      return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(String(obj.i64)));
     }
     if (obj.i32 !== undefined) {
       return StellarSdk.xdr.ScVal.scvI32(Number(obj.i32));

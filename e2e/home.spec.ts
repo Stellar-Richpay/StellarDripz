@@ -36,9 +36,7 @@ test.describe("StellarDripz Homepage", () => {
     await expect(page.locator("text=Track usage")).toBeVisible();
 
     // "Connect wallet" call-to-action
-    await expect(
-      page.locator("text=Connect any Stellar wallet to get started"),
-    ).toBeVisible();
+    await expect(page.locator("text=Connect any Stellar wallet to get started")).toBeVisible();
   });
 
   test("renders the wallet connect section", async ({ page }) => {
@@ -80,9 +78,7 @@ test.describe("StellarDripz Homepage", () => {
     await expect(ogTitle).toHaveAttribute("content", /StellarDripz/);
   });
 
-  test("is responsive — mobile layout renders without horizontal overflow", async ({
-    page,
-  }) => {
+  test("is responsive — mobile layout renders without horizontal overflow", async ({ page }) => {
     // The page should not have horizontal scroll at mobile width
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
@@ -241,9 +237,7 @@ test.describe("Contract interaction", () => {
   test("contract section hidden when wallet not connected", async ({ page }) => {
     // The contract ID input and Connect button are only shown after wallet connection.
     // Without a wallet, they should not exist in the DOM.
-    await expect(
-      page.getByPlaceholder("Paste deployed contract ID..."),
-    ).not.toBeVisible();
+    await expect(page.getByPlaceholder("Paste deployed contract ID...")).not.toBeVisible();
   });
 
   test("analytics feature card visible when disconnected", async ({ page }) => {
@@ -252,9 +246,7 @@ test.describe("Contract interaction", () => {
   });
 
   test("connect wallet CTA shown when disconnected", async ({ page }) => {
-    await expect(
-      page.locator("text=Connect any Stellar wallet to get started"),
-    ).toBeVisible();
+    await expect(page.locator("text=Connect any Stellar wallet to get started")).toBeVisible();
   });
 
   test("hero mentions smart contract support", async ({ page }) => {

@@ -14,12 +14,19 @@ describe("getAppConfig", () => {
     expect(config.friendbotUrl).toBe("https://friendbot.stellar.org");
     expect(config.rateLimitFaucet).toBe(60000);
     expect(config.rateLimitContract).toBe(30000);
-  });  it("loads contract IDs from environment when configured", () => {
+  });
+  it("loads contract IDs from environment when configured", () => {
     // Contract IDs may be set via .env.local (deployed) or unset (null).
     // Both states are valid — the test validates the loader, not deployment state.
     const config = getAppConfig();
     // If IDs are set, they should be non-empty strings starting with "C"
-    for (const id of [config.contractIdCounter, config.contractIdDripToken, config.contractIdDripPool, config.contractIdGovernance, config.contractIdBadge]) {
+    for (const id of [
+      config.contractIdCounter,
+      config.contractIdDripToken,
+      config.contractIdDripPool,
+      config.contractIdGovernance,
+      config.contractIdBadge,
+    ]) {
       if (id !== null) {
         expect(typeof id).toBe("string");
         expect(id.length).toBeGreaterThan(0);
@@ -53,7 +60,8 @@ describe("validateEnv", () => {
 
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
-  });  it("reports appropriate warnings based on config state", () => {
+  });
+  it("reports appropriate warnings based on config state", () => {
     const result = validateEnv();
     // If contracts are deployed, no contract ID warning; if not, warning appears.
     // Both states are valid — the test checks the function runs without error.

@@ -12,7 +12,10 @@ const CSRF_COOKIE = "stellardripz_csrf";
 const CSRF_HEADER = "x-csrf-token";
 
 /** Minimal Response-like object (jsdom env has no global Response). */
-function mockResponse(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}) {
+function mockResponse(
+  body: unknown,
+  init: { status?: number; headers?: Record<string, string> } = {},
+) {
   return {
     ok: (init.status ?? 200) < 400,
     status: init.status ?? 200,

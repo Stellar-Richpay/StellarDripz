@@ -7,11 +7,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
-import {
-  getTransactions,
-  getTransactionsCount,
-  type TxRecord,
-} from "@/lib/server/dbService";
+import { getTransactions, getTransactionsCount, type TxRecord } from "@/lib/server/dbService";
 
 export async function GET(request: NextRequest) {
   // Rate limit history reads per IP — the endpoint can scan the DB and is

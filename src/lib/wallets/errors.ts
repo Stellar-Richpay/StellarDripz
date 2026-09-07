@@ -19,8 +19,7 @@ const WALLET_ERROR_MESSAGES: Record<string, string> = {
   LOBSTR_NOT_DETECTED: "LOBSTR extension not detected.",
   LOBSTR_CONNECTION_FAILED: "Failed to connect to LOBSTR.",
   LOBSTR_SIGN_FAILED: "Failed to sign with LOBSTR.",
-  WC_NO_PROJECT_ID:
-    "WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.",
+  WC_NO_PROJECT_ID: "WalletConnect is not configured. Set NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID.",
   WC_NO_URI: "Could not start a WalletConnect pairing.",
   WC_NO_STELLAR_ACCOUNT: "The connected wallet has no Stellar account.",
   WC_NO_PUBLIC_KEY: "The connected wallet returned no public key.",

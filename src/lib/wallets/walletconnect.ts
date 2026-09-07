@@ -120,7 +120,9 @@ export async function startWalletConnectPairing(): Promise<WCPairingInfo> {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(TOPIC_KEY, session.topic);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     return { publicKey, topic: session.topic };
@@ -151,7 +153,9 @@ export async function connectWalletConnect(
         "stellardripz_wallet",
         JSON.stringify({ publicKey, walletId, walletName, connectedAt: Date.now() }),
       );
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   return { publicKey, network: "TESTNET", walletId, walletName };
@@ -239,13 +243,17 @@ export async function disconnectWalletConnect(): Promise<void> {
         topic: _activeSession.topic,
         reason: { code: 6000, message: "User disconnected" },
       });
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     _activeSession = null;
   }
 
   if (typeof window !== "undefined") {
     try {
       localStorage.removeItem(TOPIC_KEY);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 }

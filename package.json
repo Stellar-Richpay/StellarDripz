@@ -20,6 +20,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
     "test": "jest --passWithNoTests --verbose",
     "verify": "npm run typecheck && npm test",
     "test:watch": "jest --watch",

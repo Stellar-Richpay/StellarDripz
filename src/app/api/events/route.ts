@@ -8,10 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getContractEventsServer,
-  getLatestLedgerServer,
-} from "@/lib/server/sorobanService";
+import { getContractEventsServer, getLatestLedgerServer } from "@/lib/server/sorobanService";
 import { getClientIp } from "@/lib/server/rateLimiter";
 import { logger } from "@/lib/logger";
 

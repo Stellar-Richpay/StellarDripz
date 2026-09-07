@@ -46,13 +46,10 @@ export function getMainnetConfig(): MainnetConfig {
 
   return {
     ...MAINNET_DEFAULTS,
-    sorobanRpcUrl:
-      process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || MAINNET_DEFAULTS.sorobanRpcUrl,
-    horizonUrl:
-      process.env.NEXT_PUBLIC_HORIZON_URL || MAINNET_DEFAULTS.horizonUrl,
+    sorobanRpcUrl: process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || MAINNET_DEFAULTS.sorobanRpcUrl,
+    horizonUrl: process.env.NEXT_PUBLIC_HORIZON_URL || MAINNET_DEFAULTS.horizonUrl,
     networkPassphrase:
-      process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE ||
-      MAINNET_DEFAULTS.networkPassphrase,
+      process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || MAINNET_DEFAULTS.networkPassphrase,
   };
 }
 

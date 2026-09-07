@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
 
     // Validate all addresses with StrKey checksum — the regex alone accepts
     // addresses that Horizon later rejects with a confusing 5xx.
-    const normalized = [...new Set(addresses.map((addr) => (typeof addr === "string" ? addr.trim() : "")))];
+    const normalized = [
+      ...new Set(addresses.map((addr) => (typeof addr === "string" ? addr.trim() : ""))),
+    ];
     for (const addr of normalized) {
       if (!isValidStellarAddress(addr)) {
         return NextResponse.json({ error: `Invalid address: ${addr}` }, { status: 400 });
