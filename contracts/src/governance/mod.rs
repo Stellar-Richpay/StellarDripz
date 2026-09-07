@@ -81,6 +81,7 @@ pub enum VoteChoice {
 pub enum GovernanceAction {
     SetRewardRate(i128),
     SetMinStake(i128),
+    SetMaxStake(i128),
     SetLockPeriod(u32),
     SetActive(bool),
     MintTokens(Address, i128),
@@ -383,6 +384,10 @@ impl DripGovernance {
             GovernanceAction::SetMinStake(min) => {
                 let pool_client = pool::DripPoolClient::new(env, &pool_id);
                 pool_client.set_min_stake(&admin_addr, min);
+            }
+            GovernanceAction::SetMaxStake(max) => {
+                let pool_client = pool::DripPoolClient::new(env, &pool_id);
+                pool_client.set_max_stake(&admin_addr, max);
             }
             GovernanceAction::SetLockPeriod(period) => {
                 let pool_client = pool::DripPoolClient::new(env, &pool_id);
@@ -892,6 +897,45 @@ mod governance_test {
         env.ledger().set_sequence_number(500);
         let err = client.try_execute(&admin, &id);
         assert_eq!(err, Err(Ok(GovError::InvalidVoteTotal)));
+    }
+
+    #[test]
+    fn test_execute_max_stake_action() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &5000i128);
+
+        let governance_id = env.register(DripGovernance, ());
+        let pool_id = env.register(DripPool, ());
+        let pool_client = pool::DripPoolClient::new(&env, &pool_id);
+        pool_client.initialize_pool(&governance_id, &token_id, &100i128, &10i128, &100u32);
+
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Raise max stake"),
+            &String::from_str(&env, "Allow larger positions"),
+            &GovernanceAction::SetMaxStake(50_000i128),
+        );
+        client.vote(&voter, &id, &VoteChoice::For);
+        client.vote(&proposer, &id, &VoteChoice::For);
+
+        env.ledger().set_sequence_number(500);
+        client.execute(&admin, &id);
+
+        let config = pool_client.get_pool_config();
+        assert_eq!(config.max_stake, 50_000i128);
     }
 }
 
