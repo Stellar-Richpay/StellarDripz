@@ -41,6 +41,7 @@ beforeEach(() => {
       },
     ],
     total: 2,
+    hasMore: true,
   });
 });
 
@@ -71,6 +72,7 @@ describe("useTransactionHistory", () => {
       expect(result.current.transactions[0].status).toBe("success");
       expect(result.current.transactions[0].hash).toBe("hash1");
       expect(result.current.total).toBe(2);
+      expect(result.current.hasMore).toBe(true);
     });
 
     it("passes filters to the API", async () => {

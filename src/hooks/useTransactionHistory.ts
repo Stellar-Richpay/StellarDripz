@@ -26,6 +26,8 @@ interface UseTransactionHistoryReturn {
   error: string | null;
   /** Total transaction count (may not equal transactions.length if limited) */
   total: number;
+  /** True when more records exist beyond the current page */
+  hasMore: boolean;
   /** Manually refresh the transaction list */
   refresh: () => Promise<void>;
 }
@@ -43,6 +45,8 @@ function mapApiTransaction(tx: Record<string, unknown>): TransactionRecord {
     contractId: (tx.contractId as string) || undefined,
     functionName: (tx.functionName as string) || undefined,
     errorMessage: (tx.errorMessage as string) || undefined,
+    memo: (tx.memo as string) || undefined,
+    feeStroops: (tx.feeStroops as number) || undefined,
   };
 }
 
@@ -61,6 +65,7 @@ export function useTransactionHistory({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const mountedRef = useRef(true);
 
   // Reset the mounted flag on every mount (not just the first). React 18
@@ -87,6 +92,7 @@ export function useTransactionHistory({
       const mapped = result.transactions.map(mapApiTransaction);
       setTransactions(mapped);
       setTotal(result.total);
+      setHasMore(result.hasMore);
     } catch (err) {
       if (!mountedRef.current) return;
       setError(err instanceof Error ? err.message : "History fetch failed");
@@ -107,7 +113,7 @@ export function useTransactionHistory({
     return () => clearInterval(interval);
   }, [refresh, refreshInterval]);
 
-  return { transactions, loading, error, total, refresh };
+  return { transactions, loading, error, total, hasMore, refresh };
 }
 
 export type { TransactionRecord, TxType };

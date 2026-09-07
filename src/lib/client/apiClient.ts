@@ -196,6 +196,8 @@ export function fetchHistory(address?: string, type?: string, limit?: number) {
       functionName?: string;
       contractId?: string;
       errorMessage?: string;
+      memo?: string;
+      feeStroops?: number;
       timestamp: number;
     }>;
     total: number;
