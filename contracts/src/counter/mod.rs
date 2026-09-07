@@ -7,11 +7,18 @@ use soroban_sdk::{contract, contractimpl, contracterror, contractevent, symbol_s
 #[repr(u32)]
 pub enum CounterError {
     Overflow = 1,
+    GreetingTooLong = 2,
 }
 
 const GLOBAL_COUNTER: Symbol = symbol_short!("GLOBAL");
 const USER_COUNTER: Symbol = symbol_short!("USER_CTR");
 const GREETING_KEY: Symbol = symbol_short!("GREETING");
+
+/// Contract version, bumped on breaking changes.
+const CONTRACT_VERSION: u32 = 1;
+
+/// Greetings longer than this are rejected to bound storage usage.
+const MAX_GREETING_BYTES: u32 = 512;
 
 #[contractevent]
 pub struct IncrementEvent {
@@ -74,22 +81,44 @@ impl StellarDripzCounter {
             .unwrap_or(0)
     }
 
-    pub fn set_greeting(env: Env, user: Address, message: String) {
+    /// Greetings are stored per-user so one user cannot overwrite another's.
+    pub fn set_greeting(env: Env, user: Address, message: String) -> Result<(), CounterError> {
         user.require_auth();
-        env.storage().persistent().set(&GREETING_KEY, &message);
+
+        if message.len() > MAX_GREETING_BYTES {
+            return Err(CounterError::GreetingTooLong);
+        }
+
+        let user_key = (GREETING_KEY, &user);
+        env.storage().persistent().set(&user_key, &message);
 
         GreetingEvent {
             user: user.clone(),
             message: message.clone(),
         }
         .publish(&env);
+        Ok(())
     }
 
-    pub fn get_greeting(env: Env) -> String {
+    pub fn get_greeting(env: Env, user: Address) -> String {
+        let user_key = (GREETING_KEY, &user);
         env.storage()
             .persistent()
-            .get(&GREETING_KEY)
+            .get(&user_key)
             .unwrap_or(String::from_str(&env, "Hello from StellarDripz!"))
     }
-}
 
+    /// Clear a user's own counter and greeting.
+    pub fn reset(env: Env, user: Address) -> Result<(), CounterError> {
+        user.require_auth();
+
+        env.storage().persistent().remove(&(USER_COUNTER, &user));
+        env.storage().persistent().remove(&(GREETING_KEY, &user));
+        Ok(())
+    }
+
+    /// Current contract version.
+    pub fn version(_env: Env) -> u32 {
+        CONTRACT_VERSION
+    }
+}

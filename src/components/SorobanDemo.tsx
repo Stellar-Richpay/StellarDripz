@@ -93,7 +93,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
       const { resultValue } = await directSimulateContract(
         contractId,
         "get_greeting",
-        [],
+        [state.wallet.publicKey],
         state.wallet.publicKey,
       );
       setGreeting((resultValue as string) || "Hello from StellarDripz!");
