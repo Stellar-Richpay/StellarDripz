@@ -168,11 +168,18 @@ export default function Home() {
       {!wallet.connected && (
         <div className="text-center max-w-md mx-auto space-y-10">
           <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              { icon: "💧", label: "Faucet", desc: "10,000 test XLM" },
-              { icon: "📤", label: "Send", desc: "Any address" },
-              { icon: "📊", label: "Analytics", desc: "Track usage" },
-            ].map((f) => (
+            {(isMainnet
+              ? [
+                  { icon: "🔑", label: "Wallets", desc: "Freighter, xBull, LOBSTR" },
+                  { icon: "📤", label: "Send", desc: "Any address" },
+                  { icon: "📜", label: "Contracts", desc: "Soroban support" },
+                ]
+              : [
+                  { icon: "💧", label: "Faucet", desc: "10,000 test XLM" },
+                  { icon: "📤", label: "Send", desc: "Any address" },
+                  { icon: "📊", label: "Analytics", desc: "Track usage" },
+                ]
+            ).map((f) => (
               <div
                 key={f.label}
                 className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center hover:border-white/10"
