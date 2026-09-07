@@ -47,14 +47,19 @@ export default function CooldownTimer({ address, onReady }: CooldownTimerProps) 
 
   if (remaining <= 0) return null;
 
+  // Format as m:ss (e.g. 1:05) so longer cooldowns stay scannable.
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+  const label = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, "0")}` : `${seconds}s`;
+
   return (
     <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 text-center animate-pulse">
       <div className="flex items-center justify-center gap-2">
         <span className="text-lg">⏳</span>
-        <p className="text-sm font-semibold text-yellow-400">Cooldown: {remaining}s remaining</p>
+        <p className="text-sm font-semibold text-yellow-400">Cooldown: {label} remaining</p>
       </div>
       <p className="mt-1 text-xs text-yellow-400/60">
-        You can request faucet funds again in {remaining} second{remaining !== 1 ? "s" : ""}.
+        You can request faucet funds again in {label}.
       </p>
     </div>
   );
