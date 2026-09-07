@@ -32,6 +32,8 @@
  * deployments (<100 concurrent users) and local development.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { getAppConfig } from "@/lib/env";
+import { MAINNET_RATE_LIMITS } from "@/lib/stellar/mainnet";
 
 interface RateLimitEntry {
   count: number;
@@ -60,13 +62,24 @@ interface RateLimitConfig {
   maxRequests: number;
 }
 
-const DEFAULTS: Record<string, RateLimitConfig> = {
+const TESTNET_LIMITS: Record<string, RateLimitConfig> = {
   faucet: { windowMs: 60_000, maxRequests: 1 }, // 1 per minute per address
   payment: { windowMs: 60_000, maxRequests: 10 }, // 10 per minute per address
   contract: { windowMs: 60_000, maxRequests: 5 }, // 5 per minute per address
   wallet: { windowMs: 60_000, maxRequests: 20 }, // 20 per minute per IP
   general: { windowMs: 60_000, maxRequests: 30 }, // 30 per minute per IP
 };
+
+/**
+ * Network-aware defaults: mainnet deployments get the much stricter limits
+ * from src/lib/stellar/mainnet.ts (1 faucet request per day, tighter
+ * payment/contract/wallet buckets) because real XLM is at stake. Previously
+ * MAINNET_RATE_LIMITS existed but was never wired into the rate limiter, so
+ * a mainnet deploy silently ran with testnet limits.
+ */
+const DEFAULTS: Record<string, RateLimitConfig> = getAppConfig().isTestnet
+  ? TESTNET_LIMITS
+  : (MAINNET_RATE_LIMITS as Record<string, RateLimitConfig>);
 
 /**
  * Check rate limit. Returns null if allowed, or a NextResponse with 429 if blocked.
