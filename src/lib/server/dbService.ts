@@ -87,6 +87,9 @@ export interface TxRecord {
   hash: string | null;
   amount: string;
   assetCode?: string;
+  memo?: string;
+  /** Network fee in stroops, surfaced from the build step. */
+  feeStroops?: number;
   senderAddress: string;
   destinationAddress: string;
   functionName?: string;
@@ -186,6 +189,11 @@ function mapTxRow(row: Record<string, unknown>): TxRecord {
     hash: (row.hash as string) || null,
     amount: String(row.amount || "0"),
     assetCode: (row.asset_code as string) || undefined,
+    memo: (row.memo as string) || undefined,
+    feeStroops:
+      row.fee_stroops !== null && row.fee_stroops !== undefined
+        ? Number(row.fee_stroops)
+        : undefined,
     senderAddress: String(row.sender_address || ""),
     destinationAddress: String(row.destination_address || ""),
     functionName: (row.function_name as string) || undefined,
@@ -206,6 +214,8 @@ function txToDbRow(tx: TxRecord): Record<string, unknown> {
     hash: tx.hash,
     amount: tx.amount,
     asset_code: tx.assetCode || null,
+    memo: tx.memo || null,
+    fee_stroops: tx.feeStroops ?? null,
     sender_address: tx.senderAddress,
     destination_address: tx.destinationAddress,
     function_name: tx.functionName || null,

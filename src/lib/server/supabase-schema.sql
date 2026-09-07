@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   hash            TEXT,
   amount          TEXT NOT NULL,
   asset_code      TEXT,
+  memo            TEXT,
+  fee_stroops     BIGINT,
   sender_address  TEXT NOT NULL,
   destination_address TEXT NOT NULL,
   function_name   TEXT,
@@ -43,6 +45,11 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent upgrades for deployments that created the table before these
+-- columns existed (re-paste this file to apply).
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS memo TEXT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fee_stroops BIGINT;
 
 -- Index for fast lookups by sender address
 CREATE INDEX IF NOT EXISTS idx_transactions_sender ON transactions(sender_address);

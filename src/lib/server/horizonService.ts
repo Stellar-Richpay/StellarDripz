@@ -212,6 +212,7 @@ export async function sendPaymentServer(
     hash: response.hash,
     amount,
     assetCode,
+    memo,
     senderAddress: senderPublicKey,
     destinationAddress: destination,
     timestamp: Date.now(),
