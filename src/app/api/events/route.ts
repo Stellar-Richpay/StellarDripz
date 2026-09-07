@@ -12,6 +12,7 @@ import {
   getContractEventsServer,
   getLatestLedgerServer,
 } from "@/lib/server/sorobanService";
+import { getClientIp } from "@/lib/server/rateLimiter";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -19,6 +20,18 @@ export const dynamic = "force-dynamic";
 // Vercel function timeout: Hobby ~10s (60s max), Pro up to 300s for streaming.
 // Set to the platform maximum so SSE streams live as long as the plan allows.
 export const maxDuration = 300;
+
+// Each SSE stream holds a connection open indefinitely, so unlike stateless
+// routes a burst of tabs (or an attacker) can exhaust the function pool. Cap
+// concurrent streams per IP; slots are released when a client disconnects.
+const MAX_STREAMS_PER_IP = 5;
+const activeStreams = new Map<string, number>();
+
+function releaseStreamSlot(ip: string): void {
+  const current = activeStreams.get(ip) || 0;
+  if (current <= 1) activeStreams.delete(ip);
+  else activeStreams.set(ip, current - 1);
+}
 
 async function* streamEvents(contractId: string, pollMs: number) {
   // Start near the head of the chain instead of ledger 0 (fast cold starts).
@@ -70,13 +83,31 @@ async function* streamEvents(contractId: string, pollMs: number) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const contractId = searchParams.get("contractId");
-  const pollInterval = Math.max(1000, parseInt(searchParams.get("pollInterval") || "5000", 10));
+  // Clamp the poll interval so clients can't pin streams to absurdly long
+  // (or busy) cycles; default 5s, floor 1s, ceiling 60s.
+  const pollInterval = Math.min(
+    60_000,
+    Math.max(1000, parseInt(searchParams.get("pollInterval") || "5000", 10) || 5000),
+  );
 
   if (!contractId) {
     return NextResponse.json({ error: "contractId query parameter required" }, { status: 400 });
   }
 
-  logger.info("SSE stream started", { contractId, pollInterval });
+  const ip = getClientIp(request);
+  const currentStreams = activeStreams.get(ip) || 0;
+  if (currentStreams >= MAX_STREAMS_PER_IP) {
+    logger.warn("SSE stream cap reached", { ip, contractId });
+    return NextResponse.json(
+      {
+        error: `Too many active event streams from this connection (max ${MAX_STREAMS_PER_IP}). Close other tabs and reconnect.`,
+      },
+      { status: 429 },
+    );
+  }
+  activeStreams.set(ip, currentStreams + 1);
+
+  logger.info("SSE stream started", { contractId, pollInterval, ip });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -91,9 +122,11 @@ export async function GET(request: NextRequest) {
           break;
         }
       }
+      releaseStreamSlot(ip);
     },
     cancel() {
-      logger.info("SSE stream cancelled", { contractId });
+      logger.info("SSE stream cancelled", { contractId, ip });
+      releaseStreamSlot(ip);
     },
   });
 
