@@ -66,6 +66,7 @@ jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: jest.fn().mockReturnValue(null),
   attachRateLimitHeaders: jest.fn((_req: unknown, res: unknown) => res),
   clearRateLimits: jest.fn(),
+  getClientIp: jest.fn(() => "127.0.0.1"),
 }));
 
 const mockRequestFaucetFundsServer = jest.fn();

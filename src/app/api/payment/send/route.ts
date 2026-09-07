@@ -11,7 +11,7 @@ import {
   validateAmount,
   validateAssetCode,
 } from "@/lib/server/horizonService";
-import { parseJsonBody, toHttpError } from "@/lib/server/http";
+import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,8 +88,7 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = checkRateLimit(request, "payment", senderAddress);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const ip = request.headers.get("x-forwarded-for") || undefined;
-    const ua = request.headers.get("user-agent") || undefined;
+    const { ip, userAgent } = getRequestMetadata(request);
 
     const result = await sendPaymentServer(
       senderAddress,
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
       destination,
       amount,
       assetCode || "XLM",
-      { ip, userAgent: ua },
+      { ip, userAgent },
       assetIssuer,
       typeof body.memo === "string" ? body.memo : undefined,
     );

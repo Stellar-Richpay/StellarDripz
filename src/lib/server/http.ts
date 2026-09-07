@@ -8,6 +8,7 @@
  *   can return the right code instead of blanket 500s.
  */
 import { NextRequest } from "next/server";
+import { getClientIp } from "@/lib/server/rateLimiter";
 
 export class HttpError extends Error {
   readonly status: number;
@@ -59,4 +60,21 @@ export async function parseJsonBody(
 export function toHttpError(err: unknown): HttpError {
   if (isHttpError(err)) return err;
   return new HttpError(500, err instanceof Error ? err.message : "Internal server error");
+}
+
+/**
+ * Resolve request metadata for analytics logging, using the same
+ * spoof-resistant IP resolution as the rate limiter (never a raw, client
+ * controllable `x-forwarded-for`). `undefined` when no IP is resolvable so
+ * downstream columns stay clean.
+ */
+export function getRequestMetadata(request: NextRequest): {
+  ip?: string;
+  userAgent?: string;
+} {
+  const ip = getClientIp(request);
+  return {
+    ip: ip === "unknown" ? undefined : ip,
+    userAgent: request.headers.get("user-agent") || undefined,
+  };
 }

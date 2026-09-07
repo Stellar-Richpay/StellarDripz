@@ -22,7 +22,7 @@ import {
   submitContractInvocation,
 } from "@/lib/server/sorobanService";
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { parseJsonBody, toHttpError } from "@/lib/server/http";
+import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
 
 /** Upper bounds that keep request bodies within Soroban's practical limits. */
 const MAX_ARGS = 32;
@@ -224,15 +224,14 @@ export async function POST(request: NextRequest) {
       const rateLimitResponse = checkRateLimit(request, "contract", body.signerAddress);
       if (rateLimitResponse) return rateLimitResponse;
 
-      const ip = request.headers.get("x-forwarded-for") || undefined;
-      const ua = request.headers.get("user-agent") || undefined;
+      const { ip, userAgent } = getRequestMetadata(request);
 
       const result = await submitContractInvocation(
         body.signedXdr,
         body.contractId,
         body.functionName,
         body.signerAddress,
-        { ip, userAgent: ua },
+        { ip, userAgent },
       );
       const response = attachRateLimitHeaders(
         request,

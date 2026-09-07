@@ -60,6 +60,7 @@ jest.mock("@/lib/server/csrf", () => ({
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: jest.fn().mockReturnValue(null),
   clearRateLimits: jest.fn(),
+  getClientIp: jest.fn(() => "127.0.0.1"),
 }));
 
 const mockCreateSession = jest.fn();

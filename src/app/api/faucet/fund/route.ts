@@ -7,7 +7,7 @@ import { isValidStellarAddress } from "@/lib/stellar/address";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { requestFaucetFundsServer } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
-import { parseJsonBody, toHttpError } from "@/lib/server/http";
+import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,10 +33,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid address" }, { status: 400 });
     }
 
-    const ip = request.headers.get("x-forwarded-for") || undefined;
-    const ua = request.headers.get("user-agent") || undefined;
+    const { ip, userAgent } = getRequestMetadata(request);
 
-    const result = await requestFaucetFundsServer(address, { ip, userAgent: ua });
+    const result = await requestFaucetFundsServer(address, { ip, userAgent });
 
     const response = attachRateLimitHeaders(
       request,

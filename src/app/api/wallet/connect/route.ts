@@ -7,7 +7,7 @@ import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { isValidStellarAddress } from "@/lib/stellar/address";
 import { createSession } from "@/lib/server/sessionManager";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
-import { parseJsonBody, toHttpError } from "@/lib/server/http";
+import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
 
 /** Known wallet IDs the dApp supports — reject anything else up front. */
 const SUPPORTED_WALLET_IDS = new Set(["freighter", "xbull", "albedo", "lobstr", "walletconnect"]);
@@ -55,12 +55,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ip = request.headers.get("x-forwarded-for") || undefined;
-    const ua = request.headers.get("user-agent") || undefined;
+    const { ip, userAgent } = getRequestMetadata(request);
 
     const session = await createSession(address, walletId, walletName || walletId, {
       ip,
-      userAgent: ua,
+      userAgent,
     });
 
     const response = NextResponse.json({
