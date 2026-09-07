@@ -38,7 +38,7 @@ export default function Header() {
               Stellar<span className="text-stellar-blue">Dripz</span>
             </h1>
             <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/40">
-              Testnet Faucet
+              {appNetwork === "MAINNET" ? "Stellar Mainnet" : "Testnet Faucet"}
             </p>
           </div>
         </div>

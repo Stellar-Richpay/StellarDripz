@@ -1,14 +1,26 @@
 "use client";
 
 import { useAppContext } from "@/context/AppContext";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
 
 export default function NetworkWarning() {
   const { state } = useAppContext();
   const { wallet } = state;
 
-  if (!wallet.connected || wallet.network === "TESTNET" || wallet.network === "UNKNOWN") {
+  const appNetwork = STELLAR_NETWORK.network;
+
+  // No wallet, or wallet network matches the app — nothing to warn about.
+  if (
+    !wallet.connected ||
+    wallet.network === "UNKNOWN" ||
+    wallet.network === appNetwork
+  ) {
     return null;
   }
+
+  const walletLabel =
+    wallet.network === "MAINNET" ? "Mainnet" : wallet.network === "TESTNET" ? "Testnet" : wallet.network;
+  const appLabel = appNetwork === "MAINNET" ? "Mainnet" : "Testnet";
 
   return (
     <div
@@ -18,11 +30,11 @@ export default function NetworkWarning() {
       <div className="flex items-center justify-center gap-2">
         <span className="text-lg">⚠️</span>
         <p className="text-sm font-medium text-red-400">
-          Your wallet is on <strong>Mainnet</strong>. Please switch to <strong>Testnet</strong> in
-          your wallet extension settings.
+          Your wallet is on <strong>{walletLabel}</strong>. Please switch to{" "}
+          <strong>{appLabel}</strong> in your wallet extension settings.
         </p>
       </div>
     </div>
   );
 }
-// NetworkWarning: blocks mainnet interactions for testnet-only safety
+// NetworkWarning: flags when the wallet network mismatches the app network

@@ -142,3 +142,7 @@ describe("GET /api/status", () => {
     expect(json.services.horizon.status).toBe("error");
   });
 });
+
+// Make this file a module so top-level declarations don't leak into the
+// global scope shared with other test files during typechecking.
+export {};

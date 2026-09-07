@@ -12,6 +12,9 @@ import CooldownTimer from "@/components/CooldownTimer";
 import TransactionFeedback from "@/components/TransactionFeedback";
 import { useAppContext } from "@/context/AppContext";
 import { getContractIdError } from "@/lib/stellar/contractId";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
+
+const isMainnet = STELLAR_NETWORK.network === "MAINNET";
 
 export default function Home() {
   const { state, checkCooldown } = useAppContext();
@@ -50,14 +53,15 @@ export default function Home() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-stellar-blue opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-stellar-blue" />
           </span>
-          Stellar Testnet
+          {isMainnet ? "Stellar Mainnet" : "Stellar Testnet"}
         </div>
         <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-          Drip <span className="text-gradient">Testnet XLM</span>
+          Drip <span className="text-gradient">{isMainnet ? "XLM" : "Testnet XLM"}</span>
         </h2>
         <p className="mt-4 text-lg text-white/50 leading-relaxed max-w-lg mx-auto">
-          Multi-wallet faucet with smart contract support. Rate-limited funding, batch API, and
-          real-time Soroban events.
+          {isMainnet
+            ? "Multi-wallet gateway with smart contract support. Direct balances, payments, and real-time Soroban events on mainnet."
+            : "Multi-wallet faucet with smart contract support. Rate-limited funding, batch API, and real-time Soroban events."}
         </p>
       </div>
 

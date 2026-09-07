@@ -184,3 +184,7 @@ describe("GET /api/health", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
+
+// Make this file a module so top-level declarations don't leak into the
+// global scope shared with other test files during typechecking.
+export {};
