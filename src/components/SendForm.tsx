@@ -57,7 +57,24 @@ export default function SendForm() {
       setAmountError(`Maximum ${maxDecimals} decimal places for ${selectedAsset}`);
       return;
     }
+    // Can't spend what you don't hold (also catches the zero-balance case
+    // before the wallet prompts).
+    const available = getAssetBalance(selectedAsset);
+    if (available !== null && num > available) {
+      setAmountError(`Insufficient ${selectedAsset} balance`);
+      return;
+    }
     setAmountError("");
+  };
+
+  /** Numeric balance for the selected asset, or null if unknown. */
+  const getAssetBalance = (code: string): number | null => {
+    if (code === "XLM") {
+      const raw = state.balance.raw;
+      return raw ? parseFloat(raw) : null;
+    }
+    const asset = state.balance.assets.find((a) => a.asset.code === code);
+    return asset ? parseFloat(asset.balance) : null;
   };
 
   const handleSend = async () => {
