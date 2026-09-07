@@ -85,10 +85,11 @@ mod fuzz_tests {
         assert_eq!(sum_balances, total_minted);
     }
 
-    /// Verify that burning more than balance panics.
+    /// Verify that burning more than balance returns the typed error.
     #[test]
-    #[should_panic(expected = "Insufficient balance")]
-    fn fuzz_burn_exceeds_balance_panics() {
+    fn fuzz_burn_exceeds_balance_errors() {
+        use crate::token::TokenError;
+
         let env = Env::default();
         env.mock_all_auths();
 
@@ -100,13 +101,17 @@ mod fuzz_tests {
             &admin, &String::from_str(&env, "FB"), &String::from_str(&env, "F"), &7u32,
         );
         client.mint(&admin, &alice, &100i128);
-        client.burn(&alice, &101i128);
+        assert!(matches!(
+            client.try_burn(&alice, &101i128),
+            Err(Ok(TokenError::InsufficientBalance))
+        ));
     }
 
-    /// Verify that transferring 0 or negative amounts panics.
+    /// Verify that transferring 0 returns the typed error.
     #[test]
-    #[should_panic(expected = "Amount must be positive")]
-    fn fuzz_transfer_zero_panics() {
+    fn fuzz_transfer_zero_errors() {
+        use crate::token::TokenError;
+
         let env = Env::default();
         env.mock_all_auths();
 
@@ -122,7 +127,9 @@ mod fuzz_tests {
             &7u32,
         );
         client.mint(&admin, &alice, &1000i128);
-        // Transfer of 0 should panic with "Amount must be positive"
-        client.transfer(&alice, &bob, &0i128);
+        assert!(matches!(
+            client.try_transfer(&alice, &bob, &0i128),
+            Err(Ok(TokenError::AmountNotPositive))
+        ));
     }
 }

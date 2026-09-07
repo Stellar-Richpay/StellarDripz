@@ -1,4 +1,4 @@
-use soroban_sdk::{contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, symbol_short};
+use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, symbol_short};
 use crate::common::storage as s;
 use crate::common::events as e;
 use crate::common::constants::ZERO_ADDRESS_STR;
@@ -33,12 +33,37 @@ pub enum TokenError {
     AllowanceExpired = 5,
     AmountNotPositive = 6,
     ExpirationInPast = 7,
+    InvalidRecipient = 8,
+    SpenderEqualsOwner = 9,
+    InvalidDecimals = 10,
+}
+
+// ---- Contract Events (SDK 27 pattern) ----
+
+/// Emitted whenever the authorized minter is set or revoked.
+#[contractevent]
+pub struct MinterChangedEvent {
+    pub admin: Address,
+    pub minter: Address,
+    pub authorized: bool,
+}
+
+/// Emitted on token initialization.
+#[contractevent]
+pub struct TokenInitializedEvent {
+    pub admin: Address,
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u32,
 }
 
 // ---- Storage Keys ----
 
 const KEY_ALLOWANCES: Symbol = symbol_short!("ALLOW_M");
 const KEY_MINTER: Symbol = symbol_short!("MINTER");
+
+/// SEP-41: decimals must be between 0 and 18.
+const MAX_DECIMALS: u32 = 18;
 
 #[contract]
 pub struct DripToken;
@@ -49,9 +74,12 @@ pub struct DripToken;
 impl DripToken {
     /// Initialize the token with name, symbol, and decimals.
     /// Can only be called once.
-    pub fn initialize_token(env: Env, admin: Address, name: String, symbol: String, decimals: u32) {
+    pub fn initialize_token(env: Env, admin: Address, name: String, symbol: String, decimals: u32) -> Result<(), TokenError> {
         if env.storage().persistent().has(&s::KEY_ADMIN) {
-            panic!("Already initialized");
+            return Err(TokenError::AlreadyInitialized);
+        }
+        if decimals > MAX_DECIMALS {
+            return Err(TokenError::InvalidDecimals);
         }
 
         admin.require_auth();
@@ -62,19 +90,27 @@ impl DripToken {
         s::set_persistent(&env, &s::KEY_DECIMALS, &decimals);
         s::set_persistent(&env, &s::KEY_TOTAL_SUPPLY, &0i128);
 
-        e::publish(&env, (symbol_short!("init"), &admin), name);
+        TokenInitializedEvent {
+            admin: admin.clone(),
+            name: name.clone(),
+            symbol: symbol.clone(),
+            decimals,
+        }
+        .publish(&env);
+
+        Ok(())
     }
 
     /// Authorize or revoke a minter. Only the token admin can call this.
     /// Authorized minters (e.g., governance contract) can mint tokens on behalf
     /// of the admin.
-    pub fn set_minter(env: Env, admin: Address, minter: Address, authorized: bool) {
+    pub fn set_minter(env: Env, admin: Address, minter: Address, authorized: bool) -> Result<(), TokenError> {
         let stored_admin: Address = s::get_persistent(
             &env, &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
         );
         if admin != stored_admin {
-            panic!("Only admin");
+            return Err(TokenError::NotAuthorized);
         }
         admin.require_auth();
 
@@ -84,8 +120,14 @@ impl DripToken {
             env.storage().persistent().remove(&KEY_MINTER);
         }
 
-        let topic = Symbol::new(&env, "set_minter");
-e::publish(&env, (topic, &admin, &minter), authorized);
+        MinterChangedEvent {
+            admin: admin.clone(),
+            minter: minter.clone(),
+            authorized,
+        }
+        .publish(&env);
+
+        Ok(())
     }
 
     /// Check if an address is authorized to mint.
@@ -98,7 +140,7 @@ e::publish(&env, (topic, &admin, &minter), authorized);
     }
 
     /// Mint tokens to a recipient. Only admin or authorized minter.
-    pub fn mint(env: Env, admin: Address, to: Address, amount: i128) {
+    pub fn mint(env: Env, admin: Address, to: Address, amount: i128) -> Result<(), TokenError> {
         let stored_admin: Address = s::get_persistent(
             &env, &s::KEY_ADMIN,
             Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)),
@@ -107,12 +149,12 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         let caller_is_minter = Self::is_minter(&env, &admin);
 
         if !caller_is_admin && !caller_is_minter {
-            panic!("Only admin or authorized minter can mint");
+            return Err(TokenError::NotAuthorized);
         }
         admin.require_auth();
 
         if amount <= 0 {
-            panic!("Amount must be positive");
+            return Err(TokenError::AmountNotPositive);
         }
 
         let balance_key = (s::KEY_BALANCE, &to);
@@ -126,21 +168,28 @@ e::publish(&env, (topic, &admin, &minter), authorized);
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &zero, &to, amount);
+        Ok(())
     }
 
     /// Transfer tokens from caller to recipient. Uses checked arithmetic.
-    pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
+    pub fn transfer(env: Env, from: Address, to: Address, amount: i128) -> Result<(), TokenError> {
         from.require_auth();
 
         if amount <= 0 {
-            panic!("Amount must be positive");
+            return Err(TokenError::AmountNotPositive);
+        }
+
+        // Transfers to the zero/burn address would destroy tokens without
+        // updating total supply — reject rather than silently burning.
+        if Self::is_zero_address(&env, &to) {
+            return Err(TokenError::InvalidRecipient);
         }
 
         let from_key = (s::KEY_BALANCE, &from);
         let from_current: i128 = env.storage().persistent().get(&from_key).unwrap_or(0);
 
         if from_current < amount {
-            panic!("Insufficient balance");
+            return Err(TokenError::InsufficientBalance);
         }
         let new_from = from_current.checked_sub(amount).expect("Balance underflow");
         env.storage().persistent().set(&from_key, &new_from);
@@ -151,15 +200,19 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         env.storage().persistent().set(&to_key, &new_to);
 
         e::emit_transfer(&env, &from, &to, amount);
+        Ok(())
     }
 
     /// Transfer tokens using an allowance (spend on behalf of owner).
     /// Uses checked arithmetic throughout.
-    pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) {
+    pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) -> Result<(), TokenError> {
         spender.require_auth();
 
         if amount <= 0 {
-            panic!("Amount must be positive");
+            return Err(TokenError::AmountNotPositive);
+        }
+        if Self::is_zero_address(&env, &to) {
+            return Err(TokenError::InvalidRecipient);
         }
 
         let allowance_key = (KEY_ALLOWANCES, &from.clone(), &spender.clone());
@@ -172,11 +225,11 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         let current_ledger = env.ledger().sequence();
         if allowance_val.expiration_ledger > 0 && current_ledger > allowance_val.expiration_ledger {
             env.storage().persistent().remove(&allowance_key);
-            panic!("Allowance has expired");
+            return Err(TokenError::AllowanceExpired);
         }
 
         if allowance_val.amount < amount {
-            panic!("Insufficient allowance");
+            return Err(TokenError::InsufficientAllowance);
         }
 
         let new_allowance = allowance_val
@@ -196,7 +249,7 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         let from_key = (s::KEY_BALANCE, &from);
         let from_current: i128 = env.storage().persistent().get(&from_key).unwrap_or(0);
         if from_current < amount {
-            panic!("Insufficient balance");
+            return Err(TokenError::InsufficientBalance);
         }
         let new_from = from_current.checked_sub(amount).expect("Balance underflow");
         env.storage().persistent().set(&from_key, &new_from);
@@ -207,16 +260,21 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         env.storage().persistent().set(&to_key, &new_to);
 
         e::emit_transfer(&env, &from, &to, amount);
+        Ok(())
     }
 
     /// Approve a spender to use tokens on behalf of the owner.
     /// The allowance expires after `expiration_ledger` (current ledger + desired duration).
-    pub fn approve(env: Env, owner: Address, spender: Address, amount: i128, expiration_ledger: u32) {
+    pub fn approve(env: Env, owner: Address, spender: Address, amount: i128, expiration_ledger: u32) -> Result<(), TokenError> {
         owner.require_auth();
+
+        if owner == spender {
+            return Err(TokenError::SpenderEqualsOwner);
+        }
 
         let current_ledger = env.ledger().sequence();
         if expiration_ledger <= current_ledger {
-            panic!("Expiration ledger must be in the future");
+            return Err(TokenError::ExpirationInPast);
         }
 
         let key = (KEY_ALLOWANCES, &owner, &spender);
@@ -224,20 +282,21 @@ e::publish(&env, (topic, &admin, &minter), authorized);
         env.storage().persistent().set(&key, &allowance);
 
         e::publish(&env, (e::EVENT_APPROVE, &owner, &spender), amount);
+        Ok(())
     }
 
     /// Burn tokens from the caller's balance. Uses checked arithmetic.
-    pub fn burn(env: Env, from: Address, amount: i128) {
+    pub fn burn(env: Env, from: Address, amount: i128) -> Result<(), TokenError> {
         from.require_auth();
 
         if amount <= 0 {
-            panic!("Amount must be positive");
+            return Err(TokenError::AmountNotPositive);
         }
 
         let key = (s::KEY_BALANCE, &from);
         let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
         if current < amount {
-            panic!("Insufficient balance");
+            return Err(TokenError::InsufficientBalance);
         }
         let new_balance = current.checked_sub(amount).expect("Balance underflow");
         env.storage().persistent().set(&key, &new_balance);
@@ -248,6 +307,7 @@ e::publish(&env, (topic, &admin, &minter), authorized);
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &from, &zero, amount);
+        Ok(())
     }
 
     // ---- Getters ----
@@ -276,10 +336,10 @@ e::publish(&env, (topic, &admin, &minter), authorized);
     pub fn allowance(env: Env, owner: Address, spender: Address) -> i128 {
         let key = (KEY_ALLOWANCES, &owner, &spender);
         let val: AllowanceValue = env.storage().persistent().get(&key).unwrap_or(AllowanceValue { amount: 0, expiration_ledger: 0 });
-        // Return 0 if expired
+        // Return 0 if expired. This is a read-only getter — do NOT mutate
+        // storage here (removing the expired entry is transfer_from's job).
         let current_ledger = env.ledger().sequence();
         if val.expiration_ledger > 0 && current_ledger > val.expiration_ledger {
-            env.storage().persistent().remove(&key);
             return 0;
         }
         val.amount
@@ -299,6 +359,18 @@ e::publish(&env, (topic, &admin, &minter), authorized);
 
     pub fn get_minter(env: Env) -> Option<Address> {
         env.storage().persistent().get(&KEY_MINTER)
+    }
+
+    /// Contract interface version — bump on breaking changes.
+    pub fn version() -> u32 {
+        1
+    }
+
+    // ---- Helpers ----
+
+    fn is_zero_address(env: &Env, addr: &Address) -> bool {
+        let zero = Address::from_string(&String::from_str(env, ZERO_ADDRESS_STR));
+        *addr == zero
     }
 }
 
@@ -326,17 +398,50 @@ mod token_test {
             &String::from_str(&env, "DripToken"),
             &String::from_str(&env, "DRIP"),
             &7u32,
-        );
+        )
+        ;
 
         assert_eq!(client.name(), String::from_str(&env, "DripToken"));
         assert_eq!(client.symbol(), String::from_str(&env, "DRIP"));
         assert_eq!(client.decimals(), 7u32);
         assert_eq!(client.total_supply(), 0i128);
+        assert_eq!(client.version(), 1u32);
 
         // Mint
         client.mint(&admin, &recipient, &1000i128);
         assert_eq!(client.balance(&recipient), 1000i128);
         assert_eq!(client.total_supply(), 1000i128);
+    }
+
+    #[test]
+    fn test_initialize_twice_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        assert!(matches!(
+            client.try_initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32),
+            Err(Ok(TokenError::AlreadyInitialized))
+        ));
+    }
+
+    #[test]
+    fn test_initialize_rejects_invalid_decimals() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+
+        assert!(matches!(
+            client.try_initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &19u32),
+            Err(Ok(TokenError::InvalidDecimals))
+        ));
     }
 
     #[test]
@@ -361,6 +466,44 @@ mod token_test {
     }
 
     #[test]
+    fn test_transfer_to_zero_address_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let alice = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.mint(&admin, &alice, &1000i128);
+
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        assert!(matches!(
+            client.try_transfer(&alice, &zero, &100i128),
+            Err(Ok(TokenError::InvalidRecipient))
+        ));
+    }
+
+    #[test]
+    fn test_transfer_insufficient_balance() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let alice = Address::generate(&env);
+        let bob = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        client.mint(&admin, &alice, &100i128);
+
+        assert!(matches!(
+            client.try_transfer(&alice, &bob, &101i128),
+            Err(Ok(TokenError::InsufficientBalance))
+        ));
+    }
+
+    #[test]
     fn test_approve_and_transfer_from() {
         let env = Env::default();
         env.mock_all_auths();
@@ -382,6 +525,24 @@ mod token_test {
         assert_eq!(client.balance(&owner), 800i128);
         assert_eq!(client.balance(&recipient), 200i128);
         assert_eq!(client.allowance(&owner, &spender), 300i128);
+    }
+
+    #[test]
+    fn test_approve_rejects_self_spend() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        assert!(matches!(
+            client.try_approve(&owner, &owner, &500i128, &exp_ledger),
+            Err(Ok(TokenError::SpenderEqualsOwner))
+        ));
     }
 
     #[test]
@@ -429,5 +590,23 @@ mod token_test {
         client.set_minter(&admin, &minter, &false);
         assert!(client.get_minter().is_none());
     }
-}
 
+    /// Non-admin cannot set the minter.
+    #[test]
+    fn test_set_minter_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let minter = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+
+        assert!(matches!(
+            client.try_set_minter(&attacker, &minter, &true),
+            Err(Ok(TokenError::NotAuthorized))
+        ));
+    }
+}

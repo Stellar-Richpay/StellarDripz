@@ -80,7 +80,8 @@ impl DripPool {
         let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer_from(&pool_address, &user, &pool_address, &amount);
+        token_client
+            .transfer_from(&pool_address, &user, &pool_address, &amount);
         let stake_key = StakeKey::Stake(user.clone());
         let existing = env.storage().persistent().get(&stake_key).unwrap_or(StakeInfo { amount: 0, start_ledger: 0, reward_claimed: 0 });
         let new_total = existing.amount.checked_add(amount).expect("Stake overflow");
@@ -117,7 +118,8 @@ impl DripPool {
         let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer(&pool_address, &user, &amount);
+        token_client
+            .transfer(&pool_address, &user, &amount);
         e::publish(&env, (e::EVENT_UNSTAKE, &user), amount);
     }
 
@@ -141,7 +143,8 @@ impl DripPool {
         let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer(&pool_address, &user, &claimable);
+        token_client
+            .transfer(&pool_address, &user, &claimable);
 
         // Carry forward unclaimed portion if pool was insufficient
         let unclaimed = total_reward - claimable;
@@ -172,7 +175,8 @@ impl DripPool {
         let token_id: Address = s::get_persistent(&env, &KEY_TOKEN_ID, Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR)));
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer_from(&pool_address, &admin, &pool_address, &amount);
+        token_client
+            .transfer_from(&pool_address, &admin, &pool_address, &amount);
         // Update on-chain reward pool tracking
         let mut reward_pool: i128 = s::get_persistent(&env, &KEY_REWARD_POOL, 0i128);
         reward_pool = reward_pool.checked_add(amount).expect("Reward pool overflow");

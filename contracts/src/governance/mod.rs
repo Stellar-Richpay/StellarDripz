@@ -283,7 +283,8 @@ impl DripGovernance {
             }
             GovernanceAction::MintTokens(to, amount) => {
                 let token_client = token::DripTokenClient::new(env, &token_id);
-                token_client.mint(&admin_addr, to, amount);
+                token_client
+                    .mint(&admin_addr, to, amount);
             }
         }
     }
