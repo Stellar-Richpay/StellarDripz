@@ -208,6 +208,30 @@ impl DripBadge {
         Ok(())
     }
 
+    /// List badge definitions, oldest first, with a bounded (start, limit)
+    /// window so frontends can page through large badge sets without
+    /// loading the whole catalog.
+    pub fn list_badges(env: Env, start: u64, limit: u32) -> Vec<Badge> {
+        let mut out = Vec::new(&env);
+        let count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
+        if count == 0 || limit == 0 {
+            return out;
+        }
+        let window = limit as u64;
+        let begin = start.saturating_add(1);
+        if begin > count {
+            return out;
+        }
+        let end = begin.saturating_add(window).saturating_sub(1).min(count);
+        for i in begin..=end {
+            let key = (KEY_BADGE, i);
+            if let Some(b) = env.storage().persistent().get::<_, Badge>(&key) {
+                out.push_back(b);
+            }
+        }
+        out
+    }
+
     /// Check if a user has claimed a specific badge.
     pub fn has_badge(env: Env, user: Address, badge_id: u64) -> bool {
         let key = (KEY_USER_BADGES, user, badge_id);
@@ -461,5 +485,40 @@ mod badge_test {
         let contract_id = env.register(DripBadge, ());
         let client = DripBadgeClient::new(&env, &contract_id);
         assert_eq!(client.badge_version(), 1u32);
+    }
+
+    #[test]
+    fn test_list_badges_paginates() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+
+        for n in 1u64..=4u64 {
+            client.create_badge(
+                &admin,
+                &String::from_str(&env, &format!("B{n}")),
+                &String::from_str(&env, "D"),
+                &String::from_str(&env, ""),
+                &((n as u32 % 4) + 1),
+            );
+        }
+        assert_eq!(client.get_badge_count(), 4u64);
+
+        let page1 = client.list_badges(&0u64, &2u32);
+        assert_eq!(page1.len(), 2);
+        assert_eq!(page1.get(0).unwrap().id, 1u64);
+        assert_eq!(page1.get(1).unwrap().id, 2u64);
+
+        let page2 = client.list_badges(&2u64, &2u32);
+        assert_eq!(page2.len(), 2);
+        assert_eq!(page2.get(0).unwrap().id, 3u64);
+        assert_eq!(page2.get(1).unwrap().id, 4u64);
+
+        let past_end = client.list_badges(&4u64, &5u32);
+        assert_eq!(past_end.len(), 0);
     }
 }
