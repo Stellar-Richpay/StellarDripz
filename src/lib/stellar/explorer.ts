@@ -14,6 +14,11 @@ export function getExplorerUrl(hash: string): string {
   return `${STELLAR_NETWORK.stellarExpertUrl}/tx/${hash}`;
 }
 
+/** Link to an account address on the active network's explorer. */
+export function getAccountExplorerUrl(address: string): string {
+  return `${STELLAR_NETWORK.stellarExpertUrl}/account/${address}`;
+}
+
 /** Link to a contract address on the active network's explorer. */
 export function getContractExplorerUrl(contractId: string): string {
   return `${STELLAR_NETWORK.contractExplorerUrl}/${contractId}`;

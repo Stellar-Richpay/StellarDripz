@@ -11,6 +11,7 @@ import {
   clearWalletConnectPairing,
 } from "@/lib/wallets/walletKit";
 import { copyToClipboard } from "@/lib/clipboard";
+import { getAccountExplorerUrl } from "@/lib/stellar/explorer";
 import { getWalletErrorMessage } from "@/lib/wallets/errors";
 import { getWalletConnectStatus } from "@/lib/wallets/walletconnect";
 
@@ -143,9 +144,15 @@ export default function WalletConnect() {
                 <p className="text-sm font-semibold text-white">
                   {wallet.walletName || "Connected"}
                 </p>
-                <p className="font-mono text-xs text-stellar-green truncate max-w-[200px]">
-                  {wallet.publicKey.slice(0, 8)}...{wallet.publicKey.slice(-6)}
-                </p>
+                <a
+                  href={getAccountExplorerUrl(wallet.publicKey)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open address on StellarExpert"
+                  className="font-mono text-xs text-stellar-green truncate max-w-[200px] hover:text-stellar-blue/80 transition-colors"
+                >
+                  {wallet.publicKey.slice(0, 8)}...{wallet.publicKey.slice(-6)} ↗
+                </a>
               </div>
             </div>
             <button

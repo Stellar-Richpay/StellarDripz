@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
+import { getAccountExplorerUrl } from "@/lib/stellar/explorer";
 import type { TransactionRecord } from "@/types/stellar";
 
 type TxFilter = "all" | TransactionRecord["type"];
@@ -67,9 +68,21 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
         </div>
         <div>
           <span className="text-white/30">To: </span>
-          <span className="font-mono text-white/60 truncate">
-            {tx.destination.slice(0, 8)}...{tx.destination.slice(-6)}
-          </span>
+          {(tx.type === "send" || tx.type === "faucet") && tx.destination ? (
+            <a
+              href={getAccountExplorerUrl(tx.destination)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open address on StellarExpert"
+              className="font-mono text-white/60 truncate hover:text-stellar-blue/80 transition-colors"
+            >
+              {tx.destination.slice(0, 8)}...{tx.destination.slice(-6)} ↗
+            </a>
+          ) : (
+            <span className="font-mono text-white/60 truncate">
+              {tx.destination.slice(0, 8)}...{tx.destination.slice(-6)}
+            </span>
+          )}
         </div>
       </div>
 
