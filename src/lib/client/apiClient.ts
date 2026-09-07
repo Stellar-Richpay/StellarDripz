@@ -213,10 +213,14 @@ export function fetchHistory(address?: string, type?: string, limit?: number) {
 
 // ---- Analytics ----
 
-export function fetchAnalytics(type?: string, summary?: boolean) {
+export function fetchAnalytics(type?: string, summary?: boolean, token?: string) {
   const params = new URLSearchParams();
   if (type) params.set("type", type);
   if (summary) params.set("summary", "true");
+  // Optional admin token (presented when the server has ADMIN_API_TOKEN set;
+  // omitted entirely when no token is configured, keeping dev deployments open).
+  const headers: Record<string, string> = {};
+  if (token) headers["x-admin-token"] = token;
   return request<{
     events?: Array<{
       eventType: string;
@@ -226,5 +230,5 @@ export function fetchAnalytics(type?: string, summary?: boolean) {
     }>;
     summary?: Record<string, { total: number; uniqueAddresses: number }>;
     total?: number;
-  }>(`/api/analytics?${params.toString()}`);
+  }>(`/api/analytics?${params.toString()}`, { headers });
 }
