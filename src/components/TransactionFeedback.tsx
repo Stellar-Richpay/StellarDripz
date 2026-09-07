@@ -37,7 +37,15 @@ export default function TransactionFeedback() {
     <div className={`rounded-xl border px-4 py-3 ${statusColors[latestTx.status]}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span>{statusIcons[latestTx.status]}</span>
+          {latestTx.status === "pending" ? (
+            <span
+              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-yellow-400/30 border-t-yellow-400"
+              role="status"
+              aria-label="Transaction pending"
+            />
+          ) : (
+            <span>{statusIcons[latestTx.status]}</span>
+          )}
           <span className="text-xs font-semibold">{typeLabels[latestTx.type]}</span>
           <span className="text-[10px] opacity-60 uppercase">{latestTx.status}</span>
         </div>
