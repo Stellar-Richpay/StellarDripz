@@ -135,7 +135,7 @@ describe("useWallet", () => {
       });
 
       expect(result.current.wallet.connected).toBe(false);
-      expect(result.current.error).toBe("USER_REJECTED");
+      expect(result.current.error).toBe("Connection rejected.");
     });
   });
 
