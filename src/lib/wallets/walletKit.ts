@@ -312,7 +312,13 @@ async function connectWalletConnectFlow(
 
 export async function signTx(xdr: string, publicKey: string): Promise<string> {
   const persisted = loadPersistedWallet();
-  const walletId = persisted?.walletId || "freighter";
+  // Never silently default to Freighter: signing with the wrong wallet would
+  // either fail confusingly or — worse — sign with a wallet the user did not
+  // choose. Require an explicit, persisted connection.
+  const walletId = persisted?.walletId;
+  if (!walletId) {
+    throw new Error("NO_WALLET_CONNECTED");
+  }
 
   switch (walletId) {
     case "freighter":
