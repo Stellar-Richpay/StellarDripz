@@ -237,7 +237,7 @@ test.describe("Contract interaction", () => {
   test("contract section hidden when wallet not connected", async ({ page }) => {
     // The contract ID input and Connect button are only shown after wallet connection.
     // Without a wallet, they should not exist in the DOM.
-    await expect(page.getByPlaceholder("Paste deployed contract ID...")).not.toBeVisible();
+    await expect(page.getByPlaceholder("Paste deployed contract ID (C…)")).not.toBeVisible();
   });
 
   test("analytics feature card visible when disconnected", async ({ page }) => {
