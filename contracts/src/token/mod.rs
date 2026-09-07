@@ -156,6 +156,11 @@ impl DripToken {
         if amount <= 0 {
             return Err(TokenError::AmountNotPositive);
         }
+        if Self::is_zero_address(&env, &to) {
+            // Minting straight to the burn address permanently inflates the
+            // supply with tokens nobody can ever move — reject it.
+            return Err(TokenError::InvalidRecipient);
+        }
 
         let balance_key = (s::KEY_BALANCE, &to);
         let current: i128 = env.storage().persistent().get(&balance_key).unwrap_or(0);
@@ -270,6 +275,9 @@ impl DripToken {
 
         if owner == spender {
             return Err(TokenError::SpenderEqualsOwner);
+        }
+        if amount < 0 {
+            return Err(TokenError::AmountNotPositive);
         }
 
         let current_ledger = env.ledger().sequence();
@@ -607,6 +615,46 @@ mod token_test {
         assert!(matches!(
             client.try_set_minter(&attacker, &minter, &true),
             Err(Ok(TokenError::NotAuthorized))
+        ));
+    }
+
+    /// Minting straight to the burn address would permanently inflate the
+    /// supply with un-spendable tokens.
+    #[test]
+    fn test_mint_to_zero_address_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+
+        assert!(matches!(
+            client.try_mint(&admin, &zero, &100i128),
+            Err(Ok(TokenError::InvalidRecipient))
+        ));
+        assert_eq!(client.total_supply(), 0i128);
+    }
+
+    /// A negative allowance is meaningless and must be rejected up front.
+    #[test]
+    fn test_approve_rejects_negative_amount() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        assert!(matches!(
+            client.try_approve(&owner, &spender, &(-1i128), &exp_ledger),
+            Err(Ok(TokenError::AmountNotPositive))
         ));
     }
 }
