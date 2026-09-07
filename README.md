@@ -216,65 +216,33 @@ Visit [http://localhost:3000](http://localhost:3000)
 
 ## 🧪 Testing
 
-### Smart Contract Tests (19 tests)
+### Smart Contract Tests
 
 ```bash
-npm run contracts:test
+npm run contracts:test        # cargo test
+npm run verify:contracts      # fmt check + clippy (-D warnings) + tests
 ```
 
-Output:
-```
-running 19 tests
-test badge::badge_test::test_create_and_claim_badge ... ok
-test badge::badge_test::test_duplicate_claim_prevented ... ok
-test badge::badge_test::test_grant_badge ... ok
-test governance::governance_test::test_create_proposal ... ok
-test governance::governance_test::test_vote_and_execute ... ok
-test pool::pool_test::test_admin_controls ... ok
-test pool::pool_test::test_reward_calculation ... ok
-test pool::pool_test::test_stake_and_unstake ... ok
-test test::counter_test::test_counter_increment ... ok
-test test::counter_test::test_greeting ... ok
-test test::counter_test::test_user_counter_independent ... ok
-test test::token_test::test_approve_and_transfer_from ... ok
-test test::token_test::test_burn ... ok
-test test::token_test::test_initialize_and_mint ... ok
-test test::token_test::test_transfer ... ok
-test token::token_test::test_approve_and_transfer_from ... ok
-test token::token_test::test_burn ... ok
-test token::token_test::test_initialize_and_mint ... ok
-test token::token_test::test_transfer ... ok
-test result: ok. 19 passed
-```
+The contracts exercise typed errors, quorum voting, reward accounting,
+TTL maintenance, and property-style fuzz invariants (55 tests).
 
-### Frontend Tests (19 test suites, 119 tests)
+### Frontend Tests
 
 ```bash
-npm test
+npm test           # jest (unit + API route tests)
+npm run verify     # lint + typecheck + tests + format:check
+npm run format     # prettier --write
 ```
 
-Test suites:
-- `addressBookService.test.ts` — 8 tests
-- `config.test.ts` — 2 tests
-- `walletService.test.ts` — 7 tests
-- `env.test.ts` — 4 tests
-- `rateLimiter.test.ts` — 5 tests
-- `contractTypes.test.ts` — 7 tests
-- `dbService.test.ts` — 4 tests
-- `useWallet.test.ts` — 8 tests
-- `useBalance.test.ts` — 8 tests
-- `useTransactionHistory.test.ts` — 8 tests
-- `useFaucet.test.ts` — 7 tests
-- `directClient.test.ts` — 9 tests
-- `api-faucet.test.ts` — 4 tests
-- `api-wallet.test.ts` — 4 tests
-- `api-payment.test.ts` — 5 tests
-- `api-balance.test.ts` — 3 tests
-- `api-history.test.ts` — 4 tests
-- `api-contract.test.ts` — 4 tests
-- `api-health.test.ts` — 5 tests
+Test suites (24 suites, 155 tests, all passing ✅):
+- Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `walletService`
+- API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`
+- Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `apiClient`, `env`, `config`
+- Validation: `addressValidation`, `contractTypes`, `paymentValidation`
+- Integration + rate limiter server suites
 
-**Total: 19 suites, 119 tests, all passing ✅**
+Coverage is collected with `npx jest --coverage`; the enforced global gate
+(45% branches / 50% functions / 55% lines) mirrors what CI runs inline.
 
 ---
 
