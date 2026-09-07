@@ -65,6 +65,7 @@ export interface TransactionRecord {
   assetCode?: string;
   contractId?: string;
   functionName?: string;
+  memo?: string;
   ledgerSequence?: number;
 }
 

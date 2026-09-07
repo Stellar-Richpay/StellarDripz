@@ -330,6 +330,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         amount,
         destination,
         assetCode: assetCode || "XLM",
+        memo: memo || undefined,
         timestamp: new Date(),
       };
       dispatch({ type: "ADD_TRANSACTION", payload: pendingTx });

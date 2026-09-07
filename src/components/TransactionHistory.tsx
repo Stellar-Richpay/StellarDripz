@@ -75,10 +75,10 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
 
       {/* Hash / Error */}
       {/* Memo (sends only) */}
-      {tx.type === "send" && (tx as TransactionRecord & { memo?: string }).memo && (
+      {tx.type === "send" && tx.memo && (
         <div className="mt-1.5 text-[11px] text-white/40">
           <span className="text-white/30">Memo: </span>
-          <span className="font-mono">{(tx as TransactionRecord & { memo?: string }).memo}</span>
+          <span className="font-mono">{tx.memo}</span>
         </div>
       )}
 
