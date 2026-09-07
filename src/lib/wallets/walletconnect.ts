@@ -17,7 +17,10 @@ import type { NetworkType } from "@/types/stellar";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "";
 
-const STELLAR_CHAIN = "stellar:testnet";
+// Session chain must match the app's configured network — on a mainnet
+// deployment the mobile wallet must approve a stellar:pubnet session, not
+// stellar:testnet, or every sign request would target the wrong network.
+const STELLAR_CHAIN = STELLAR_NETWORK.network === "MAINNET" ? "stellar:pubnet" : "stellar:testnet";
 const SESSION_NAMESPACE = "stellar";
 
 /** Stored session topic for reconnection. */
@@ -158,7 +161,7 @@ export async function connectWalletConnect(
     }
   }
 
-  return { publicKey, network: "TESTNET", walletId, walletName };
+  return { publicKey, network: STELLAR_NETWORK.network, walletId, walletName };
 }
 
 // ── Reconnection ──────────────────────────────────────────────────
