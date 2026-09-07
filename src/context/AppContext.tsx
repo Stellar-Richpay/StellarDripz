@@ -22,6 +22,7 @@ import {
 import { connectAndRegister } from "@/lib/client/walletClient";
 import * as apiClient from "@/lib/client/apiClient";
 import { directFetchBalance } from "@/lib/client/directClient";
+import { getExplorerUrl } from "@/lib/stellar/horizon";
 import {
   getCooldownRemaining,
   recordCooldown,
@@ -263,7 +264,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           canRequest: false,
         },
       });
-      dispatch({ type: "UPDATE_TRANSACTION", payload: { ...pendingTx, status: "success", hash } });
+      dispatch({
+        type: "UPDATE_TRANSACTION",
+        payload: {
+          ...pendingTx,
+          status: "success",
+          hash,
+          explorerUrl: getExplorerUrl(hash),
+        },
+      });
       dispatch({ type: "SET_TX_IN_PROGRESS", payload: "success" });
       await refreshBalance();
     } catch (err) {
@@ -330,7 +339,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
         dispatch({
           type: "UPDATE_TRANSACTION",
-          payload: { ...pendingTx, status: "success", hash },
+          payload: {
+            ...pendingTx,
+            status: "success",
+            hash,
+            explorerUrl: getExplorerUrl(hash),
+          },
         });
         dispatch({ type: "SET_TX_IN_PROGRESS", payload: "success" });
         await refreshBalance();
