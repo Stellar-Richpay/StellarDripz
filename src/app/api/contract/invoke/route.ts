@@ -61,12 +61,24 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
     return StellarSdk.xdr.ScVal.scvString(arg);
   }
 
-  // number
+  // number — map to the narrowest integer type that fits; no silent
+  // string fallback for integers anymore.
   if (typeof arg === "number") {
-    if (Number.isInteger(arg) && arg >= 0 && arg <= 4294967295) {
+    if (!Number.isInteger(arg)) {
+      throw new Error(`Unsupported numeric argument: ${arg}`);
+    }
+    if (arg >= 0 && arg <= 4294967295) {
       return StellarSdk.xdr.ScVal.scvU32(arg);
     }
-    return StellarSdk.xdr.ScVal.scvString(String(arg));
+    if (arg >= -2147483648 && arg <= 2147483647) {
+      return StellarSdk.xdr.ScVal.scvI32(arg);
+    }
+    if (arg >= -9223372036854775808 && arg <= 9223372036854775807) {
+      return StellarSdk.xdr.ScVal.scvI64(
+        StellarSdk.xdr.Int64.fromString(String(arg)),
+      );
+    }
+    throw new Error(`Numeric argument out of range: ${arg}`);
   }
 
   // boolean
@@ -98,8 +110,36 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
         StellarSdk.xdr.Uint64.fromString(String(obj.u64)),
       );
     }
+    if (obj.u128 !== undefined) {
+      const num = BigInt(String(obj.u128));
+      const lo = Number(num & BigInt("0xFFFFFFFFFFFFFFFF"));
+      const hi = Number(num >> BigInt(64));
+      return StellarSdk.xdr.ScVal.scvU128(
+        new StellarSdk.xdr.Uint128Parts({
+          lo: new StellarSdk.xdr.Uint64(lo),
+          hi: new StellarSdk.xdr.Uint64(hi),
+        }),
+      );
+    }
+    if (obj.i64 !== undefined) {
+      return StellarSdk.xdr.ScVal.scvI64(
+        StellarSdk.xdr.Int64.fromString(String(obj.i64)),
+      );
+    }
+    if (obj.i32 !== undefined) {
+      return StellarSdk.xdr.ScVal.scvI32(Number(obj.i32));
+    }
+    if (obj.u32 !== undefined) {
+      return StellarSdk.xdr.ScVal.scvU32(Number(obj.u32));
+    }
     if (obj.symbol && typeof obj.symbol === "string") {
       return StellarSdk.xdr.ScVal.scvSymbol(obj.symbol);
+    }
+    if (obj.string && typeof obj.string === "string") {
+      return StellarSdk.xdr.ScVal.scvString(obj.string);
+    }
+    if (obj.bytes && typeof obj.bytes === "string") {
+      return StellarSdk.xdr.ScVal.scvBytes(Buffer.from(obj.bytes, "hex"));
     }
     if (obj.vec && Array.isArray(obj.vec)) {
       const items = obj.vec.map((item: unknown) => argToScVal(item));
@@ -121,8 +161,9 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
     }
   }
 
-  // Fallback: treat as string
-  return StellarSdk.xdr.ScVal.scvString(String(arg));
+  // Unknown object shapes: fail loudly instead of silently coercing to a
+  // string, which hid mismatched arguments until a confusing RPC error.
+  throw new Error(`Unsupported argument type: ${JSON.stringify(arg)}`);
 }
 
 export async function POST(request: NextRequest) {
