@@ -49,6 +49,12 @@ jest.mock("next/server", () => {
   return { NextRequest: MockNextRequest, NextResponse: MockNextResponse };
 });
 
+
+jest.mock("@/lib/server/csrf", () => ({
+  validateCsrf: jest.fn().mockReturnValue(null),
+  setCsrfCookie: jest.fn(),
+}));
+
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: jest.fn().mockReturnValue(null),
   clearRateLimits: jest.fn(),
