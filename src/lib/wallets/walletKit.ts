@@ -251,7 +251,32 @@ async function connectAlbedo(
 
 // ---- WalletConnect Pairing ----
 
+/**
+ * Max time a user has to scan the QR and approve the WalletConnect session.
+ * Prevents connect() from hanging forever (and the UI from showing an
+ * endless "Connecting..." spinner) when the user never scans or the mobile
+ * wallet never responds.
+ */
+const WC_PAIRING_TIMEOUT_MS = 120_000;
+
 let _wcPairing: Awaited<ReturnType<typeof startWalletConnectPairing>> | null = null;
+
+/** Race a promise against a timeout; rejects with `code` if it expires. */
+function withTimeout<T>(promise: Promise<T>, ms: number, code: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(code)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 /** Get the current WalletConnect pairing URI for QR display. */
 export function getWalletConnectPairingUri(): string | null {
@@ -277,7 +302,11 @@ async function connectWalletConnectFlow(
   _wcPairing = await startWalletConnectPairing();
 
   try {
-    const result = await connectWalletConnect(walletId, walletName, _wcPairing);
+    const result = await withTimeout(
+      connectWalletConnect(walletId, walletName, _wcPairing),
+      WC_PAIRING_TIMEOUT_MS,
+      "WC_TIMEOUT",
+    );
     _wcPairing = null;
     return result;
   } catch (err) {
