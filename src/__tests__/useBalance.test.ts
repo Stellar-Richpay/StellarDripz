@@ -188,3 +188,18 @@ describe("useBalance", () => {
   });
 });
 // Edge case: handles zero balance accounts
+
+describe("useBalance StrictMode remount", () => {
+  it("refetches after unmount + remount (regression: mountedRef stuck false)", async () => {
+    const first = renderHook(() => useBalance({ address: "GADDR123" }));
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    first.unmount();
+
+    // Second mount — the hook must believe it is mounted again.
+    const second = renderHook(() => useBalance({ address: "GADDR123" }));
+    expect(mockDirectFetchBalance).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    expect(second.result.current.balance.xlm).toBe("10.0000000");
+    second.unmount();
+  });
+});

@@ -45,7 +45,12 @@ export function useBalance({
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
+  // Reset the mounted flag on every mount (not just the first). React 18
+  // StrictMode mounts → unmounts → remounts effects in development; without
+  // re-setting the flag here, the second mount would permanently believe it
+  // is unmounted and every fetch would be dropped.
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
