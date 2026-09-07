@@ -162,9 +162,11 @@ export async function sendPaymentServer(
   assetIssuer?: string,
   memo?: string,
 ): Promise<{ hash: string }> {
-  if (STELLAR_NETWORK.networkPassphrase !== StellarSdk.Networks.TESTNET) {
-    throw new Error("Network mismatch — expected Testnet.");
-  }
+  // No hardcoded network gate here: the passphrase check happens implicitly
+  // below when the signed XDR is decoded with STELLAR_NETWORK.networkPassphrase
+  // (a testnet-signed envelope cannot decode on a mainnet deployment and vice
+  // versa). A previous hardcoded "expected Testnet" gate silently disabled
+  // payments entirely on mainnet-configured deployments.
 
   // Validate destination
   try {
