@@ -155,6 +155,8 @@ export default function SendForm() {
           onClose={() => setShowPaymentQr(false)}
           address={destination.trim()}
           amount={amount.trim()}
+          assetCode={selectedAsset === "XLM" ? undefined : selectedAsset}
+          assetIssuer={selectedAssetIssuer}
           label="Payment Request"
         />
       )}

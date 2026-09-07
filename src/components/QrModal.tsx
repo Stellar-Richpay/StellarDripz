@@ -10,9 +10,21 @@ interface QrModalProps {
   address: string;
   label?: string;
   amount?: string;
+  /** Asset code for payment requests; omitted/empty means native XLM. */
+  assetCode?: string;
+  /** Issuer address required for credit-asset payment requests. */
+  assetIssuer?: string;
 }
 
-export default function QrModal({ open, onClose, address, label, amount }: QrModalProps) {
+export default function QrModal({
+  open,
+  onClose,
+  address,
+  label,
+  amount,
+  assetCode,
+  assetIssuer,
+}: QrModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -34,10 +46,24 @@ export default function QrModal({ open, onClose, address, label, amount }: QrMod
 
   if (!open) return null;
 
-  // Build payment URI for QR
-  const qrValue = amount
-    ? `web+stellar:pay?destination=${address}&amount=${amount}&memo=StellarDripz`
-    : address;
+  // Build payment URI for QR. The SEP-7 web+stellar:pay scheme needs the
+  // asset_code/asset_issuer for credit assets — encoding only destination +
+  // amount would silently request XLM even when the sender picked, say, a
+  // USDC balance. Encoding the URI via URLSearchParams keeps values escaped.
+  const asset = assetCode && assetCode !== "XLM" ? assetCode : null;
+  const qrValue =
+    amount || asset
+      ? (() => {
+          const params = new URLSearchParams({ destination: address });
+          if (amount) params.set("amount", amount);
+          if (asset) {
+            params.set("asset_code", asset);
+            if (assetIssuer) params.set("asset_issuer", assetIssuer);
+          }
+          params.set("memo", "StellarDripz");
+          return `web+stellar:pay?${params.toString()}`;
+        })()
+      : address;
 
   const handleCopy = async () => {
     await copyToClipboard(address);
@@ -62,7 +88,11 @@ export default function QrModal({ open, onClose, address, label, amount }: QrMod
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-sm font-semibold text-white">{label || "Wallet Address"}</h3>
-            {amount && <p className="text-xs text-stellar-blue font-mono mt-0.5">{amount} XLM</p>}
+            {amount && (
+              <p className="text-xs text-stellar-blue font-mono mt-0.5">
+                {amount} {asset || "XLM"}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
