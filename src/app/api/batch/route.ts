@@ -13,6 +13,7 @@ import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { assertFaucetAllowed } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
+import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 const MAX_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
@@ -37,8 +38,8 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = checkRateLimit(request, "general");
     if (rateLimitResponse) return rateLimitResponse;
 
-    const body = (await request.json()) as { addresses?: string[] };
-    const addresses = body?.addresses;
+    const body = await parseJsonBody(request);
+    const addresses = Array.isArray(body.addresses) ? body.addresses : undefined;
 
     if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
       return NextResponse.json({ error: "addresses array is required" }, { status: 400 });
@@ -115,9 +116,7 @@ export async function POST(request: NextRequest) {
     setCsrfCookie(response);
     return response;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal server error" },
-      { status: 500 },
-    );
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }

@@ -11,6 +11,7 @@ import {
   validateAmount,
   validateAssetCode,
 } from "@/lib/server/horizonService";
+import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,13 +19,15 @@ export async function POST(request: NextRequest) {
     const csrfError = validateCsrf(request);
     if (csrfError) return csrfError;
 
-    const body = (await request.json()) as {
-      signedXdr?: string;
-      destination?: string;
-      amount?: string;
-      assetCode?: string;
-      assetIssuer?: string;
-      senderAddress?: string;
+    const parsedBody = await parseJsonBody(request);
+    const body = {
+      signedXdr: typeof parsedBody.signedXdr === "string" ? parsedBody.signedXdr : undefined,
+      destination: typeof parsedBody.destination === "string" ? parsedBody.destination : undefined,
+      amount: typeof parsedBody.amount === "string" ? parsedBody.amount : undefined,
+      assetCode: typeof parsedBody.assetCode === "string" ? parsedBody.assetCode : undefined,
+      assetIssuer: typeof parsedBody.assetIssuer === "string" ? parsedBody.assetIssuer : undefined,
+      senderAddress:
+        typeof parsedBody.senderAddress === "string" ? parsedBody.senderAddress : undefined,
     };
 
     // Self-payments are almost always a mistake (and can never be recovered
@@ -105,9 +108,7 @@ export async function POST(request: NextRequest) {
     setCsrfCookie(response);
     return response;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Payment failed" },
-      { status: 500 },
-    );
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }

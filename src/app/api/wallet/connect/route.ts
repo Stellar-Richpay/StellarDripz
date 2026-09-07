@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { createSession } from "@/lib/server/sessionManager";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
+import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 /** Known wallet IDs the dApp supports — reject anything else up front. */
 const SUPPORTED_WALLET_IDS = new Set(["freighter", "xbull", "albedo", "lobstr", "walletconnect"]);
@@ -20,10 +21,11 @@ export async function POST(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   try {
-    const body = (await request.json()) as {
-      address?: string;
-      walletId?: string;
-      walletName?: string;
+    const parsedBody = await parseJsonBody(request);
+    const body = {
+      address: typeof parsedBody.address === "string" ? parsedBody.address : undefined,
+      walletId: typeof parsedBody.walletId === "string" ? parsedBody.walletId : undefined,
+      walletName: typeof parsedBody.walletName === "string" ? parsedBody.walletName : undefined,
     };
 
     const { address, walletId, walletName } = body;
@@ -58,9 +60,7 @@ export async function POST(request: NextRequest) {
     setCsrfCookie(response);
     return response;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to create session" },
-      { status: 500 },
-    );
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }

@@ -11,14 +11,15 @@ import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { removeSession } from "@/lib/server/dbService";
+import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 export async function POST(request: NextRequest) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
 
   try {
-    const body = (await request.json()) as { address?: string };
-    const address = body?.address?.trim();
+    const body = await parseJsonBody(request);
+    const address = typeof body.address === "string" ? body.address.trim() : undefined;
 
     if (!address) {
       return NextResponse.json({ error: "address is required" }, { status: 400 });
@@ -33,9 +34,7 @@ export async function POST(request: NextRequest) {
     setCsrfCookie(response);
     return response;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to disconnect" },
-      { status: 500 },
-    );
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }

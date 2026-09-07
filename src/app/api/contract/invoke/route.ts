@@ -22,6 +22,7 @@ import {
   submitContractInvocation,
 } from "@/lib/server/sorobanService";
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 /** Upper bounds that keep request bodies within Soroban's practical limits. */
 const MAX_ARGS = 32;
@@ -168,13 +169,16 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as {
-      contractId?: string;
-      functionName?: string;
-      args?: unknown[];
-      signerAddress?: string;
-      signedXdr?: string;
-      simulate?: boolean;
+    const parsedBody = await parseJsonBody(request);
+    const body = {
+      contractId: typeof parsedBody.contractId === "string" ? parsedBody.contractId : undefined,
+      functionName:
+        typeof parsedBody.functionName === "string" ? parsedBody.functionName : undefined,
+      args: Array.isArray(parsedBody.args) ? parsedBody.args : undefined,
+      signerAddress:
+        typeof parsedBody.signerAddress === "string" ? parsedBody.signerAddress : undefined,
+      signedXdr: typeof parsedBody.signedXdr === "string" ? parsedBody.signedXdr : undefined,
+      simulate: typeof parsedBody.simulate === "boolean" ? parsedBody.simulate : undefined,
     };
 
     if (!body.contractId || !body.functionName || !body.signerAddress) {
@@ -259,9 +263,7 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ xdr });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Contract invocation failed" },
-      { status: 500 },
-    );
+    const httpError = toHttpError(err);
+    return NextResponse.json({ error: httpError.message }, { status: httpError.status });
   }
 }
