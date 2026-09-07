@@ -488,6 +488,26 @@ export async function getSession(address: string): Promise<SessionEntry | null> 
   return getDb().sessions.find((s) => s.address === address) || null;
 }
 
+export async function removeSession(address: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  if (supabase) {
+    const { error } = await supabase.from("sessions").delete().eq("address", address);
+    if (error) {
+      logger.error("Supabase removeSession failed", new Error(error.message));
+    }
+    return;
+  }
+
+  // Fallback: in-memory
+  const db = getDb();
+  const idx = db.sessions.findIndex((s) => s.address === address);
+  if (idx !== -1) {
+    db.sessions.splice(idx, 1);
+    persistDb();
+  }
+}
+
 export async function getActiveSessions(): Promise<SessionEntry[]> {
   const supabase = getSupabaseAdmin();
 

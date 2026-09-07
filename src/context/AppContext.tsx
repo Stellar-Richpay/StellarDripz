@@ -19,7 +19,7 @@ import {
   resetKit,
   signTx,
 } from "@/lib/wallets/walletKit";
-import { connectAndRegister } from "@/lib/client/walletClient";
+import { connectAndRegister, disconnectAndUnregister } from "@/lib/client/walletClient";
 import * as apiClient from "@/lib/client/apiClient";
 import { directFetchBalance } from "@/lib/client/directClient";
 import { getExplorerUrl } from "@/lib/stellar/horizon";
@@ -183,10 +183,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnect = useCallback(() => {
+    const address = state.wallet.publicKey;
     clearPersistedWallet();
     resetKit();
     dispatch({ type: "RESET" });
-  }, []);
+    // Mirror the disconnect server-side so the session stops counting as
+    // active (best-effort; the client UI must not depend on this call).
+    if (address) void disconnectAndUnregister(address);
+  }, [state.wallet.publicKey]);
 
   // ---- BALANCE: Direct Horizon read (hybrid) ---- //
   const refreshBalance = useCallback(async () => {

@@ -26,3 +26,18 @@ export async function connectAndRegister(
     body: JSON.stringify({ address, walletId, walletName }),
   });
 }
+
+/**
+ * End the server-side session when the user disconnects. Best-effort: a
+ * failure here must not block the local disconnect UX.
+ */
+export async function disconnectAndUnregister(address: string): Promise<void> {
+  try {
+    await request<{ success: boolean }>("/api/wallet/disconnect", {
+      method: "POST",
+      body: JSON.stringify({ address }),
+    });
+  } catch {
+    /* best-effort — session TTL cleanup will handle stragglers */
+  }
+}
