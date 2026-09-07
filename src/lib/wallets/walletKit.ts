@@ -19,51 +19,44 @@ import type { NetworkType, SupportedWallet } from "@/types/stellar";
 const WALLET_REGISTRY: {
   id: string;
   name: string;
-  icon: string;
+  iconUrl: string;
   installUrl: string;
   checkInstalled: () => boolean;
 }[] = [
   {
     id: "freighter",
     name: "Freighter",
-    icon: "🦊",
+    iconUrl: "🦊",
     installUrl: "https://www.freighter.app/",
     checkInstalled: () => typeof window !== "undefined" && "freighterApi" in window,
   },
   {
     id: "xbull",
     name: "xBull",
-    icon: "🐂",
+    iconUrl: "🐂",
     installUrl: "https://xbull.app/",
     checkInstalled: () => typeof window !== "undefined" && "xBullSDK" in window,
   },
   {
     id: "albedo",
     name: "Albedo",
-    icon: "☀️",
+    iconUrl: "☀️",
     installUrl: "https://albedo.link/",
     checkInstalled: () => true,
   },
   {
     id: "lobstr",
     name: "LOBSTR",
-    icon: "🐙",
+    iconUrl: "🐙",
     installUrl: "https://lobstr.co/",
     checkInstalled: () => isLobstrInstalled(),
   },
   {
     id: "walletconnect",
     name: "WalletConnect",
-    icon: "📱",
+    iconUrl: "📱",
     installUrl: "https://walletconnect.com/",
     checkInstalled: () => isWalletConnectAvailable(),
-  },
-  {
-    id: "rabet",
-    name: "Rabet (Discontinued)",
-    icon: "🚀",
-    installUrl: "",
-    checkInstalled: () => false,
   },
 ];
 
@@ -71,7 +64,7 @@ export function getSupportedWallets(): SupportedWallet[] {
   return WALLET_REGISTRY.map((w) => ({
     id: w.id,
     name: w.name,
-    iconUrl: w.icon,
+    iconUrl: w.iconUrl,
     installed: w.checkInstalled(),
   }));
 }

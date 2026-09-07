@@ -12,13 +12,11 @@ import {
 } from "@/lib/wallets/walletKit";
 import { getWalletErrorMessage } from "@/lib/wallets/errors";
 
-function walletIcon(id: string): string {
-  if (id.includes("freighter")) return "🦊";
-  if (id.includes("xbull")) return "🐂";
-  if (id.includes("albedo")) return "☀️";
-  if (id.includes("walletconnect")) return "📱";
-  if (id.includes("lobstr")) return "🐙";
-  return "🔑";
+/** Resolve the icon for a connected wallet ID from the registry. */
+function walletIcon(id: string | null): string {
+  if (!id) return "🔑";
+  const wallet = getSupportedWallets().find((w) => w.id === id);
+  return wallet?.iconUrl || "🔑";
 }
 
 /**
@@ -146,7 +144,7 @@ export default function WalletConnect() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-stellar-green/10 text-lg">
-                {wallet.walletId ? walletIcon(wallet.walletId) : "🔑"}
+                {walletIcon(wallet.walletId)}
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">
@@ -264,7 +262,7 @@ export default function WalletConnect() {
                   disabled={connecting}
                   className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 hover:border-stellar-blue/30 active:scale-[0.98] disabled:opacity-50"
                 >
-                  <span className="text-2xl">{walletIcon(w.id)}</span>
+                  <span className="text-2xl">{w.iconUrl || "🔑"}</span>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-white">{w.name}</p>
                     <p className="text-[10px] text-white/40">
@@ -328,7 +326,7 @@ export default function WalletConnect() {
             key={w.id}
             className="inline-flex items-center gap-1 rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-1 text-[10px] text-white/30"
           >
-            <span className="text-xs">{walletIcon(w.id)}</span>
+            <span className="text-xs">{w.iconUrl || "🔑"}</span>
             {w.name}
           </span>
         ))}
