@@ -115,7 +115,7 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       const lo = Number(num & BigInt("0xFFFFFFFFFFFFFFFF"));
       const hi = Number(num >> BigInt(64));
       return StellarSdk.xdr.ScVal.scvU128(
-        new StellarSdk.xdr.Uint128Parts({
+        new StellarSdk.xdr.UInt128Parts({
           lo: new StellarSdk.xdr.Uint64(lo),
           hi: new StellarSdk.xdr.Uint64(hi),
         }),
