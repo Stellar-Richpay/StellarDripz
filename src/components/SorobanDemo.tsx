@@ -26,6 +26,10 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
   const [newGreeting, setNewGreeting] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // The demo targets testnet-deployed contracts, so state-changing calls must
+  // not fire from a wallet on another network (matching the Send/Faucet guards).
+  const isOnMainnet = state.wallet.network === "MAINNET";
+
   // Live contract events (SSE with direct RPC polling fallback).
   const {
     events: contractEvents,
@@ -59,7 +63,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
 
   // ---- Proxied write: increment counter ---- //
   const handleIncrement = useCallback(async () => {
-    if (!state.wallet.publicKey) return;
+    if (!state.wallet.publicKey || isOnMainnet) return;
     setLoading(true);
     try {
       const address = state.wallet.publicKey;
@@ -83,7 +87,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     } finally {
       setLoading(false);
     }
-  }, [state.wallet.publicKey, contractId, counter]);
+  }, [state.wallet.publicKey, contractId, counter, isOnMainnet]);
 
   // ---- Direct read: get greeting ---- //
   const handleGetGreeting = useCallback(async () => {
@@ -106,7 +110,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
 
   // ---- Proxied write: set greeting ---- //
   const handleSetGreeting = useCallback(async () => {
-    if (!state.wallet.publicKey || !newGreeting.trim()) return;
+    if (!state.wallet.publicKey || !newGreeting.trim() || isOnMainnet) return;
     setLoading(true);
     try {
       const address = state.wallet.publicKey;
@@ -131,7 +135,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     } finally {
       setLoading(false);
     }
-  }, [state.wallet.publicKey, contractId, newGreeting]);
+  }, [state.wallet.publicKey, contractId, newGreeting, isOnMainnet]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-stellar-purple/20 bg-surface-800/60 p-5 backdrop-blur-md">
@@ -152,6 +156,13 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
           </a>
         </div>
       </div>
+
+      {isOnMainnet && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+          ⚠️ Contract calls are disabled on Mainnet. Switch to Testnet in your wallet.
+        </div>
+      )}
+
       {/* Counter */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
         <div className="flex items-center justify-between">
@@ -169,7 +180,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             </button>
             <button
               onClick={handleIncrement}
-              disabled={loading}
+              disabled={loading || isOnMainnet}
               className="rounded-lg bg-gradient-to-r from-stellar-purple to-stellar-blue px-3 py-1.5 text-xs font-semibold text-white hover:shadow-lg active:scale-95 disabled:opacity-50"
             >
               +1
@@ -188,12 +199,12 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             onChange={(e) => setNewGreeting(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSetGreeting()}
             placeholder="New greeting..."
-            disabled={loading}
+            disabled={loading || isOnMainnet}
             className="flex-1 rounded-lg border border-white/10 bg-surface-950 px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-stellar-purple/50 focus:outline-none disabled:opacity-50"
           />
           <button
             onClick={handleSetGreeting}
-            disabled={loading || !newGreeting.trim()}
+            disabled={loading || !newGreeting.trim() || isOnMainnet}
             className="rounded-lg border border-stellar-purple/30 bg-stellar-purple/10 px-3 py-1.5 text-xs font-medium text-stellar-purple hover:bg-stellar-purple/20 disabled:opacity-30"
           >
             Set
