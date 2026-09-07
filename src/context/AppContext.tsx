@@ -162,8 +162,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               walletName: result.walletName,
             },
           });
-          await connectAndRegister(result.publicKey, result.walletId, result.walletName);
+          // Registration with the backend is best-effort on reconnect: if it
+          // fails the wallet is still connected and usable locally, so it must
+          // NOT clear the persisted session (which would force the user to
+          // re-approve the wallet on every page load). The server session TTL
+          // picks the wallet up again on the next explicit connect.
+          try {
+            await connectAndRegister(result.publicKey, result.walletId, result.walletName);
+          } catch {
+            /* best-effort — see above */
+          }
         } catch {
+          // The wallet itself rejected or failed to reconnect: drop the stale
+          // persisted session so the user gets a clean connect screen instead
+          // of an endless silent reconnect loop on every load.
           clearPersistedWallet();
         }
       })();
