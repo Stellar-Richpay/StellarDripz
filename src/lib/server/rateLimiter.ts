@@ -77,6 +77,33 @@ export function clearRateLimits(): void {
   addressMap.clear();
 }
 
+/**
+ * Resolve the client IP from the most trustworthy source available.
+ *
+ * `x-forwarded-for` is client-spoofable unless the proxy overwrites it, so
+ * we prefer (in order): the platform-provided `request.ip` (populated by
+ * Vercel/Next when trustProxy is enabled), then `x-real-ip` (set by nginx/
+ * Vercel), and only then the first entry of `x-forwarded-for`. This prevents
+ * attackers from rotating the header to bypass per-IP buckets.
+ */
+export function getClientIp(request: NextRequest): string {
+  const platformIp = request.ip;
+  if (platformIp) return platformIp;
+
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
+
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) {
+    // Take the left-most entry: the original client per RFC 7239 when the
+    // proxy appends hop-by-hop addresses.
+    const first = xff.split(",")[0].trim();
+    if (first) return first;
+  }
+
+  return "unknown";
+}
+
 export function checkRateLimit(
   request: NextRequest,
   category: keyof typeof DEFAULTS,
@@ -104,7 +131,7 @@ export function checkRateLimit(
     }
   } else {
     // Per-IP rate limiting (fallback)
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    const ip = getClientIp(request);
     const key = `${category}:${ip}`;
     const entry = ipMap.get(key);
     const now = Date.now();
