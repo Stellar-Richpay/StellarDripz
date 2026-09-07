@@ -28,10 +28,9 @@ export default function AdminDashboard() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
+  // Single effect keyed on the filter: on mount (filter = "") and on every
+  // filter change it loads exactly once. Previously two effects both fired on
+  // mount, doubling every request.
   useEffect(() => {
     loadData(filter || undefined);
   }, [filter, loadData]);
