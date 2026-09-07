@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAddressError } from "@/lib/stellar/address";
+import { assetDecimals } from "@/lib/stellar/format";
 import { getNetworkState } from "@/lib/stellar/networkGuard";
 import QrModal from "./QrModal";
 import AddressBook from "./AddressBook";
@@ -51,10 +52,14 @@ export default function SendForm() {
       setAmountError("Must be a positive number");
       return;
     }
-    // Stellar amounts are fixed-precision: XLM and alphanum4 assets use 7
-    // decimals, alphanum12 uses 12. Rejecting excess precision here avoids a
-    // confusing Horizon "invalid amount" rejection after signing.
-    const maxDecimals = selectedAsset === "XLM" ? 7 : 12;
+    // Stellar amounts are fixed-precision: XLM and credit_alphanum4 assets
+    // use 7 decimals, credit_alphanum12 uses 12. Look up the selected asset's
+    // actual type rather than assuming every non-native asset is alphanum12,
+    // so an alphanum4 balance isn't offered 12 decimals and then rejected by
+    // Horizon after signing.
+    const selected = state.balance.assets.find((a) => a.asset.code === selectedAsset);
+    const maxDecimals =
+      selectedAsset === "XLM" ? 7 : assetDecimals(selected?.asset.type ?? "credit_alphanum4");
     const [, fraction = ""] = val.trim().split(".");
     if (fraction.length > maxDecimals) {
       setAmountError(`Maximum ${maxDecimals} decimal places for ${selectedAsset}`);

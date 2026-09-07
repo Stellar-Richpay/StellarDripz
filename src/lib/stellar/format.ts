@@ -21,11 +21,20 @@ export function formatXlmAmount(raw: string): string {
 }
 
 /**
+ * Maximum fractional digits Stellar allows for an asset: native and
+ * credit_alphanum4 use 7, credit_alphanum12 uses up to 12. Centralized so
+ * display formatting and input validation agree with the ledger.
+ */
+export function assetDecimals(assetType: string): number {
+  return assetType === "credit_alphanum12" ? 12 : 7;
+}
+
+/**
  * Format a credit-asset amount. alphanum4 assets use 7 decimals, alphanum12
  * use up to 12, but display is capped at 7 to avoid unwieldy strings.
  */
 export function formatAssetAmount(raw: string, assetType: string): string {
-  const decimals = assetType === "credit_alphanum12" ? 12 : 7;
+  const decimals = assetDecimals(assetType);
   const digits = Math.min(decimals, 7);
   const num = Number.parseFloat(raw);
   if (!Number.isFinite(num)) return "0";
