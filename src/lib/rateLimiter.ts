@@ -39,10 +39,20 @@ export function getCooldownRemaining(address: string, cooldownMs: number = 60_00
   return cooldownMs - elapsed;
 }
 
-/** Record a faucet request for an address. */
-export function recordFaucetRequest(address: string): void {
+/** Record a faucet request for an address (full cooldown window starts now). */
+export function recordFaucetRequest(address: string, cooldownMs: number = 60_000): void {
+  recordCooldown(address, cooldownMs);
+}
+
+/**
+ * Record a cooldown that expires in `remainingMs` (may be shorter than the
+ * default window, e.g. when the server returns a Retry-After header).
+ * Stored as a synthetic lastRequest timestamp so getCooldownRemaining()
+ * returns the exact remaining time.
+ */
+export function recordCooldown(address: string, remainingMs: number): void {
   const entries = getAll().filter((e) => e.address !== address);
-  entries.push({ address, lastRequest: Date.now() });
+  entries.push({ address, lastRequest: Date.now() - (60_000 - remainingMs) });
   saveAll(entries);
 }
 

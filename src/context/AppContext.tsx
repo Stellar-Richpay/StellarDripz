@@ -22,6 +22,14 @@ import {
 import { connectAndRegister } from "@/lib/client/walletClient";
 import * as apiClient from "@/lib/client/apiClient";
 import { directFetchBalance } from "@/lib/client/directClient";
+import {
+  getCooldownRemaining,
+  recordCooldown,
+  recordFaucetRequest,
+} from "@/lib/rateLimiter";
+
+/** Client-side cooldown window, mirroring the server's faucet bucket. */
+const FAUCET_COOLDOWN_MS = 60_000;
 
 // --- Actions ---
 type Action =
@@ -212,9 +220,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "SET_COOLDOWN", payload: null });
       return;
     }
+    // Read the persisted client-side cooldown so the countdown survives
+    // remounts; previously this always reported canRequest: true, making the
+    // entire cooldown UI dead code.
+    const remainingMs = getCooldownRemaining(state.wallet.publicKey, FAUCET_COOLDOWN_MS);
     dispatch({
       type: "SET_COOLDOWN",
-      payload: { address: state.wallet.publicKey, remainingMs: 0, canRequest: true },
+      payload: {
+        address: state.wallet.publicKey,
+        remainingMs,
+        canRequest: remainingMs === 0,
+      },
     });
   }, [state.wallet.publicKey]);
 
@@ -236,6 +252,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { hash } = await apiClient.requestFaucet(state.wallet.publicKey);
+      // Start the client-side cooldown immediately so the button disables and
+      // the countdown timer appears, mirroring the server's per-address bucket.
+      recordFaucetRequest(state.wallet.publicKey, FAUCET_COOLDOWN_MS);
+      dispatch({
+        type: "SET_COOLDOWN",
+        payload: {
+          address: state.wallet.publicKey,
+          remainingMs: FAUCET_COOLDOWN_MS,
+          canRequest: false,
+        },
+      });
       dispatch({ type: "UPDATE_TRANSACTION", payload: { ...pendingTx, status: "success", hash } });
       dispatch({ type: "SET_TX_IN_PROGRESS", payload: "success" });
       await refreshBalance();
@@ -246,6 +273,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         payload: { ...pendingTx, status: "error", errorMessage: errMsg },
       });
       dispatch({ type: "SET_TX_IN_PROGRESS", payload: "error" });
+
+      // Honor the server's Retry-After when present (e.g. 429 from another
+      // instance or after the window), otherwise the error is just a dead end.
+      const retryAfter = (err as Error & { retryAfter?: number }).retryAfter;
+      if (typeof retryAfter === "number" && retryAfter > 0) {
+        const remainingMs = retryAfter * 1000;
+        recordCooldown(state.wallet.publicKey, remainingMs);
+        dispatch({
+          type: "SET_COOLDOWN",
+          payload: {
+            address: state.wallet.publicKey,
+            remainingMs,
+            canRequest: false,
+          },
+        });
+      }
     }
   }, [state.wallet.publicKey, refreshBalance]);
 
