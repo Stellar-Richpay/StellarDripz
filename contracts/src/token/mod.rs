@@ -381,7 +381,7 @@ impl DripToken {
     }
 
     /// Contract interface version — bump on breaking changes.
-    pub fn version() -> u32 {
+    pub fn token_version() -> u32 {
         1
     }
 
@@ -424,7 +424,7 @@ mod token_test {
         assert_eq!(client.symbol(), String::from_str(&env, "DRIP"));
         assert_eq!(client.decimals(), 7u32);
         assert_eq!(client.total_supply(), 0i128);
-        assert_eq!(client.version(), 1u32);
+        assert_eq!(client.token_version(), 1u32);
 
         // Mint
         client.mint(&admin, &recipient, &1000i128);

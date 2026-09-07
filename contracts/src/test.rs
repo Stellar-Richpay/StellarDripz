@@ -103,7 +103,7 @@ mod counter_test {
         let env = Env::default();
         let contract_id = env.register(StellarDripzCounter, ());
         let client = StellarDripzCounterClient::new(&env, &contract_id);
-        assert_eq!(client.version(), 1u32);
+        assert_eq!(client.counter_version(), 1u32);
     }
 
     #[test]

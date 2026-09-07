@@ -263,7 +263,7 @@ impl DripBadge {
     }
 
     /// Current contract version.
-    pub fn version(_env: Env) -> u32 {
+    pub fn badge_version(_env: Env) -> u32 {
         CONTRACT_VERSION
     }
 
@@ -459,6 +459,6 @@ mod badge_test {
         let env = Env::default();
         let contract_id = env.register(DripBadge, ());
         let client = DripBadgeClient::new(&env, &contract_id);
-        assert_eq!(client.version(), 1u32);
+        assert_eq!(client.badge_version(), 1u32);
     }
 }

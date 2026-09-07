@@ -337,7 +337,7 @@ impl DripGovernance {
     }
 
     /// Governance interface version — bump on breaking changes.
-    pub fn version() -> u32 {
+    pub fn governance_version() -> u32 {
         1
     }
 
@@ -594,7 +594,7 @@ mod governance_test {
         let env = Env::default();
         let contract_id = env.register(DripGovernance, ());
         let client = DripGovernanceClient::new(&env, &contract_id);
-        assert_eq!(client.version(), 1u32);
+        assert_eq!(client.governance_version(), 1u32);
     }
 
     #[test]

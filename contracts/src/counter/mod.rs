@@ -118,7 +118,7 @@ impl StellarDripzCounter {
     }
 
     /// Current contract version.
-    pub fn version(_env: Env) -> u32 {
+    pub fn counter_version(_env: Env) -> u32 {
         CONTRACT_VERSION
     }
 }

@@ -277,7 +277,7 @@ impl DripPool {
     }
 
     /// Pool interface version — bump on breaking changes.
-    pub fn version() -> u32 {
+    pub fn pool_version() -> u32 {
         1
     }
 
@@ -414,7 +414,7 @@ mod pool_error_test {
         env.mock_all_auths();
         let admin = Address::generate(&env);
         let (client, _) = setup(&env, &admin);
-        assert_eq!(client.version(), 1u32);
+        assert_eq!(client.pool_version(), 1u32);
     }
 
     #[test]
