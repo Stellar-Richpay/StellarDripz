@@ -174,6 +174,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.wallet.connected, state.wallet.publicKey]);
 
+  // Re-fetch balances when the tab regains focus. Balances can go stale while
+  // the tab is hidden — funding from another device (QR faucet), a payment in
+  // another tab, or a wallet-side send all change the account with no local
+  // signal — so refresh on visibility/focus, throttled to avoid spamming.
+  useEffect(() => {
+    if (!state.wallet.connected || !state.wallet.publicKey) return;
+    const MIN_REFRESH_GAP_MS = 15_000;
+    let lastFocusRefresh = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const lastFetchedMs = state.balance.lastFetched
+        ? state.balance.lastFetched.getTime()
+        : 0;
+      const now = Date.now();
+      if (now - Math.max(lastFetchedMs, lastFocusRefresh) < MIN_REFRESH_GAP_MS) return;
+      lastFocusRefresh = now;
+      void refreshBalance();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.wallet.connected, state.wallet.publicKey, state.balance.lastFetched]);
+
   const connect = useCallback(async (walletId: string) => {
     const { publicKey, network, walletId: wid, walletName } = await connectWithWallet(walletId);
     dispatch({
