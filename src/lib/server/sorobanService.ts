@@ -113,8 +113,7 @@ export async function submitContractInvocation(
     attempts++;
   }
 
-  const status = getTx.status as StellarSdk.rpc.Api.GetTransactionStatus;
-  if (status === StellarSdk.rpc.Api.GetTransactionStatus.FAILED) {
+  if (getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.FAILED) {
     // On-chain failure — record it as an error so the UI can surface the
     // actual outcome instead of the previous bug where FAILED invocations
     // were logged (and shown) as successes.
@@ -140,7 +139,7 @@ export async function submitContractInvocation(
   }
 
   let resultValue: string | undefined;
-  if (status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS && getTx.returnValue) {
+  if (getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS && getTx.returnValue) {
     resultValue = StellarSdk.scValToNative(getTx.returnValue)?.toString();
   }
 
@@ -148,7 +147,7 @@ export async function submitContractInvocation(
   // case after the poll window, which we surface as-is rather than claiming
   // success).
   const txStatus: TxRecord["status"] =
-    status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS ? "success" : "pending";
+    getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS ? "success" : "pending";
   const txRecord: TxRecord = {
     id: `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     type: "contract",
