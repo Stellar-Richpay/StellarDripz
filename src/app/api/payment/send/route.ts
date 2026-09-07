@@ -22,6 +22,17 @@ export async function POST(request: NextRequest) {
       senderAddress?: string;
     };
 
+    // Self-payments are almost always a mistake (and can never be recovered
+    // from on-chain); reject them consistently on both the build and submit
+    // paths before any wallet interaction.
+    if (
+      body.senderAddress &&
+      body.destination &&
+      body.senderAddress.trim() === body.destination.trim()
+    ) {
+      return NextResponse.json({ error: "Sender and destination must differ" }, { status: 400 });
+    }
+
     // If no signed XDR, just build the transaction for the frontend
     if (!body.signedXdr) {
       if (!body.senderAddress || !body.destination || !body.amount) {
