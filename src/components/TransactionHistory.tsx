@@ -66,18 +66,20 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
       {/* Hash / Error */}
       {tx.hash && tx.status === "success" && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] text-stellar-green/70 truncate max-w-[200px]">
-            {tx.hash.slice(0, 16)}...
-          </span>
-          {tx.explorerUrl && (
+          {tx.explorerUrl ? (
             <a
               href={tx.explorerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] font-semibold text-stellar-blue hover:text-stellar-blue-light transition-colors"
+              title="Open transaction on StellarExpert"
+              className="font-mono text-[10px] text-stellar-green/70 hover:text-stellar-blue truncate max-w-[200px] transition-colors"
             >
-              View on Explorer ↗
+              {tx.hash.slice(0, 16)}... ↗
             </a>
+          ) : (
+            <span className="font-mono text-[10px] text-stellar-green/70 truncate max-w-[200px]">
+              {tx.hash.slice(0, 16)}...
+            </span>
           )}
         </div>
       )}
