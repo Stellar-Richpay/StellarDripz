@@ -3,6 +3,7 @@
  * Connects, signs, and signs messages via @lobstrco/signer-extension-api.
  */
 import type { NetworkType } from "@/types/stellar";
+import { STELLAR_NETWORK } from "../stellar/network";
 
 function persistWallet(wallet: {
   publicKey: string;
@@ -18,19 +19,21 @@ function persistWallet(wallet: {
   }
 }
 
-/** Cached synchronous detection result. */
-let _lobstrInstalled: boolean | null = null;
-
+/**
+ * Check for the LOBSTR extension object in window.
+ * Deliberately NOT cached: browser extensions inject their object after page
+ * scripts run, so a result computed on first paint can be a false negative
+ * that persists until reload. Re-checking on every call is cheap and matches
+ * how Freighter/xBull detection behaves.
+ */
 export function isLobstrInstalled(): boolean {
-  if (_lobstrInstalled !== null) return _lobstrInstalled;
   try {
-    // Check for the LOBSTR extension object in window
-    _lobstrInstalled =
-      typeof window !== "undefined" && ("lobstrSignerExtension" in window || "lobstr" in window);
+    return (
+      typeof window !== "undefined" && ("lobstrSignerExtension" in window || "lobstr" in window)
+    );
   } catch {
-    _lobstrInstalled = false;
+    return false;
   }
-  return _lobstrInstalled ?? false;
 }
 
 export async function connectLobstr(
@@ -52,7 +55,9 @@ export async function connectLobstr(
     if (!publicKey) throw new Error("NO_ACCOUNT");
 
     persistWallet({ publicKey, walletId, walletName, connectedAt: Date.now() });
-    return { publicKey, network: "TESTNET", walletId, walletName };
+    // Report the app's configured network (not a hardcoded testnet) so the
+    // wallet/app mismatch guard behaves correctly on mainnet deployments.
+    return { publicKey, network: STELLAR_NETWORK.network, walletId, walletName };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message.toLowerCase() : "";
     if (msg.includes("reject") || msg.includes("denied") || msg.includes("cancel"))
