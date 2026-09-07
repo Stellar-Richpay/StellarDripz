@@ -14,6 +14,9 @@ interface ToastProps {
   onDismiss: (id: string) => void;
 }
 
+/** Upper bound on simultaneously visible toasts. */
+const MAX_VISIBLE_TOASTS = 5;
+
 function ToastItem({ toast, onDismiss }: ToastProps) {
   const [leaving, setLeaving] = useState(false);
 
@@ -83,10 +86,12 @@ export default function ToastContainer() {
           const withoutSamePending = prev.filter(
             (t) => !(t.type === "pending" && t.title === toast.title),
           );
-          return [...withoutSamePending, toast];
+          return [...withoutSamePending, toast].slice(-MAX_VISIBLE_TOASTS);
         }
         const filtered = prev.filter((t) => !(t.type === "pending" && t.title === toast.title));
-        return [...filtered, toast];
+        // Keep the newest N so a burst of actions can't stack the stack
+        // off-screen or leak DOM nodes (pending toasts never auto-dismiss).
+        return [...filtered, toast].slice(-MAX_VISIBLE_TOASTS);
       });
     };
 
