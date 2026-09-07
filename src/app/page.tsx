@@ -11,11 +11,13 @@ import SorobanDemo from "@/components/SorobanDemo";
 import CooldownTimer from "@/components/CooldownTimer";
 import TransactionFeedback from "@/components/TransactionFeedback";
 import { useAppContext } from "@/context/AppContext";
+import { getContractIdError } from "@/lib/stellar/contractId";
 
 export default function Home() {
   const { state, checkCooldown } = useAppContext();
   const { wallet, cooldown } = state;
   const [contractIdInput, setContractIdInput] = useState("");
+  const [contractIdError, setContractIdError] = useState<string | null>(null);
   const [activeContractId, setActiveContractId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,7 +26,19 @@ export default function Home() {
 
   const handleSetContractId = () => {
     const trimmed = contractIdInput.trim();
-    if (trimmed) setActiveContractId(trimmed);
+    const error = getContractIdError(trimmed);
+    if (error) {
+      setContractIdError(error);
+      return;
+    }
+    setContractIdError(null);
+    setActiveContractId(trimmed);
+  };
+
+  const handleContractIdChange = (value: string) => {
+    setContractIdInput(value);
+    // Clear the error as the user edits (re-validate on submit/Enter).
+    if (contractIdError) setContractIdError(null);
   };
 
   return (
@@ -95,10 +109,15 @@ export default function Home() {
                   <input
                     type="text"
                     value={contractIdInput}
-                    onChange={(e) => setContractIdInput(e.target.value)}
+                    onChange={(e) => handleContractIdChange(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSetContractId()}
-                    placeholder="Paste deployed contract ID..."
-                    className="flex-1 rounded-xl border border-white/10 bg-surface-950 px-4 py-2.5 font-mono text-xs text-white placeholder-white/30 focus:border-stellar-purple/50 focus:outline-none"
+                    placeholder="Paste deployed contract ID (C…)"
+                    aria-invalid={!!contractIdError}
+                    className={`flex-1 rounded-xl border bg-surface-950 px-4 py-2.5 font-mono text-xs text-white placeholder-white/30 focus:outline-none ${
+                      contractIdError
+                        ? "border-red-500/50 focus:border-red-500/70"
+                        : "border-white/10 focus:border-stellar-purple/50"
+                    }`}
                   />
                   <button
                     onClick={handleSetContractId}
@@ -108,6 +127,11 @@ export default function Home() {
                     Connect
                   </button>
                 </div>
+                {contractIdError && (
+                  <p role="alert" className="mt-2 text-center text-[10px] text-red-400">
+                    {contractIdError}
+                  </p>
+                )}
                 <p className="mt-2 text-[10px] text-white/25 text-center">
                   Deploy via{" "}
                   <code className="text-stellar-purple/60">scripts/deploy-contract.ts</code>
