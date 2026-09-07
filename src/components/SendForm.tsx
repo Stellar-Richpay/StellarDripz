@@ -16,6 +16,7 @@ export default function SendForm() {
   const [amountError, setAmountError] = useState("");
   const [showPaymentQr, setShowPaymentQr] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState("XLM");
+  const [selectedAssetIssuer, setSelectedAssetIssuer] = useState<string | undefined>(undefined);
   const [showAddressBook, setShowAddressBook] = useState(false);
 
   if (!wallet.connected) return null;
@@ -90,7 +91,8 @@ export default function SendForm() {
     if (!valid) return;
 
     const assetCode = selectedAsset !== "XLM" ? selectedAsset : undefined;
-    await doSendPayment(destination.trim(), amount.trim(), assetCode);
+    const assetIssuer = selectedAsset !== "XLM" ? selectedAssetIssuer : undefined;
+    await doSendPayment(destination.trim(), amount.trim(), assetCode, assetIssuer);
     setDestination("");
     setAmount("");
   };
@@ -193,7 +195,15 @@ export default function SendForm() {
             <label className="block text-xs font-medium text-white/60 mb-1.5">Asset</label>
             <select
               value={selectedAsset}
-              onChange={(e) => setSelectedAsset(e.target.value)}
+              onChange={(e) => {
+                setSelectedAsset(e.target.value);
+                // Track the issuer for the chosen asset so non-native sends
+                // build the correct asset instead of misusing the sender.
+                const asset = state.balance.assets.find((a) => a.asset.code === e.target.value);
+                setSelectedAssetIssuer(asset?.asset.issuer || undefined);
+                setAmount("");
+                setAmountError("");
+              }}
               disabled={isPending || isOnMainnet}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white transition-all focus:outline-none focus:ring-2 focus:border-stellar-blue/50 focus:ring-stellar-blue/30 disabled:opacity-50 disabled:cursor-not-allowed appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394A3B8%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-9"
             >
@@ -202,7 +212,8 @@ export default function SendForm() {
                 .filter((a) => a.asset.type !== "native")
                 .map((a) => (
                   <option key={`${a.asset.code}-${a.asset.issuer}`} value={a.asset.code}>
-                    {a.asset.code} ({a.formatted})
+                    {a.asset.code} · {a.asset.issuer.slice(0, 6)}…{a.asset.issuer.slice(-4)}{" "}
+                    ({a.formatted})
                   </option>
                 ))}
             </select>

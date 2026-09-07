@@ -69,7 +69,7 @@ export function useBalance({
       const assets: AssetBalance[] = (info.assets || []).map((a) => ({
         asset: {
           code: a.code,
-          issuer: "",
+          issuer: a.issuer || "",
           type: a.code === "XLM" ? ("native" as const) : ("credit_alphanum4" as const),
         },
         balance: a.balance,

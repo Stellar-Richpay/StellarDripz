@@ -32,7 +32,7 @@ function soroban(): StellarSdk.rpc.Server {
 export interface DirectBalanceResult {
   xlm: string;
   raw: string;
-  assets: Array<{ code: string; balance: string; formatted: string }>;
+  assets: Array<{ code: string; issuer: string; balance: string; formatted: string }>;
 }
 
 export interface DirectContractEvent {
@@ -69,6 +69,7 @@ export async function directFetchBalance(address: string): Promise<DirectBalance
       const decimals = b.asset_type === "credit_alphanum4" ? 7 : 12;
       assets.push({
         code: b.asset_code || "???",
+        issuer: b.asset_issuer || "",
         balance: b.balance,
         formatted: parseFloat(b.balance).toLocaleString("en-US", {
           minimumFractionDigits: Math.min(decimals, 7),

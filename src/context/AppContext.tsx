@@ -120,7 +120,12 @@ interface AppContextValue {
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
   doFaucetRequest: () => Promise<void>;
-  doSendPayment: (destination: string, amount: string, assetCode?: string) => Promise<void>;
+  doSendPayment: (
+    destination: string,
+    amount: string,
+    assetCode?: string,
+    assetIssuer?: string,
+  ) => Promise<void>;
   addContractEvent: (event: ContractEvent) => void;
   clearContractEvents: () => void;
   checkCooldown: () => void;
@@ -198,7 +203,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           assets: (info.assets || []).map((a) => ({
             asset: {
               code: a.code,
-              issuer: "",
+              issuer: a.issuer || "",
               type: a.code === "XLM" ? "native" : ("credit_alphanum4" as const),
             },
             balance: a.balance,
@@ -303,7 +308,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ---- PAYMENT: Proxied write (rate-limited, logged) ---- //
   const doSendPayment = useCallback(
-    async (destination: string, amount: string, assetCode?: string) => {
+    async (destination: string, amount: string, assetCode?: string, assetIssuer?: string) => {
       if (!state.wallet.publicKey) return;
       const txId = `send-${Date.now()}`;
       const pendingTx: TransactionRecord = {
@@ -326,6 +331,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           destination,
           amount,
           assetCode,
+          assetIssuer,
         );
         // 2. Sign locally via wallet
         const signedXdr = await signTx(xdr, state.wallet.publicKey);
@@ -336,6 +342,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           destination,
           amount,
           assetCode,
+          assetIssuer,
         );
         dispatch({
           type: "UPDATE_TRANSACTION",

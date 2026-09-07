@@ -127,6 +127,7 @@ export async function sendPaymentServer(
   amount: string,
   assetCode: string,
   requestInfo: { ip?: string; userAgent?: string },
+  assetIssuer?: string,
 ): Promise<{ hash: string }> {
   if (STELLAR_NETWORK.networkPassphrase !== StellarSdk.Networks.TESTNET) {
     throw new Error("Network mismatch — expected Testnet.");
@@ -151,7 +152,7 @@ export async function sendPaymentServer(
   // our analytics/logging would record forged data).
   const innerTx =
     signedTx instanceof StellarSdk.FeeBumpTransaction ? signedTx.innerTransaction : signedTx;
-  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode);
+  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode, assetIssuer);
 
   const response = await horizonServer.submitTransaction(signedTx);
 
@@ -189,6 +190,7 @@ function verifyPaymentTransaction(
   destination: string,
   amount: string,
   assetCode: string,
+  assetIssuer?: string,
 ): void {
   // TransactionBuilder.fromXDR already validated the network passphrase by
   // decoding with ours. Check the source account matches the claimed sender.
@@ -213,6 +215,11 @@ function verifyPaymentTransaction(
     if (actualCode !== expectedAssetCode) {
       throw new Error("Transaction asset does not match requested asset");
     }
+    // For non-native assets the issuer must match too — two assets can share
+    // a code but have different issuers.
+    if (!op.asset.isNative() && assetIssuer && op.asset.issuer !== assetIssuer) {
+      throw new Error("Transaction asset issuer does not match requested issuer");
+    }
   }
 
   if (paymentOps === 0) {
@@ -227,11 +234,26 @@ export async function buildPaymentTransaction(
   destination: string,
   amount: string,
   assetCode?: string,
+  assetIssuer?: string,
 ): Promise<{ xdr: string }> {
   try {
     StellarSdk.StrKey.decodeEd25519PublicKey(destination);
   } catch {
     throw new Error("Invalid destination address.");
+  }
+
+  // Non-native assets require an issuer — previously the sender was used as
+  // the issuer, which silently built a payment for a different (usually
+  // nonexistent) asset than the user held.
+  if (assetCode && assetCode !== "XLM" && !assetIssuer) {
+    throw new Error("Asset issuer is required for non-native assets");
+  }
+  if (assetIssuer) {
+    try {
+      StellarSdk.StrKey.decodeEd25519PublicKey(assetIssuer);
+    } catch {
+      throw new Error("Invalid asset issuer address.");
+    }
   }
 
   const sourceAccount = await horizonServer.loadAccount(senderPublicKey);
@@ -241,7 +263,7 @@ export async function buildPaymentTransaction(
   const asset =
     !assetCode || assetCode === "XLM"
       ? StellarSdk.Asset.native()
-      : new StellarSdk.Asset(assetCode, senderPublicKey);
+      : new StellarSdk.Asset(assetCode, assetIssuer!);
 
   const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
     fee,

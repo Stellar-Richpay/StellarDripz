@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
       destination?: string;
       amount?: string;
       assetCode?: string;
+      assetIssuer?: string;
       senderAddress?: string;
     };
 
@@ -34,12 +35,13 @@ export async function POST(request: NextRequest) {
         body.destination,
         body.amount,
         body.assetCode,
+        body.assetIssuer,
       );
       return NextResponse.json({ xdr });
     }
 
     // Submit signed payment
-    const { signedXdr, destination, amount, assetCode, senderAddress } = body;
+    const { signedXdr, destination, amount, assetCode, assetIssuer, senderAddress } = body;
     if (!senderAddress || !destination || !amount) {
       return NextResponse.json(
         { error: "senderAddress, destination, amount required" },
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
       amount,
       assetCode || "XLM",
       { ip, userAgent: ua },
+      assetIssuer,
     );
 
     const response = NextResponse.json({ success: true, hash: result.hash });
