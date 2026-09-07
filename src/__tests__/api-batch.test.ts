@@ -1,6 +1,7 @@
 /**
  * Tests for POST /api/batch route.
  */
+import type { NextRequest } from "next/server";
 
 jest.mock("next/server", () => ({
   NextRequest: class {
@@ -84,7 +85,12 @@ const VALID_ADDR = "GDWBEWOFHQGSNFJOK6Q3BG2SEZQKWQ3WVQPAGI7C2BNVZXG4LBBHIZPO";
 const VALID_ADDR_2 = "GDKITNYZI5THB72MMUUEQS26VIKTO32DY2OV4KXNUWT26FIJ45ABU2VB";
 
 describe("POST /api/batch", () => {
-  let POST: (req: unknown) => Promise<{ status: number; json: () => Promise<unknown> }>;
+  // The route's real POST signature; the mock NextRequest is structurally
+  // compatible because the route only reads url/method/headers/body.
+  let POST: (req: InstanceType<typeof NextRequest>) => Promise<{
+    status: number;
+    json: () => Promise<unknown>;
+  }>;
 
   beforeEach(() => {
     jest.clearAllMocks();
