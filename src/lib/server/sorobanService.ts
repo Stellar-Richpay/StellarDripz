@@ -101,30 +101,58 @@ export async function submitContractInvocation(
     throw new Error(`Contract submission failed: ${JSON.stringify(response)}`);
   }
 
+  const MAX_POLL_ATTEMPTS = 30;
   let getTx = await sorobanServer.getTransaction(response.hash);
   let attempts = 0;
   while (
     getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.NOT_FOUND &&
-    attempts < 30
+    attempts < MAX_POLL_ATTEMPTS
   ) {
     await new Promise((r) => setTimeout(r, 1000));
     getTx = await sorobanServer.getTransaction(response.hash);
     attempts++;
   }
 
+  const status = getTx.status as StellarSdk.rpc.Api.GetTransactionStatus;
+  if (status === StellarSdk.rpc.Api.GetTransactionStatus.FAILED) {
+    // On-chain failure — record it as an error so the UI can surface the
+    // actual outcome instead of the previous bug where FAILED invocations
+    // were logged (and shown) as successes.
+    const failedTx: TxRecord = {
+      id: `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type: "contract",
+      status: "error",
+      hash: response.hash,
+      amount: "0",
+      senderAddress: signerPublicKey,
+      destinationAddress: contractId,
+      functionName,
+      contractId,
+      errorMessage: `Contract invocation failed on-chain (hash ${response.hash})`,
+      timestamp: Date.now(),
+      ip: requestInfo.ip,
+      userAgent: requestInfo.userAgent,
+    };
+    await saveTransaction(failedTx);
+    throw new Error(
+      `Contract invocation failed on-chain: ${JSON.stringify(getTx.resultXdr ? { resultXdr: getTx.resultXdr } : {})}`,
+    );
+  }
+
   let resultValue: string | undefined;
-  if (
-    getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS &&
-    getTx.returnValue
-  ) {
+  if (status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS && getTx.returnValue) {
     resultValue = StellarSdk.scValToNative(getTx.returnValue)?.toString();
   }
 
-  // Server-side logging
+  // Server-side logging — only reached for SUCCESS (or the rare still-pending
+  // case after the poll window, which we surface as-is rather than claiming
+  // success).
+  const txStatus: TxRecord["status"] =
+    status === StellarSdk.rpc.Api.GetTransactionStatus.SUCCESS ? "success" : "pending";
   const txRecord: TxRecord = {
     id: `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     type: "contract",
-    status: "success",
+    status: txStatus,
     hash: response.hash,
     amount: "0",
     senderAddress: signerPublicKey,
@@ -139,7 +167,7 @@ export async function submitContractInvocation(
   await logAnalytics({
     eventType: "contract_invoke",
     address: signerPublicKey,
-    data: { contractId, functionName },
+    data: { contractId, functionName, status: txStatus },
   });
 
   return { hash: response.hash, resultValue };
