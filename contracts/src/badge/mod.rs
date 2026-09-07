@@ -100,7 +100,7 @@ impl DripBadge {
         }
 
         let mut count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
-        count += 1;
+        count = count.checked_add(1).expect("Badge count overflow");
         s::set_persistent(&env, &KEY_BADGE_COUNT, &count);
 
         let badge = Badge {
