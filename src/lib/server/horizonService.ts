@@ -146,7 +146,9 @@ export async function sendPaymentServer(
   // was building. Without this, anyone could POST any pre-signed XDR and
   // have it attributed to arbitrary sender/destination/amount records (and
   // our analytics/logging would record forged data).
-  verifyPaymentTransaction(signedTx, senderPublicKey, destination, amount, assetCode);
+  const innerTx =
+    signedTx instanceof StellarSdk.FeeBumpTransaction ? signedTx.innerTransaction : signedTx;
+  verifyPaymentTransaction(innerTx, senderPublicKey, destination, amount, assetCode);
 
   const response = await horizonServer.submitTransaction(signedTx);
 
