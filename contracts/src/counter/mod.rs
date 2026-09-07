@@ -1,4 +1,6 @@
 use soroban_sdk::{contract, contractimpl, contracterror, contractevent, symbol_short, Env, Symbol, String, Address};
+use crate::common::storage as s;
+use crate::common::constants::TTL_REFRESH_THRESHOLD;
 
 // ---- Contract Errors ----
 
@@ -47,7 +49,7 @@ impl StellarDripzCounter {
             .get(&GLOBAL_COUNTER)
             .unwrap_or(0);
         global = global.checked_add(1).expect("Counter overflow");
-        env.storage().persistent().set(&GLOBAL_COUNTER, &global);
+        s::set_and_extend(&env, &GLOBAL_COUNTER, &global, TTL_REFRESH_THRESHOLD);
 
         // Per-user counter — keyed by user address
         let user_key = (USER_COUNTER, &user);
@@ -57,7 +59,7 @@ impl StellarDripzCounter {
             .get(&user_key)
             .unwrap_or(0);
         user_count = user_count.checked_add(1).expect("Counter overflow");
-        env.storage().persistent().set(&user_key, &user_count);
+        s::set_and_extend(&env, &user_key, &user_count, TTL_REFRESH_THRESHOLD);
 
         IncrementEvent {
             user: user.clone(),
@@ -90,7 +92,7 @@ impl StellarDripzCounter {
         }
 
         let user_key = (GREETING_KEY, &user);
-        env.storage().persistent().set(&user_key, &message);
+        s::set_and_extend(&env, &user_key, &message, TTL_REFRESH_THRESHOLD);
 
         GreetingEvent {
             user: user.clone(),

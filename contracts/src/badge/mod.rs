@@ -1,7 +1,7 @@
 use soroban_sdk::{contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, symbol_short, Vec};
 use crate::common::storage as s;
 use crate::common::events as e;
-use crate::common::constants::ZERO_ADDRESS_STR;
+use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
 
 // ---- Contract Errors ----
 
@@ -72,6 +72,7 @@ impl DripBadge {
 
         s::set_persistent(&env, &s::KEY_ADMIN, &admin);
         s::set_persistent(&env, &KEY_BADGE_COUNT, &0u64);
+        s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (symbol_short!("bdg_init"), &admin), 0u64);
         Ok(())
@@ -101,7 +102,7 @@ impl DripBadge {
 
         let mut count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
         count = count.checked_add(1).expect("Badge count overflow");
-        s::set_persistent(&env, &KEY_BADGE_COUNT, &count);
+        s::set_and_extend(&env, &KEY_BADGE_COUNT, &count, TTL_REFRESH_THRESHOLD);
 
         let badge = Badge {
             id: count,
@@ -112,7 +113,7 @@ impl DripBadge {
         };
 
         let key = (KEY_BADGE, count);
-        env.storage().persistent().set(&key, &badge);
+        s::set_and_extend(&env, &key, &badge, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (symbol_short!("bdg_creat"), &admin, count), name);
         Ok(count)
@@ -154,7 +155,7 @@ impl DripBadge {
             tier,
             ..existing
         };
-        env.storage().persistent().set(&key, &updated);
+        s::set_and_extend(&env, &key, &updated, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (symbol_short!("bdg_updte"), &admin, badge_id), updated.tier);
         Ok(())
@@ -180,7 +181,7 @@ impl DripBadge {
             badge_id,
             claimed_ledger: env.ledger().sequence(),
         };
-        env.storage().persistent().set(&claim_key, &claim);
+        s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_BADGE_CLAIM, &user, badge_id), env.ledger().sequence());
         Ok(())
@@ -256,7 +257,7 @@ impl DripBadge {
             badge_id,
             claimed_ledger: env.ledger().sequence(),
         };
-        env.storage().persistent().set(&claim_key, &claim);
+        s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_BADGE_CLAIM, &user, badge_id), env.ledger().sequence());
         Ok(())

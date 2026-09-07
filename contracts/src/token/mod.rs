@@ -1,7 +1,7 @@
 use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, symbol_short};
 use crate::common::storage as s;
 use crate::common::events as e;
-use crate::common::constants::ZERO_ADDRESS_STR;
+use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
 
 // ---- Data Types ----
 
@@ -99,7 +99,7 @@ impl DripToken {
         s::set_persistent(&env, &s::KEY_NAME, &name);
         s::set_persistent(&env, &s::KEY_SYMBOL, &symbol);
         s::set_persistent(&env, &s::KEY_DECIMALS, &decimals);
-        s::set_persistent(&env, &s::KEY_TOTAL_SUPPLY, &0i128);
+        s::set_and_extend(&env, &s::KEY_TOTAL_SUPPLY, &0i128, TTL_REFRESH_THRESHOLD);
 
         TokenInitializedEvent {
             admin: admin.clone(),
@@ -126,7 +126,7 @@ impl DripToken {
         admin.require_auth();
 
         if authorized {
-            s::set_persistent(&env, &KEY_MINTER, &minter);
+            s::set_and_extend(&env, &KEY_MINTER, &minter, TTL_REFRESH_THRESHOLD);
         } else {
             env.storage().persistent().remove(&KEY_MINTER);
         }
@@ -176,11 +176,11 @@ impl DripToken {
         let balance_key = (s::KEY_BALANCE, &to);
         let current: i128 = env.storage().persistent().get(&balance_key).unwrap_or(0);
         let new_balance = current.checked_add(amount).expect("Balance overflow");
-        env.storage().persistent().set(&balance_key, &new_balance);
+        s::set_and_extend(&env, &balance_key, &new_balance, TTL_REFRESH_THRESHOLD);
 
         let current_total: i128 = s::get_persistent(&env, &s::KEY_TOTAL_SUPPLY, 0i128);
         let new_total = current_total.checked_add(amount).expect("Total supply overflow");
-        s::set_persistent(&env, &s::KEY_TOTAL_SUPPLY, &new_total);
+        s::set_and_extend(&env, &s::KEY_TOTAL_SUPPLY, &new_total, TTL_REFRESH_THRESHOLD);
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &zero, &to, amount);
@@ -208,12 +208,12 @@ impl DripToken {
             return Err(TokenError::InsufficientBalance);
         }
         let new_from = from_current.checked_sub(amount).expect("Balance underflow");
-        env.storage().persistent().set(&from_key, &new_from);
+        s::set_and_extend(&env, &from_key, &new_from, TTL_REFRESH_THRESHOLD);
 
         let to_key = (s::KEY_BALANCE, &to);
         let to_current: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
         let new_to = to_current.checked_add(amount).expect("Recipient balance overflow");
-        env.storage().persistent().set(&to_key, &new_to);
+        s::set_and_extend(&env, &to_key, &new_to, TTL_REFRESH_THRESHOLD);
 
         e::emit_transfer(&env, &from, &to, amount);
         Ok(())
@@ -259,7 +259,7 @@ impl DripToken {
                 amount: new_allowance,
                 expiration_ledger: allowance_val.expiration_ledger,
             };
-            env.storage().persistent().set(&allowance_key, &updated);
+            s::set_and_extend(&env, &allowance_key, &updated, TTL_REFRESH_THRESHOLD);
         }
 
         let from_key = (s::KEY_BALANCE, &from);
@@ -268,12 +268,12 @@ impl DripToken {
             return Err(TokenError::InsufficientBalance);
         }
         let new_from = from_current.checked_sub(amount).expect("Balance underflow");
-        env.storage().persistent().set(&from_key, &new_from);
+        s::set_and_extend(&env, &from_key, &new_from, TTL_REFRESH_THRESHOLD);
 
         let to_key = (s::KEY_BALANCE, &to);
         let to_current: i128 = env.storage().persistent().get(&to_key).unwrap_or(0);
         let new_to = to_current.checked_add(amount).expect("Recipient balance overflow");
-        env.storage().persistent().set(&to_key, &new_to);
+        s::set_and_extend(&env, &to_key, &new_to, TTL_REFRESH_THRESHOLD);
 
         e::emit_transfer(&env, &from, &to, amount);
         Ok(())
@@ -298,7 +298,7 @@ impl DripToken {
 
         let key = (KEY_ALLOWANCES, &owner, &spender);
         let allowance = AllowanceValue { amount, expiration_ledger };
-        env.storage().persistent().set(&key, &allowance);
+        s::set_and_extend(&env, &key, &allowance, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_APPROVE, &owner, &spender), amount);
         Ok(())
@@ -318,11 +318,11 @@ impl DripToken {
             return Err(TokenError::InsufficientBalance);
         }
         let new_balance = current.checked_sub(amount).expect("Balance underflow");
-        env.storage().persistent().set(&key, &new_balance);
+        s::set_and_extend(&env, &key, &new_balance, TTL_REFRESH_THRESHOLD);
 
         let total: i128 = s::get_persistent(&env, &s::KEY_TOTAL_SUPPLY, 0i128);
         let new_total = total.checked_sub(amount).expect("Total supply underflow");
-        s::set_persistent(&env, &s::KEY_TOTAL_SUPPLY, &new_total);
+        s::set_and_extend(&env, &s::KEY_TOTAL_SUPPLY, &new_total, TTL_REFRESH_THRESHOLD);
 
         let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
         e::emit_transfer(&env, &from, &zero, amount);
@@ -675,6 +675,31 @@ mod token_test {
             Err(Ok(TokenError::InvalidRecipient))
         ));
         assert_eq!(client.total_supply(), 0i128);
+    }
+
+    /// Writes must refresh the persistent-entry TTL so user balances cannot
+    /// silently expire while the network is quiet.
+    #[test]
+    fn test_balance_writes_extend_ttl() {
+        use soroban_sdk::testutils::storage::Persistent as _;
+
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let alice = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+
+        client.mint(&admin, &alice, &1000i128);
+        let balance_key = (s::KEY_BALANCE, &alice);
+        let ttl_after_write = env.as_contract(&contract_id, || {
+            env.storage().persistent().get_ttl(&balance_key)
+        });
+        // Well above the default ~4095-ledger write TTL, proving the entry
+        // was extended toward the ledger max.
+        assert!(ttl_after_write > 4096);
     }
 
     /// A negative allowance is meaningless and must be rejected up front.

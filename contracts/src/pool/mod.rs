@@ -1,7 +1,7 @@
 use soroban_sdk::{contract, contractimpl, contracterror, contracttype, Address, Env, String, Symbol, symbol_short};
 use crate::common::storage as s;
 use crate::common::events as e;
-use crate::common::constants::ZERO_ADDRESS_STR;
+use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
 use crate::token;
 
 // ---- Contract Errors ----
@@ -80,6 +80,7 @@ impl DripPool {
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &0i128);
         s::set_persistent(&env, &KEY_REWARD_POOL, &0i128);
+        s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
         e::publish(&env, (symbol_short!("pool_init"), &admin), config.reward_rate);
         Ok(())
     }
@@ -106,7 +107,7 @@ impl DripPool {
         let current_ledger = env.ledger().sequence();
         existing_stake.amount = new_total;
         existing_stake.start_ledger = current_ledger;
-        env.storage().persistent().set(&stake_key, &existing_stake);
+        s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD);
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total_staked = total.checked_add(amount).expect("Total staked overflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total_staked);
@@ -133,7 +134,7 @@ impl DripPool {
         if existing_stake.amount > 0 { let pending = Self::calculate_reward(env.clone(), user.clone()); if pending > 0 { existing_stake.reward_claimed = existing_stake.reward_claimed.checked_add(pending).expect("Reward overflow"); } }
         existing_stake.amount = existing_stake.amount.checked_sub(amount).expect("Stake underflow");
         existing_stake.start_ledger = current_ledger;
-        if existing_stake.amount == 0 { env.storage().persistent().remove(&stake_key); } else { env.storage().persistent().set(&stake_key, &existing_stake); }
+        if existing_stake.amount == 0 { env.storage().persistent().remove(&stake_key); } else { s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD); }
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total = total.checked_sub(amount).expect("Total staked underflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total);
@@ -176,7 +177,7 @@ impl DripPool {
         let unclaimed = total_reward.checked_sub(claimable).expect("Unclaimed underflow");
         existing_stake.reward_claimed = unclaimed;
         existing_stake.start_ledger = env.ledger().sequence();
-        env.storage().persistent().set(&stake_key, &existing_stake);
+        s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_REWARD, &user), claimable);
         Ok(claimable)

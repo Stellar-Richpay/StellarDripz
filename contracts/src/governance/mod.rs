@@ -1,7 +1,7 @@
 use soroban_sdk::{contract, contractimpl, contracterror, contractevent, contracttype, Address, Env, String, Symbol, symbol_short};
 use crate::common::storage as s;
 use crate::common::events as e;
-use crate::common::constants::ZERO_ADDRESS_STR;
+use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
 use crate::token;
 use crate::pool;
 
@@ -146,6 +146,7 @@ impl DripGovernance {
         s::set_persistent(&env, &KEY_MIN_POWER, &min_voting_power);
         s::set_persistent(&env, &KEY_QUORUM_BPS, &0u32);
         s::set_persistent(&env, &KEY_PROPOSAL_COUNT, &0u64);
+        s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (symbol_short!("gov_init"), &admin), voting_period);
         Ok(())
@@ -200,10 +201,10 @@ impl DripGovernance {
 
         // Store the governance action with the proposal
         let action_key = (KEY_PROPOSAL, symbol_short!("action"), count);
-        env.storage().persistent().set(&action_key, &action);
+        s::set_and_extend(&env, &action_key, &action, TTL_REFRESH_THRESHOLD);
 
         let key = (KEY_PROPOSAL, count);
-        env.storage().persistent().set(&key, &proposal);
+        s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_PROPOSE, &proposer, count), title);
         Ok(count)
@@ -251,8 +252,8 @@ impl DripGovernance {
         }
 
         let vote_record = VoteRecord { proposal_id, vote: choice, power };
-        env.storage().persistent().set(&vote_key, &vote_record);
-        env.storage().persistent().set(&key, &proposal);
+        s::set_and_extend(&env, &vote_key, &vote_record, TTL_REFRESH_THRESHOLD);
+        s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (e::EVENT_VOTE, &voter, proposal_id), power);
         Ok(())
@@ -285,7 +286,7 @@ impl DripGovernance {
             passed: false,
             ..proposal
         };
-        env.storage().persistent().set(&key, &cancelled);
+        s::set_and_extend(&env, &key, &cancelled, TTL_REFRESH_THRESHOLD);
         env.storage().persistent().remove(&(KEY_PROPOSAL, symbol_short!("action"), proposal_id));
 
         e::publish(&env, (symbol_short!("cancel"), &caller, proposal_id), true);
@@ -351,7 +352,7 @@ impl DripGovernance {
             }
         }
         proposal.executed = true;
-        env.storage().persistent().set(&key, &proposal);
+        s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
         e::publish(&env, (symbol_short!("execute"), &executor, proposal_id), proposal.passed);
         Ok(())
@@ -444,7 +445,7 @@ impl DripGovernance {
             return Err(GovError::QuorumTooHigh);
         }
         admin.require_auth();
-        s::set_persistent(&env, &KEY_QUORUM_BPS, &quorum_bps);
+        s::set_and_extend(&env, &KEY_QUORUM_BPS, &quorum_bps, TTL_REFRESH_THRESHOLD);
         e::publish(&env, (symbol_short!("quorum"), &admin), quorum_bps);
         Ok(())
     }
