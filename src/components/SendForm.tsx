@@ -46,9 +46,18 @@ export default function SendForm() {
     const num = parseFloat(val);
     if (isNaN(num) || num <= 0) {
       setAmountError("Must be a positive number");
-    } else {
-      setAmountError("");
+      return;
     }
+    // Stellar amounts are fixed-precision: XLM and alphanum4 assets use 7
+    // decimals, alphanum12 uses 12. Rejecting excess precision here avoids a
+    // confusing Horizon "invalid amount" rejection after signing.
+    const maxDecimals = selectedAsset === "XLM" ? 7 : 12;
+    const [, fraction = ""] = val.trim().split(".");
+    if (fraction.length > maxDecimals) {
+      setAmountError(`Maximum ${maxDecimals} decimal places for ${selectedAsset}`);
+      return;
+    }
+    setAmountError("");
   };
 
   const handleSend = async () => {
