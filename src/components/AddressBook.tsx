@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import * as StellarSdk from "@stellar/stellar-sdk";
+import { getAddressError } from "@/lib/stellar/address";
 import {
   getAddressBookEntries,
   addAddressBookEntry,
@@ -53,12 +53,7 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
       setAddrError("");
       return;
     }
-    try {
-      StellarSdk.StrKey.decodeEd25519PublicKey(val.trim());
-      setAddrError("");
-    } catch {
-      setAddrError("Invalid Stellar address");
-    }
+    setAddrError(getAddressError(val, "address") ?? "");
   };
 
   const handleAdd = () => {

@@ -9,6 +9,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { assertFaucetAllowed } from "@/lib/server/horizonService";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     // addresses that Horizon later rejects with a confusing 5xx.
     const normalized = [...new Set(addresses.map((addr) => (typeof addr === "string" ? addr.trim() : "")))];
     for (const addr of normalized) {
-      if (!StellarSdk.StrKey.isValidEd25519PublicKey(addr)) {
+      if (!isValidStellarAddress(addr)) {
         return NextResponse.json({ error: `Invalid address: ${addr}` }, { status: 400 });
       }
     }

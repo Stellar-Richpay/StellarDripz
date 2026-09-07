@@ -8,7 +8,7 @@
  * the local cleanup server-side.
  */
 import { NextRequest, NextResponse } from "next/server";
-import * as StellarSdk from "@stellar/stellar-sdk";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { removeSession } from "@/lib/server/dbService";
 import { parseJsonBody, toHttpError } from "@/lib/server/http";
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (!address) {
       return NextResponse.json({ error: "address is required" }, { status: 400 });
     }
-    if (!StellarSdk.StrKey.isValidEd25519PublicKey(address)) {
+    if (!isValidStellarAddress(address)) {
       return NextResponse.json({ error: "Invalid address" }, { status: 400 });
     }
 

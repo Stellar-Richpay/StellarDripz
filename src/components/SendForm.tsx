@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
-import * as StellarSdk from "@stellar/stellar-sdk";
+import { getAddressError } from "@/lib/stellar/address";
 import QrModal from "./QrModal";
 import AddressBook from "./AddressBook";
 
@@ -30,12 +30,7 @@ export default function SendForm() {
       setDestError("");
       return;
     }
-    try {
-      StellarSdk.StrKey.decodeEd25519PublicKey(val.trim());
-      setDestError("");
-    } catch {
-      setDestError("Invalid Stellar address");
-    }
+    setDestError(getAddressError(val, "recipient address") ?? "");
   };
 
   const validateAmount = (val: string) => {
