@@ -192,7 +192,12 @@ export default function WalletConnect() {
     <div className="rounded-2xl border border-white/10 bg-surface-800/60 p-6 backdrop-blur-md text-center">
       {/* ── WalletConnect QR Modal ────────────────────────────────── */}
       {showWcQr && wcUri && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Scan with WalletConnect"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={handleCancelWc}
@@ -240,7 +245,12 @@ export default function WalletConnect() {
 
       {/* ── Wallet Picker Modal ───────────────────────────────────── */}
       {showPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose a wallet"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowPicker(false)}

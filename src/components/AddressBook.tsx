@@ -97,6 +97,9 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Address book"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();

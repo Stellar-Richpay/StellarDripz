@@ -30,7 +30,12 @@ export default function QRFundModal({ address }: QRFundModalProps) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Cross-device funding"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        >
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}

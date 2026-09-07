@@ -59,6 +59,9 @@ export default function QrModal({ open, onClose, address, label, amount }: QrMod
   return (
     <div
       ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label || "Wallet address"}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
