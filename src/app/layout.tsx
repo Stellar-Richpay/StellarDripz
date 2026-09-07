@@ -5,6 +5,10 @@ import { AppProvider } from "@/context/AppContext";
 import Header from "@/components/Header";
 import ToastContainer from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { STELLAR_NETWORK } from "@/lib/stellar/network";
+
+const isTestnet = STELLAR_NETWORK.network === "TESTNET";
+const networkLabel = isTestnet ? "Testnet" : "Mainnet";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,14 +23,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StellarDripz — Testnet XLM Faucet",
-  description:
-    "A lightweight, developer-focused web interface for requesting testnet XLM with a single click. Built for Stellar developers, hackathon participants, and QA testers.",
-  keywords: ["Stellar", "XLM", "Testnet", "Faucet", "Freighter", "Blockchain"],
+  title: isTestnet ? "StellarDripz — Testnet XLM Faucet" : "StellarDripz — Stellar Wallet Interface",
+  description: isTestnet
+    ? "A lightweight, developer-focused web interface for requesting testnet XLM with a single click. Built for Stellar developers, hackathon participants, and QA testers."
+    : "A web interface for sending payments, checking balances, and interacting with Soroban contracts on the Stellar network.",
+  keywords: ["Stellar", "XLM", "Faucet", "Freighter", "Blockchain", "Soroban", networkLabel],
   authors: [{ name: "StellarDripz" }],
   openGraph: {
-    title: "StellarDripz — Testnet XLM Faucet",
-    description: "Request testnet XLM with a single click. Built for Stellar developers.",
+    title: isTestnet ? "StellarDripz — Testnet XLM Faucet" : "StellarDripz — Stellar Wallet Interface",
+    description: isTestnet
+      ? "Request testnet XLM with a single click. Built for Stellar developers."
+      : "Send payments, check balances, and interact with Soroban contracts on the Stellar network.",
     type: "website",
   },
 };
@@ -43,7 +50,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastContainer />
           <footer className="border-t border-white/5 py-6 text-center">
             <p className="text-xs text-white/20">
-              StellarDripz — Powered by Stellar Testnet &amp; Friendbot. Not for production use.
+              {isTestnet
+                ? "StellarDripz — Powered by Stellar Testnet & Friendbot. Not for production use."
+                : `StellarDripz — Stellar ${networkLabel} interface.`}
             </p>
           </footer>
         </AppProvider>
