@@ -10,6 +10,7 @@
  */
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "./network";
+import { formatAssetAmount, formatXlmAmount } from "./format";
 import { signTx } from "../wallets/walletKit";
 import type { BalanceInfo, AssetBalance, StellarAsset } from "@/types/stellar";
 
@@ -29,10 +30,7 @@ function parseBalance(b: {
     return {
       asset: { code: "XLM", issuer: "", type: "native" },
       balance: raw,
-      formatted: parseFloat(raw).toLocaleString("en-US", {
-        minimumFractionDigits: 7,
-        maximumFractionDigits: 7,
-      }),
+      formatted: formatXlmAmount(raw),
     };
   }
 
@@ -44,14 +42,10 @@ function parseBalance(b: {
     type: b.asset_type as "credit_alphanum4" | "credit_alphanum12",
   };
 
-  const decimals = asset.type === "credit_alphanum4" ? 7 : 12;
   return {
     asset,
     balance: raw,
-    formatted: parseFloat(raw).toLocaleString("en-US", {
-      minimumFractionDigits: Math.min(decimals, 7),
-      maximumFractionDigits: Math.min(decimals, 7),
-    }),
+    formatted: formatAssetAmount(raw, asset.type),
   };
 }
 

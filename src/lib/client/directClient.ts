@@ -7,6 +7,7 @@
  */
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
+import { formatAssetAmount, formatXlmAmount } from "@/lib/stellar/format";
 
 // ---- Lazy-initialized singletons ---- //
 
@@ -59,22 +60,14 @@ export async function directFetchBalance(address: string): Promise<DirectBalance
 
   for (const b of account.balances) {
     if (b.asset_type === "native") {
-      const num = parseFloat(b.balance);
-      xlm = num.toLocaleString("en-US", {
-        minimumFractionDigits: 7,
-        maximumFractionDigits: 7,
-      });
+      xlm = formatXlmAmount(b.balance);
       raw = b.balance;
     } else if (b.asset_type !== "liquidity_pool_shares") {
-      const decimals = b.asset_type === "credit_alphanum4" ? 7 : 12;
       assets.push({
         code: b.asset_code || "???",
         issuer: b.asset_issuer || "",
         balance: b.balance,
-        formatted: parseFloat(b.balance).toLocaleString("en-US", {
-          minimumFractionDigits: Math.min(decimals, 7),
-          maximumFractionDigits: Math.min(decimals, 7),
-        }),
+        formatted: formatAssetAmount(b.balance, b.asset_type),
       });
     }
   }

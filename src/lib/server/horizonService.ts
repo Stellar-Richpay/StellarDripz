@@ -4,6 +4,7 @@
  */
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
+import { formatAssetAmount, formatXlmAmount } from "@/lib/stellar/format";
 import type { TxRecord } from "./dbService";
 import { saveTransaction, logAnalytics } from "./dbService";
 
@@ -66,10 +67,7 @@ export async function fetchBalanceServer(publicKey: string): Promise<BalanceResp
             issuer: "",
             type: "native",
             balance: raw,
-            formatted: parseFloat(raw).toLocaleString("en-US", {
-              minimumFractionDigits: 7,
-              maximumFractionDigits: 7,
-            }),
+            formatted: formatXlmAmount(raw),
           };
         }
         return {
@@ -77,10 +75,7 @@ export async function fetchBalanceServer(publicKey: string): Promise<BalanceResp
           issuer: b.asset_issuer || "",
           type: b.asset_type,
           balance: raw,
-          formatted: parseFloat(raw).toLocaleString("en-US", {
-            minimumFractionDigits: 7,
-            maximumFractionDigits: 7,
-          }),
+          formatted: formatAssetAmount(raw, b.asset_type),
         };
       });
 
