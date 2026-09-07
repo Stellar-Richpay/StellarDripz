@@ -41,8 +41,28 @@ export async function GET(request: NextRequest) {
   }
 
   const url = new URL(request.url);
-  const eventType = url.searchParams.get("type") as AnalyticsEntry["eventType"] | null;
   const summary = url.searchParams.get("summary") === "true";
+
+  // Reject unknown event types up front: an invalid filter previously fell
+  // through to the DB as a wildcard match, silently returning an empty list
+  // instead of telling the caller the filter is wrong.
+  const rawType = url.searchParams.get("type");
+  if (rawType !== null) {
+    const VALID_TYPES: AnalyticsEntry["eventType"][] = [
+      "faucet_request",
+      "payment_send",
+      "contract_invoke",
+      "wallet_connect",
+      "balance_fetch",
+    ];
+    if (!VALID_TYPES.includes(rawType as AnalyticsEntry["eventType"])) {
+      return NextResponse.json(
+        { error: `Invalid event type: ${rawType}` },
+        { status: 400 },
+      );
+    }
+  }
+  const eventType = rawType as AnalyticsEntry["eventType"] | null;
 
   if (summary) {
     const data = await getAnalyticsSummary();
