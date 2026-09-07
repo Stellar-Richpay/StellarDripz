@@ -7,6 +7,9 @@ import { checkRateLimit } from "@/lib/server/rateLimiter";
 import { createSession } from "@/lib/server/sessionManager";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 
+/** Known wallet IDs the dApp supports — reject anything else up front. */
+const SUPPORTED_WALLET_IDS = new Set(["freighter", "xbull", "albedo", "lobstr", "walletconnect"]);
+
 export async function POST(request: NextRequest) {
   // CSRF validation — this endpoint creates a server-side session
   const csrfError = validateCsrf(request);
@@ -26,6 +29,12 @@ export async function POST(request: NextRequest) {
     const { address, walletId, walletName } = body;
     if (!address || !walletId) {
       return NextResponse.json({ error: "address and walletId are required" }, { status: 400 });
+    }
+
+    // Only accept wallet IDs this dApp actually integrates — otherwise
+    // arbitrary strings land in the sessions table and analytics.
+    if (!SUPPORTED_WALLET_IDS.has(walletId)) {
+      return NextResponse.json({ error: "Unsupported wallet" }, { status: 400 });
     }
 
     // Validate Stellar address format
