@@ -94,6 +94,11 @@ const KEY_POOL_ID: Symbol = symbol_short!("POOL_ID");
 const KEY_VOTING_PERIOD: Symbol = symbol_short!("VOT_PER");
 const KEY_MIN_POWER: Symbol = symbol_short!("MIN_POW");
 
+/// Titles longer than this are rejected to bound storage usage per proposal.
+const MAX_TITLE_BYTES: u32 = 256;
+/// Descriptions longer than this are rejected to bound storage usage.
+const MAX_DESC_BYTES: u32 = 4096;
+
 #[contract]
 pub struct DripGovernance;
 
@@ -141,6 +146,13 @@ impl DripGovernance {
     /// Create a new proposal. Requires minimum voting power.
     pub fn propose(env: Env, proposer: Address, title: String, description: String, action: GovernanceAction) -> Result<u64, GovError> {
         proposer.require_auth();
+
+        if title.is_empty() {
+            return Err(GovError::InvalidParameter);
+        }
+        if title.len() > MAX_TITLE_BYTES || description.len() > MAX_DESC_BYTES {
+            return Err(GovError::InvalidParameter);
+        }
 
         let token_id: Address = s::get_persistent(
             &env, &KEY_TOKEN_ID,
@@ -583,6 +595,43 @@ mod governance_test {
         let contract_id = env.register(DripGovernance, ());
         let client = DripGovernanceClient::new(&env, &contract_id);
         assert_eq!(client.version(), 1u32);
+    }
+
+    #[test]
+    fn test_oversized_proposal_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(&admin, &String::from_str(&env, "DT"), &String::from_str(&env, "D"), &7u32);
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        let big_title = String::from_str(&env, &"x".repeat(600));
+        let err = client.try_propose(
+            &proposer,
+            &big_title,
+            &String::from_str(&env, "desc"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+        assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+
+        let empty_title = String::from_str(&env, "");
+        let err = client.try_propose(
+            &proposer,
+            &empty_title,
+            &String::from_str(&env, "desc"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+        assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
     }
 
     #[test]
