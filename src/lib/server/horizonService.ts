@@ -25,7 +25,10 @@ export interface BalanceResponse {
 }
 
 export async function fetchBalanceServer(publicKey: string): Promise<BalanceResponse> {
-  await logAnalytics({ eventType: "balance_fetch", address: publicKey });
+  // NOTE: deliberately no logAnalytics here. Balance reads are polled by the
+  // frontend (and by the balance route on every page load), so logging each
+  // one polluted the analytics table with tens of thousands of low-value rows
+  // and made every balance fetch a database write.
 
   try {
     const account = await horizonServer.loadAccount(publicKey);
