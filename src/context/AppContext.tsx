@@ -292,7 +292,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ---- FAUCET: Proxied write (rate-limited) ---- //
   const doFaucetRequest = useCallback(async () => {
     if (!state.wallet.publicKey) return;
-    const txId = `faucet-${Date.now()}`;
+    // Random suffix (like the server's tx ids): two faucet requests landing
+    // in the same millisecond would otherwise share an id, and UPDATE_/ADD_
+    // would then treat them as one transaction.
+    const txId = `faucet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const pendingTx: TransactionRecord = {
       id: txId,
       type: "faucet",
@@ -368,7 +371,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // only clears its fields when the send actually succeeded — previously
       // failures wiped the form and forced users to retype everything.
       if (!state.wallet.publicKey) return false;
-      const txId = `send-${Date.now()}`;
+      // Random suffix — see the faucet path: same-ms sends must not collide.
+      const txId = `send-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const pendingTx: TransactionRecord = {
         id: txId,
         type: "send",
