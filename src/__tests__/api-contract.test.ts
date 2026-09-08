@@ -74,6 +74,7 @@ jest.mock("@/lib/server/sorobanService", () => ({
 }));
 
 import { NextRequest, NextResponse } from "next/server";
+import * as StellarSdk from "@stellar/stellar-sdk";
 
 let POST: (req: InstanceType<typeof NextRequest>) => Promise<InstanceType<typeof NextResponse>>;
 
@@ -193,6 +194,94 @@ describe("POST /api/contract/invoke", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
       expect((await res.json()).error).toMatch(/unsupported argument type/i);
+    });
+
+    it("encodes i128 values above 2^53 exactly instead of rounding", async () => {
+      // 2^53 + 1 cannot be represented as a Number, so the old Number-based
+      // limb math silently rounded it down to 2^53.
+      const big = "9007199254740993";
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ i128: big }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const scVals = mockBuild.mock.calls[0][2] as Array<StellarSdk.xdr.ScVal>;
+      const expected = StellarSdk.xdr.ScVal.scvI128(
+        new StellarSdk.xdr.Int128Parts({
+          lo: StellarSdk.xdr.Uint64.fromString(big),
+          hi: StellarSdk.xdr.Int64.fromString("0"),
+        }),
+      );
+      expect(scVals[0].toXDR("base64")).toBe(expected.toXDR("base64"));
+    });
+
+    it("keeps plain digit strings that exceed i128 as strings", async () => {
+      const beyond = "170141183460469231731687303715884105728"; // i128 max + 1
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [beyond],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+
+      const scVals = mockBuild.mock.calls[0][2] as Array<StellarSdk.xdr.ScVal>;
+      expect(scVals[0].toXDR("base64")).toBe(
+        StellarSdk.xdr.ScVal.scvString(beyond).toXDR("base64"),
+      );
+    });
+
+    it("rejects an i128 argument above the signed 128-bit range", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ i128: "170141183460469231731687303715884105728" }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/out of range/i);
+    });
+
+    it("rejects a negative u64 argument", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ u64: "-1" }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/out of range/i);
+    });
+
+    it("rejects map entries that are not [key, value] pairs", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ map: [["k"]] }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/\[key, value\] pairs/i);
+    });
+
+    it("rejects i64 non-integer numbers on wrapper types", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "f",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ i64: 1.5 }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/integer string or integer number/i);
     });
 
     it("returns 500 on contract error", async () => {

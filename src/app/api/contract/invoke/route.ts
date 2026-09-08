@@ -29,7 +29,42 @@ const MAX_ARGS = 32;
 const MAX_FUNCTION_NAME_LENGTH = 64;
 const FUNCTION_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-/** Convert a JSON argument to Soroban ScVal */
+/**
+ * 64-bit mask used to split i128/u128 values into low/high 64-bit limbs.
+ */
+const MASK64 = BigInt("0xFFFFFFFFFFFFFFFF");
+
+/** i128 / u128 value bounds, checked before limb splitting. */
+const I128_MIN = -(BigInt(1) << BigInt(127));
+const I128_MAX = (BigInt(1) << BigInt(127)) - BigInt(1);
+const U128_MAX = (BigInt(1) << BigInt(128)) - BigInt(1);
+const I64_MIN = -(BigInt(1) << BigInt(63));
+const I64_MAX = (BigInt(1) << BigInt(63)) - BigInt(1);
+const U64_MAX = (BigInt(1) << BigInt(64)) - BigInt(1);
+const I32_MIN = -2147483648;
+const I32_MAX = 2147483647;
+const U32_MAX = 4294967295;
+
+/**
+ * Coerce a JSON number/string to BigInt. BigInt() on a non-numeric string
+ * throws a SyntaxError that would otherwise surface as a 500.
+ */
+function asBigInt(value: unknown, label: string): bigint {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "string" && /^-?\d+$/.test(value)) return BigInt(value);
+  if (typeof value === "number" && Number.isSafeInteger(value)) return BigInt(value);
+  throw new HttpError(400, `${label} must be an integer string or integer number`);
+}
+
+/**
+ * Convert a JSON argument to a Soroban ScVal with exact, bounds-checked
+ * integer handling.
+ *
+ * The naive Number-based i128/u128 encoding rounded every value above
+ * 2^53 (the first limb crossed Number.MAX_SAFE_INTEGER) and silently
+ * wrapped out-of-range values into garbage, so both limbs are now split
+ * from BigInts via decimal strings and every value is range-checked first.
+ */
 function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
   // null / undefined
   if (arg === null || arg === undefined) {
@@ -47,17 +82,14 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
     if (arg.length <= 10 && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(arg)) {
       return StellarSdk.xdr.ScVal.scvSymbol(arg);
     }
-    // Numeric strings → i128
+    // Plain integer strings → i128 when they fit; longer digit strings are
+    // almost certainly data (IDs, hashes), so keep them as strings instead of
+    // truncating them into an out-of-range i128.
     if (/^-?\d+$/.test(arg)) {
       const num = BigInt(arg);
-      const lo = Number(num & BigInt("0xFFFFFFFFFFFFFFFF"));
-      const hi = Number(num >> BigInt(64));
-      return StellarSdk.xdr.ScVal.scvI128(
-        new StellarSdk.xdr.Int128Parts({
-          lo: new StellarSdk.xdr.Uint64(lo),
-          hi: new StellarSdk.xdr.Int64(hi),
-        }),
-      );
+      if (num >= I128_MIN && num <= I128_MAX) {
+        return toScvI128(num);
+      }
     }
     return StellarSdk.xdr.ScVal.scvString(arg);
   }
@@ -66,18 +98,18 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
   // string fallback for integers anymore.
   if (typeof arg === "number") {
     if (!Number.isInteger(arg)) {
-      throw new Error(`Unsupported numeric argument: ${arg}`);
+      throw new HttpError(400, `Unsupported numeric argument: ${arg}`);
     }
-    if (arg >= 0 && arg <= 4294967295) {
+    if (arg >= 0 && arg <= U32_MAX) {
       return StellarSdk.xdr.ScVal.scvU32(arg);
     }
-    if (arg >= -2147483648 && arg <= 2147483647) {
+    if (arg >= I32_MIN && arg <= I32_MAX) {
       return StellarSdk.xdr.ScVal.scvI32(arg);
     }
-    if (arg >= -9223372036854775808 && arg <= 9223372036854775807) {
+    if (arg >= Number(I64_MIN) && arg <= Number(I64_MAX)) {
       return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(String(arg)));
     }
-    throw new Error(`Numeric argument out of range: ${arg}`);
+    throw new HttpError(400, `Numeric argument out of i64 range: ${arg} (use a string, e.g. { i128: "${arg}" })`);
   }
 
   // boolean
@@ -94,38 +126,42 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       return StellarSdk.xdr.ScVal.scvAddress(addr.toScAddress());
     }
     if (obj.i128 !== undefined) {
-      const num = BigInt(String(obj.i128));
-      const lo = Number(num & BigInt("0xFFFFFFFFFFFFFFFF"));
-      const hi = Number(num >> BigInt(64));
-      return StellarSdk.xdr.ScVal.scvI128(
-        new StellarSdk.xdr.Int128Parts({
-          lo: new StellarSdk.xdr.Uint64(lo),
-          hi: new StellarSdk.xdr.Int64(hi),
-        }),
-      );
-    }
-    if (obj.u64 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvU64(StellarSdk.xdr.Uint64.fromString(String(obj.u64)));
+      return toScvI128(asBigInt(obj.i128, "i128"));
     }
     if (obj.u128 !== undefined) {
-      const num = BigInt(String(obj.u128));
-      const lo = Number(num & BigInt("0xFFFFFFFFFFFFFFFF"));
-      const hi = Number(num >> BigInt(64));
-      return StellarSdk.xdr.ScVal.scvU128(
-        new StellarSdk.xdr.UInt128Parts({
-          lo: new StellarSdk.xdr.Uint64(lo),
-          hi: new StellarSdk.xdr.Uint64(hi),
-        }),
-      );
+      const num = asBigInt(obj.u128, "u128");
+      if (num < 0 || num > U128_MAX) {
+        throw new HttpError(400, `u128 argument out of range: ${num}`);
+      }
+      return toScvU128(num);
     }
     if (obj.i64 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(String(obj.i64)));
+      const num = asBigInt(obj.i64, "i64");
+      if (num < I64_MIN || num > I64_MAX) {
+        throw new HttpError(400, `i64 argument out of range: ${num}`);
+      }
+      return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(num.toString()));
+    }
+    if (obj.u64 !== undefined) {
+      const num = asBigInt(obj.u64, "u64");
+      if (num < 0 || num > U64_MAX) {
+        throw new HttpError(400, `u64 argument out of range: ${num}`);
+      }
+      return StellarSdk.xdr.ScVal.scvU64(StellarSdk.xdr.Uint64.fromString(num.toString()));
     }
     if (obj.i32 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvI32(Number(obj.i32));
+      const num = asBigInt(obj.i32, "i32");
+      if (num < BigInt(I32_MIN) || num > BigInt(I32_MAX)) {
+        throw new HttpError(400, `i32 argument out of range: ${num}`);
+      }
+      return StellarSdk.xdr.ScVal.scvI32(Number(num));
     }
     if (obj.u32 !== undefined) {
-      return StellarSdk.xdr.ScVal.scvU32(Number(obj.u32));
+      const num = asBigInt(obj.u32, "u32");
+      if (num < 0 || num > BigInt(U32_MAX)) {
+        throw new HttpError(400, `u32 argument out of range: ${num}`);
+      }
+      return StellarSdk.xdr.ScVal.scvU32(Number(num));
     }
     if (obj.symbol && typeof obj.symbol === "string") {
       return StellarSdk.xdr.ScVal.scvSymbol(obj.symbol);
@@ -134,6 +170,9 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       return StellarSdk.xdr.ScVal.scvString(obj.string);
     }
     if (obj.bytes && typeof obj.bytes === "string") {
+      if (!/^[0-9a-fA-F]*$/.test(obj.bytes) || obj.bytes.length % 2 !== 0) {
+        throw new HttpError(400, "bytes must be an even-length hex string");
+      }
       return StellarSdk.xdr.ScVal.scvBytes(Buffer.from(obj.bytes, "hex"));
     }
     if (obj.vec && Array.isArray(obj.vec)) {
@@ -141,12 +180,14 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
       return StellarSdk.xdr.ScVal.scvVec(items);
     }
     if (obj.map && Array.isArray(obj.map)) {
-      const entries = obj.map.map(([key, val]: [unknown, unknown]) => {
-        const scvKey = argToScVal(key);
-        const scvVal = argToScVal(val);
+      const entries = obj.map.map((entry: unknown) => {
+        if (!Array.isArray(entry) || entry.length !== 2) {
+          throw new HttpError(400, "map entries must be [key, value] pairs");
+        }
+        const [key, val] = entry as [unknown, unknown];
         return new StellarSdk.xdr.ScMapEntry({
-          key: scvKey,
-          val: scvVal,
+          key: argToScVal(key),
+          val: argToScVal(val),
         });
       });
       return StellarSdk.xdr.ScVal.scvMap(entries);
@@ -158,7 +199,37 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
 
   // Unknown object shapes: fail loudly instead of silently coercing to a
   // string, which hid mismatched arguments until a confusing RPC error.
-  throw new Error(`Unsupported argument type: ${JSON.stringify(arg)}`);
+  throw new HttpError(400, `Unsupported argument type: ${JSON.stringify(arg)}`);
+}
+
+/** Encode a BigInt as an i128 ScVal via exact decimal string limbs. */
+function toScvI128(num: bigint): StellarSdk.xdr.ScVal {
+  if (num < I128_MIN || num > I128_MAX) {
+    throw new HttpError(400, `i128 argument out of range: ${num}`);
+  }
+  const lo = num & MASK64;
+  const hi = num >> BigInt(64);
+  return StellarSdk.xdr.ScVal.scvI128(
+    new StellarSdk.xdr.Int128Parts({
+      lo: StellarSdk.xdr.Uint64.fromString(lo.toString()),
+      hi: StellarSdk.xdr.Int64.fromString(hi.toString()),
+    }),
+  );
+}
+
+/** Encode a BigInt as a u128 ScVal via exact decimal string limbs. */
+function toScvU128(num: bigint): StellarSdk.xdr.ScVal {
+  if (num < 0 || num > U128_MAX) {
+    throw new HttpError(400, `u128 argument out of range: ${num}`);
+  }
+  const lo = num & MASK64;
+  const hi = num >> BigInt(64);
+  return StellarSdk.xdr.ScVal.scvU128(
+    new StellarSdk.xdr.UInt128Parts({
+      lo: StellarSdk.xdr.Uint64.fromString(lo.toString()),
+      hi: StellarSdk.xdr.Uint64.fromString(hi.toString()),
+    }),
+  );
 }
 
 export async function POST(request: NextRequest) {
