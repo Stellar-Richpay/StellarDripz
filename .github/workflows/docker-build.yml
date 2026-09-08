@@ -12,7 +12,7 @@ env:
 
 jobs:
   docker:
-    name: Build Docker Image
+    name: Build and Publish Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,13 +23,33 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      # Push only for real main-branch pushes; pull requests build the image
+      # to verify it compiles but must not publish an unmerged artifact.
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: false
+          push: ${{ github.event_name == 'push' }}
           load: false
-          tags: stellardripz:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
