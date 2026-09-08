@@ -91,11 +91,16 @@ export default function BalanceCard() {
             <span className="text-lg font-semibold text-stellar-blue">XLM</span>
           </div>
 
-          {/* Unfunded account — point at the faucet */}
+          {/* Unfunded account — point at the faucet. The faucet only exists
+          on test networks (Friendbot), so on a mainnet deployment this hint
+          would reference a disabled button; keep it testnet-only and give
+          mainnet accounts a neutral note instead. */}
           {parseFloat(balance.raw) === 0 && (
             <div className="mt-3 rounded-xl border border-stellar-blue/20 bg-stellar-blue/5 px-3 py-2">
               <p className="text-xs text-stellar-blue/80">
-                No XLM yet — use the faucet below to fund this account.
+                {STELLAR_NETWORK.network === "TESTNET"
+                  ? "No XLM yet — use the faucet below to fund this account."
+                  : "This account holds no XLM."}
               </p>
             </div>
           )}
