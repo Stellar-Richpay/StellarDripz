@@ -72,6 +72,29 @@ describe("addressBookService", () => {
       expect(entry.address).toBe("GDEST123456789012345678901234567890123456");
     });
 
+    it("caps names longer than the max label length", () => {
+      const longName = "x".repeat(200);
+      const entry = addAddressBookEntry(longName, "GCAP123456789012345678901234567890123456789");
+      expect(entry.name).toHaveLength(40);
+    });
+
+    it("evicts the oldest entry when the book is at capacity", () => {
+      for (let i = 0; i < 100; i++) {
+        addAddressBookEntry(
+          `Name ${i}`,
+          `GADDR${String(i).padStart(3, "0")}1234567890123456789012345678901234`,
+        );
+      }
+      expect(getAddressBookEntries()).toHaveLength(100);
+
+      // The 101st add must evict the oldest (Name 0) rather than grow past cap.
+      addAddressBookEntry("Newest", "GNEW123456789012345678901234567890123456789");
+      const entries = getAddressBookEntries();
+      expect(entries).toHaveLength(100);
+      expect(entries.find((e) => e.name === "Newest")).toBeDefined();
+      expect(entries.find((e) => e.name === "Name 0")).toBeUndefined();
+    });
+
     it("updates name for duplicate addresses instead of creating new entry", () => {
       const entry1 = addAddressBookEntry(
         "Original Name",
@@ -104,6 +127,13 @@ describe("addressBookService", () => {
   });
 
   describe("updateAddressBookEntry", () => {
+    it("caps an updated name at the max label length", () => {
+      const entry = addAddressBookEntry("Old", "GUPDC12345678901234567890123456789012345678");
+      updateAddressBookEntry(entry.id, { name: "y".repeat(80) });
+      const entries = getAddressBookEntries();
+      expect(entries[0].name).toHaveLength(40);
+    });
+
     it("updates an existing entry name", () => {
       const entry = addAddressBookEntry("Old Name", "GUPD123456789012345678901234567890123456789");
 
