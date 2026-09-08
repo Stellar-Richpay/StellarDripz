@@ -40,7 +40,9 @@ function mapApiTransaction(tx: Record<string, unknown>): TransactionRecord {
     hash: (tx.hash as string) || null,
     amount: String(tx.amount || "0"),
     destination: (tx.destinationAddress as string) || (tx.destination as string) || "",
-    timestamp: tx.timestamp ? new Date(tx.timestamp as number) : new Date(),
+    // Never fabricate a timestamp: an absent value stays null so the UI can
+    // say "unknown" instead of implying the transaction just happened.
+    timestamp: tx.timestamp ? new Date(tx.timestamp as number) : null,
     assetCode: (tx.assetCode as string) || undefined,
     contractId: (tx.contractId as string) || undefined,
     functionName: (tx.functionName as string) || undefined,

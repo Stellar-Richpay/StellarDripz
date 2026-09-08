@@ -61,7 +61,12 @@ export interface TransactionRecord {
   hash: string | null;
   amount: string;
   destination: string;
-  timestamp: Date;
+  /**
+   * When the transaction was recorded, or null when the source does not
+   * provide one. Callers must render null as "unknown" — fabricating a
+   * "now" timestamp misrepresents when the transaction actually happened.
+   */
+  timestamp: Date | null;
   errorMessage?: string;
   explorerUrl?: string;
   assetCode?: string;

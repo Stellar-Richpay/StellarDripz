@@ -131,7 +131,9 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
         </div>
       )}
 
-      <p className="mt-2 text-[10px] text-white/20">{tx.timestamp.toLocaleString()}</p>
+      <p className="mt-2 text-[10px] text-white/20">
+        {tx.timestamp ? tx.timestamp.toLocaleString() : "Time unknown"}
+      </p>
     </div>
   );
 }

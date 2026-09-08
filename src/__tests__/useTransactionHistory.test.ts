@@ -118,6 +118,33 @@ describe("useTransactionHistory", () => {
       expect(result.current.transactions[0].timestamp).toBeInstanceOf(Date);
     });
 
+    it("keeps a missing timestamp null instead of fabricating one", async () => {
+      mockFetchHistory.mockResolvedValue({
+        transactions: [
+          {
+            id: "tx-no-ts",
+            type: "send",
+            status: "success",
+            hash: "hashNoTs",
+            amount: "10",
+            destinationAddress: "GDEST",
+            // No timestamp field on purpose — the source may omit it.
+          },
+        ],
+        total: 1,
+      });
+
+      const { result } = renderHook(() => useTransactionHistory());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      // A fabricated "now" would misrepresent when the tx happened; it must
+      // stay null so the UI can render an explicit "unknown".
+      expect(result.current.transactions[0].timestamp).toBeNull();
+    });
+
     it("handles error gracefully", async () => {
       mockFetchHistory.mockRejectedValueOnce(new Error("API down"));
 
