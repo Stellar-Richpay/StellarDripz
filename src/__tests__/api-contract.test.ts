@@ -76,6 +76,9 @@ jest.mock("@/lib/server/sorobanService", () => ({
 import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
 
+/** Real checksum-valid Stellar address used as the signer in happy-path tests. */
+const VALID_SIGNER = "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK";
+
 let POST: (req: InstanceType<typeof NextRequest>) => Promise<InstanceType<typeof NextResponse>>;
 
 beforeAll(async () => {
@@ -105,6 +108,17 @@ describe("POST /api/contract/invoke", () => {
       const res = await POST(req);
       expect(res.status).toBe(400);
     });
+
+    it("returns 400 when the signer address fails the StrKey checksum", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "increment",
+        signerAddress: "G" + "A".repeat(55), // right length, wrong checksum
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/invalid signer address/i);
+    });
   });
 
   describe("simulate mode", () => {
@@ -112,7 +126,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "get_counter",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         simulate: true,
         args: [],
       });
@@ -134,7 +148,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: ["test_arg"],
       });
       const res = await POST(req);
@@ -152,7 +166,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         signedXdr: "AAAA...==",
         args: [],
       });
@@ -165,18 +179,14 @@ describe("POST /api/contract/invoke", () => {
 
       // Submissions keep the tighter per-address contract bucket.
       const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
-      expect(checkRateLimit).toHaveBeenCalledWith(
-        expect.anything(),
-        "contract",
-        "GSIGNER12345678901234567890123456789012345678",
-      );
+      expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "contract", VALID_SIGNER);
     });
 
     it("returns 400 when an argument value is not an integer", async () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [1.5],
       });
       const res = await POST(req);
@@ -188,7 +198,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "increment",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ unexpected: "shape" }],
       });
       const res = await POST(req);
@@ -203,7 +213,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ i128: big }],
       });
       const res = await POST(req);
@@ -224,7 +234,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [beyond],
       });
       const res = await POST(req);
@@ -240,7 +250,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ i128: "170141183460469231731687303715884105728" }],
       });
       const res = await POST(req);
@@ -252,7 +262,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ u64: "-1" }],
       });
       const res = await POST(req);
@@ -264,7 +274,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ map: [["k"]] }],
       });
       const res = await POST(req);
@@ -276,7 +286,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "f",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         args: [{ i64: 1.5 }],
       });
       const res = await POST(req);
@@ -289,7 +299,7 @@ describe("POST /api/contract/invoke", () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
         functionName: "bad_function",
-        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        signerAddress: VALID_SIGNER,
         signedXdr: "AAAA...==",
         args: [],
       });

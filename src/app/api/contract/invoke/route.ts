@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { isValidContractId } from "@/lib/stellar/contractId";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 import {
   simulateContractCallServer,
   buildContractInvocation,
@@ -109,7 +110,10 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
     if (arg >= Number(I64_MIN) && arg <= Number(I64_MAX)) {
       return StellarSdk.xdr.ScVal.scvI64(StellarSdk.xdr.Int64.fromString(String(arg)));
     }
-    throw new HttpError(400, `Numeric argument out of i64 range: ${arg} (use a string, e.g. { i128: "${arg}" })`);
+    throw new HttpError(
+      400,
+      `Numeric argument out of i64 range: ${arg} (use a string, e.g. { i128: "${arg}" })`,
+    );
   }
 
   // boolean
@@ -266,6 +270,12 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json({ error: "Invalid function name" }, { status: 400 });
     }
+    // Checksum-validate the signer too (StrKey, not just a G-prefix): an
+    // invalid signer otherwise reaches Horizon loadAccount and comes back as
+    // a confusing 500 instead of a clean 400.
+    if (!isValidStellarAddress(body.signerAddress)) {
+      return NextResponse.json({ error: "Invalid signer address" }, { status: 400 });
+    }
     if ((body.args || []).length > MAX_ARGS) {
       return NextResponse.json(
         { error: `Maximum ${MAX_ARGS} arguments per invocation` },
@@ -283,10 +293,7 @@ export async function POST(request: NextRequest) {
       scValArgs = (body.args || []).map(argToScVal);
     } catch (err) {
       if (err instanceof HttpError) throw err;
-      throw new HttpError(
-        400,
-        err instanceof Error ? err.message : "Invalid contract arguments",
-      );
+      throw new HttpError(400, err instanceof Error ? err.message : "Invalid contract arguments");
     }
 
     // Read-only simulation. Both this and the build branch below drive a
