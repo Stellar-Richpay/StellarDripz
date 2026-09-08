@@ -75,6 +75,10 @@ jest.mock("@/lib/server/horizonService", () => ({
 
 import { NextRequest, NextResponse } from "next/server";
 
+/** Checksum-valid Stellar addresses used in happy-path tests. */
+const VALID_SENDER = "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK";
+const VALID_DEST = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
 let POST: (req: InstanceType<typeof NextRequest>) => Promise<InstanceType<typeof NextResponse>>;
 
 beforeAll(async () => {
@@ -106,8 +110,8 @@ describe("POST /api/payment/send", () => {
 
     it("builds a transaction and returns XDR", async () => {
       const req = createReq({
-        senderAddress: "GSENDER12345678901234567890123456789012345678",
-        destination: "GDEST45678901234567890123456789012345678901",
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
         amount: "100.0000000",
       });
       const res = await POST(req);
@@ -133,8 +137,8 @@ describe("POST /api/payment/send", () => {
     it("submits signed payment successfully", async () => {
       const req = createReq({
         signedXdr: "AAAA...==",
-        senderAddress: "GSENDER12345678901234567890123456789012345678",
-        destination: "GDEST45678901234567890123456789012345678901",
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
         amount: "50.0000000",
         assetCode: "USDC",
       });
@@ -146,10 +150,32 @@ describe("POST /api/payment/send", () => {
       expect(json.hash).toBe("payment-hash-abc");
     });
 
+    it("rejects a malformed sender address with 400", async () => {
+      const req = createReq({
+        senderAddress: "G" + "B".repeat(55), // right length, wrong checksum
+        destination: VALID_DEST,
+        amount: "100.0000000",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/invalid sender address/i);
+    });
+
+    it("rejects a malformed destination address with 400", async () => {
+      const req = createReq({
+        senderAddress: VALID_SENDER,
+        destination: "not-an-address",
+        amount: "100.0000000",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/invalid destination address/i);
+    });
+
     it("rejects an assetIssuer with no assetCode", async () => {
       const req = createReq({
-        senderAddress: "GSENDER12345678901234567890123456789012345678",
-        destination: "GDEST45678901234567890123456789012345678901",
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
         amount: "100.0000000",
         assetIssuer: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
       });
@@ -160,8 +186,8 @@ describe("POST /api/payment/send", () => {
 
     it("rejects an assetIssuer combined with assetCode XLM", async () => {
       const req = createReq({
-        senderAddress: "GSENDER12345678901234567890123456789012345678",
-        destination: "GDEST45678901234567890123456789012345678901",
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
         amount: "100.0000000",
         assetCode: "XLM",
         assetIssuer: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
@@ -175,8 +201,8 @@ describe("POST /api/payment/send", () => {
       mockSendPayment.mockRejectedValueOnce(new Error("Insufficient balance"));
       const req = createReq({
         signedXdr: "AAAA...==",
-        senderAddress: "GSENDER12345678901234567890123456789012345678",
-        destination: "GDEST45678901234567890123456789012345678901",
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
         amount: "99999999.0000000",
       });
       const res = await POST(req);

@@ -12,6 +12,7 @@ import {
   validateAssetCode,
 } from "@/lib/server/horizonService";
 import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,17 @@ export async function POST(request: NextRequest) {
       body.senderAddress.trim() === body.destination.trim()
     ) {
       return NextResponse.json({ error: "Sender and destination must differ" }, { status: 400 });
+    }
+
+    // Checksum-validate both accounts up front (StrKey, not just a G-prefix):
+    // a malformed sender otherwise comes back as a confusing Horizon 500 in
+    // production, and a malformed destination would only be caught deep in the
+    // service layer as a generic server error.
+    if (body.senderAddress && !isValidStellarAddress(body.senderAddress)) {
+      return NextResponse.json({ error: "Invalid sender address" }, { status: 400 });
+    }
+    if (body.destination && !isValidStellarAddress(body.destination)) {
+      return NextResponse.json({ error: "Invalid destination address" }, { status: 400 });
     }
 
     // Validate amount/asset format up front (the build path also validates,
