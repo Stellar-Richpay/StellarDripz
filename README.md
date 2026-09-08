@@ -225,7 +225,8 @@ npm run verify:contracts      # fmt check + clippy (-D warnings) + tests
 
 The contracts exercise typed errors, quorum voting, reward accounting,
 allowance-expiry boundaries, lock-period enforcement, TTL maintenance,
-pool parameter guards, and property-style fuzz invariants (69 tests).
+pool parameter guards, badge metadata bounds and pagination, and
+property-style fuzz invariants (73 tests).
 
 ### Frontend Tests
 
@@ -235,11 +236,11 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (34 suites, 244 tests, all passing ✅):
+Test suites (35 suites, 251 tests, all passing ✅):
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `useContractEvents`, `walletService`
 - API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
 - Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `sorobanSubmit`, `horizonService`
-- Validation: `addressValidation`, `contractTypes`, `paymentValidation`, `networkGuard`, `memo`
+- Validation: `addressValidation`, `contractTypes`, `paymentValidation`, `networkGuard`, `memo`, `format`
 - Integration + wallet-service suites
 
 Coverage is collected with `npx jest --coverage`; the enforced global gate
@@ -501,7 +502,7 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 6. **CI/CD & Testing (2:30-3:00)**
    - Show GitHub Actions pipeline running
-   - Show test output (69 contract + 244 frontend tests passing)
+   - Show test output (73 contract + 251 frontend tests passing)
    - Show Vercel deployment
    - Admin dashboard analytics
 
@@ -515,7 +516,7 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 ### Test Output — All 217 Tests Passing
 ![Test Output](./screenshots/test-output.png)
-*34 test suites, 244 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
+*35 test suites, 251 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
 
 ### Mobile Responsive UI
 ![Mobile UI](./screenshots/mobile-responsive.png)

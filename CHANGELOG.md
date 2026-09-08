@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Byte-accurate memo validation**: the send form measures text memos in UTF-8 bytes (28-byte protocol limit) instead of characters, matches the server's validator, and disables submit while the memo is invalid
+- **Badge metadata bounds**: badge name/description/image_uri are capped at 64/256/256 bytes with a typed `MetadataTooLong` error, and user badges gained paged listing
+- **Freighter network probe**: a failed network read reports UNKNOWN instead of a guessed TESTNET, so mainnet deployments no longer false-trigger the mismatch guard
+- **WalletConnect metadata**: the pairing description now matches the configured network instead of always saying "testnet"
+- **Client tx ids**: send/faucet ids gained a random suffix so same-millisecond actions can't collide in the transaction list
+- **In-memory history paging**: the memory backend now caps pages at 100 like the Supabase backend
+- **Version fingerprinting**: `X-Powered-By` is disabled so the Next.js version isn't advertised
 - **Event duplicate stacking**: the direct-poll fallback dedupes across polling rounds via a persistent seen-keys set (each round previously re-added the same on-chain events), and a failed latest-ledger probe no longer replays history from ledger 0
 - **Unfunded-account copy**: the "use the faucet" hint is testnet-only — on mainnet it referenced a hard-disabled button
 - **Network badge on mobile**: the wallet-vs-app network warning is no longer hidden below the `sm` breakpoint
@@ -40,9 +46,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Envelope-source verification**: `/api/contract/invoke` now rejects a signed XDR whose source account differs from the claimed signer, closing a forged-attribution hole on par with the payment route
 
 ### Tests
+- **Badge coverage**: metadata length bounds, user-badge pagination, admin-gated mutations, and initialization guards are pinned
+- **Format helpers**: the shared amount formatters gained a unit suite (decimals, non-finite inputs, large balances)
+- **E2E updates**: payment API tests use the current request shape, the issuer-on-XLM rejection is covered, and the no-store cache policy is asserted end to end
 - **Pool coverage**: lock-period enforcement (TokensLocked), claim_reward payout accounting, fund_rewards admin gate, and inactive-pool stake rejection are now pinned
 - **Governance coverage**: vote-at-voting-end boundary, execute-while-voting-active rejection, and the proposal minimum-voting-power gate (incl. exact-boundary semantics)
 - **Counter coverage**: greeting size limit pinned as byte-exact (512 accepted / 513 rejected, multi-byte UTF-8 included)
+
+### Chore
+- **Dead code**: removed the unused AsyncBoundary/Skeleton modules and the `withErrorBoundary` HOC; `data/` (runtime JSON DB with IPs) is gitignored; the CI prettier step now format-checks `e2e/` via the canonical script
 
 ---
 
