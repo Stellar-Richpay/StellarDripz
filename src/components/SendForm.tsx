@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAddressError } from "@/lib/stellar/address";
 import { assetDecimals } from "@/lib/stellar/format";
+import { getMemoError, memoByteLength } from "@/lib/stellar/memo";
 import { getNetworkState } from "@/lib/stellar/networkGuard";
 import QrModal from "./QrModal";
 import AddressBook from "./AddressBook";
@@ -39,6 +40,11 @@ export default function SendForm() {
       return;
     }
     setDestError(getAddressError(val, "recipient address") ?? "");
+  };
+
+  const validateMemo = (val: string) => {
+    setMemo(val);
+    setMemoError(getMemoError(val) ?? "");
   };
 
   const validateAmount = (val: string) => {
@@ -96,8 +102,8 @@ export default function SendForm() {
       valid = false;
     }
     const memoTrimmed = memo.trim();
-    if (memoTrimmed.length > 28) {
-      setMemoError("Memo must be 28 characters or fewer");
+    if (getMemoError(memoTrimmed)) {
+      setMemoError(getMemoError(memoTrimmed)!);
       valid = false;
     }
     if (!valid) return;
@@ -128,7 +134,8 @@ export default function SendForm() {
     !destination.trim() ||
     !amount.trim() ||
     !!destError ||
-    !!amountError;
+    !!amountError ||
+    !!memoError;
 
   /** Fill the amount with everything spendable for the selected asset. */
   const handleMax = () => {
@@ -287,17 +294,14 @@ export default function SendForm() {
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-medium text-white/60">Memo (optional)</label>
               <span className={`text-xs ${memoError ? "text-red-400" : "text-white/30"}`}>
-                {memo.length}/28
+                {memoByteLength(memo)}/28 bytes
               </span>
             </div>
             <input
               type="text"
               value={memo}
-              maxLength={28}
-              onChange={(e) => {
-                setMemo(e.target.value);
-                if (memoError) setMemoError("");
-              }}
+              maxLength={64}
+              onChange={(e) => validateMemo(e.target.value)}
               placeholder="e.g. Invoice #1234"
               disabled={isPending || isNetworkMismatch}
               className={`w-full rounded-xl border bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/20 transition-all focus:outline-none focus:ring-2 ${
