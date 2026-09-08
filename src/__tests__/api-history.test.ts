@@ -91,6 +91,32 @@ describe("GET /api/history", () => {
     expect(json.transactions[0].id).toBe("tx-1");
   });
 
+  it("never exposes requester ip or user-agent in responses", async () => {
+    mockGetTransactions.mockReturnValueOnce([
+      {
+        id: "tx-privacy",
+        type: "send",
+        status: "success",
+        hash: "h",
+        amount: "1",
+        senderAddress: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
+        destinationAddress: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
+        timestamp: 1700000000000,
+        ip: "203.0.113.7",
+        userAgent: "secret-browser",
+      },
+    ]);
+    const req = new NextRequest("http://localhost:3000/api/history") as InstanceType<
+      typeof NextRequest
+    >;
+    const res = await GET(req);
+    const json = await res.json();
+
+    expect(json.transactions[0].id).toBe("tx-privacy");
+    expect(json.transactions[0]).not.toHaveProperty("ip");
+    expect(json.transactions[0]).not.toHaveProperty("userAgent");
+  });
+
   it("passes query parameters to the database", async () => {
     const valid = "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK";
     const req = new NextRequest(

@@ -48,10 +48,16 @@ export async function GET(request: NextRequest) {
     getTransactionsCount(address, type || undefined),
   ]);
 
+  // Strip request metadata before responding: the DB rows carry the requester's
+  // IP and user agent for analytics, and those must never be exposed through a
+  // public read endpoint — the history is queryable by anyone who knows an
+  // address, and the IP/user-agent are not on-chain data.
+  const sanitized = transactions.map(({ ip: _ip, userAgent: _ua, ...tx }) => tx);
+
   return attachRateLimitHeaders(
     request,
     NextResponse.json({
-      transactions,
+      transactions: sanitized,
       total,
       offset,
       limit,
