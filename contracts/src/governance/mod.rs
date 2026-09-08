@@ -1100,6 +1100,53 @@ mod governance_test {
     }
 
     #[test]
+    fn test_corrupt_quorum_fails_closed() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        // Supply = 2000. Voter holds 1000 — less than full participation.
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &1000i128);
+
+        let governance_id = env.register(DripGovernance, ());
+        let pool_id = Address::generate(&env);
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "C"),
+            &String::from_str(&env, "Corrupt quorum"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+        client.vote(&voter, &id, &VoteChoice::For);
+
+        // Corrupt the stored quorum beyond the max — previously this
+        // silently skipped the quorum gate; it must now require full
+        // participation and fail.
+        env.as_contract(&governance_id, || {
+            env.storage().persistent().set(&KEY_QUORUM_BPS, &u32::MAX);
+        });
+
+        env.ledger().set_sequence_number(500);
+        let err = client.try_execute(&admin, &id);
+        assert_eq!(err, Err(Ok(GovError::QuorumNotMet)));
+        assert!(!client.get_proposal(&id).unwrap().executed);
+    }
+
+    #[test]
     fn test_execute_rejects_votes_exceeding_supply() {
         let env = Env::default();
         env.mock_all_auths();
