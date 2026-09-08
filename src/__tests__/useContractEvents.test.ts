@@ -6,7 +6,7 @@
  * merge logic is pure, so it gets its own unit tests here without needing
  * EventSource/interval scaffolding.
  */
-import { appendUnique, eventKey } from "@/hooks/useContractEvents";
+import { appendUnique, eventKey, filterFresh } from "@/hooks/useContractEvents";
 import type { ContractEvent } from "@/types/stellar";
 
 function makeEvent(overrides: Partial<ContractEvent> = {}): ContractEvent {
@@ -63,5 +63,49 @@ describe("appendUnique", () => {
     const next = appendUnique(prev, [makeEvent({ id: "fresh", topic: "b" })]);
     expect(next).toHaveLength(100);
     expect(next[0].id).toBe("fresh");
+  });
+});
+
+describe("filterFresh", () => {
+  it("keeps events seen for the first time and records their keys", () => {
+    const seen = new Set<string>();
+    const a = makeEvent({ topic: "transfer", value: "100", ledgerSequence: 5 });
+    const b = makeEvent({ topic: "mint", value: "50", ledgerSequence: 6 });
+
+    const fresh = filterFresh([a, b], seen);
+    expect(fresh).toHaveLength(2);
+    expect(seen.has(eventKey(a))).toBe(true);
+    expect(seen.has(eventKey(b))).toBe(true);
+  });
+
+  it("drops events from a later round whose key was already seen", () => {
+    const seen = new Set<string>();
+    const evt = makeEvent({ topic: "transfer", value: "100", ledgerSequence: 5 });
+
+    // Round 1 delivers the event.
+    expect(filterFresh([evt], seen)).toHaveLength(1);
+    // Round 2 re-delivers the same on-chain event (same ledger, same value,
+    // empty txHash — exactly what the direct-poll fallback produces). The
+    // display list may have grown or the event may have scrolled off the cap;
+    // either way it must not be re-added.
+    expect(
+      filterFresh([makeEvent({ topic: "transfer", value: "100", ledgerSequence: 5 })], seen),
+    ).toHaveLength(0);
+  });
+
+  it("keeps distinct events even when they share a topic", () => {
+    const seen = new Set<string>();
+    const a = makeEvent({ topic: "transfer", value: "100", ledgerSequence: 5 });
+    const b = makeEvent({ topic: "transfer", value: "200", ledgerSequence: 6 });
+    expect(filterFresh([a], seen)).toHaveLength(1);
+    expect(filterFresh([b], seen)).toHaveLength(1);
+  });
+
+  it("returns an empty list without mutating the set when nothing is new", () => {
+    const seen = new Set<string>();
+    const evt = makeEvent({ topic: "transfer" });
+    filterFresh([evt], seen);
+    expect(filterFresh([evt], seen)).toHaveLength(0);
+    expect(seen.size).toBe(1);
   });
 });

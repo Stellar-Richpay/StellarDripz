@@ -40,6 +40,8 @@ export interface DirectContractEvent {
   topic: string;
   value: string;
   contractId: string;
+  /** Ledger sequence the event was emitted in (0 when unknown). */
+  ledger: number;
 }
 
 export interface DirectSimulateResult {
@@ -146,7 +148,7 @@ export async function directFetchContractEvents(
                 StellarSdk.xdr.ScVal.fromXDR(rawValue, "base64"),
               )?.toString() || ""
             : "";
-          events.push({ topic, value, contractId });
+          events.push({ topic, value, contractId, ledger: event.ledger || 0 });
         } catch {
           /* skip malformed events */
         }
