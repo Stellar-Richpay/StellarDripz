@@ -62,7 +62,11 @@ export function isMainnet(): boolean {
 
 /**
  * Mainnet rate limit defaults (stricter than testnet).
- * These can be overridden via RATE_LIMIT_* environment variables.
+ *
+ * Mainnet deliberately ignores the RATE_LIMIT_*_MS environment overrides:
+ * real XLM is at stake, so operators cannot accidentally loosen the buckets
+ * by shipping a dev-tuned .env to production. Overrides only apply on
+ * testnet deployments (see getLimitConfig in src/lib/server/rateLimiter.ts).
  */
 export const MAINNET_RATE_LIMITS = {
   faucet: { windowMs: 86_400_000, maxRequests: 1 }, // 1 per day
