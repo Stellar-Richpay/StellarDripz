@@ -13,6 +13,25 @@ import { saveTransaction, logAnalytics } from "./dbService";
 const sorobanServer = new StellarSdk.rpc.Server(STELLAR_NETWORK.sorobanRpcUrl);
 const horizonServer = new StellarSdk.Horizon.Server(STELLAR_NETWORK.horizonUrl);
 
+/**
+ * Bound an external-network promise with a hard timeout. Serverless functions
+ * must not hang on a stalled Horizon/RPC node — a dead node should surface a
+ * client-facing error in seconds, not burn the function's wall-clock budget.
+ */
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after 10s`)), 10_000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // ---- Read (simulate only) ----
 
 export async function simulateContractCallServer(
@@ -22,7 +41,10 @@ export async function simulateContractCallServer(
   signerPublicKey: string,
 ): Promise<{ resultValue?: string }> {
   const contract = new StellarSdk.Contract(contractId);
-  const sourceAccount = await horizonServer.loadAccount(signerPublicKey);
+  const sourceAccount = await withTimeout(
+    horizonServer.loadAccount(signerPublicKey),
+    "Horizon account fetch",
+  );
 
   const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
     fee: "100",
@@ -53,8 +75,11 @@ export async function buildContractInvocation(
   signerPublicKey: string,
 ): Promise<{ xdr: string }> {
   const contract = new StellarSdk.Contract(contractId);
-  const sourceAccount = await horizonServer.loadAccount(signerPublicKey);
-  const feeStats = await horizonServer.fetchBaseFee();
+  const sourceAccount = await withTimeout(
+    horizonServer.loadAccount(signerPublicKey),
+    "Horizon account fetch",
+  );
+  const feeStats = await withTimeout(horizonServer.fetchBaseFee(), "Horizon base fee");
   const fee = String(Math.floor(Number(feeStats) * 2));
 
   const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
