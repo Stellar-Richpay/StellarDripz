@@ -7,6 +7,7 @@ import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { formatAssetAmount, formatXlmAmount } from "@/lib/stellar/format";
 import type { TxRecord } from "./dbService";
 import { saveTransaction, logAnalytics } from "./dbService";
+import { HttpError } from "./http";
 
 const horizonServer = new StellarSdk.Horizon.Server(STELLAR_NETWORK.horizonUrl);
 
@@ -103,7 +104,8 @@ export async function fetchBalanceServer(publicKey: string): Promise<BalanceResp
  */
 export function assertFaucetAllowed(): void {
   if (!STELLAR_NETWORK.networkPassphrase.includes("Test")) {
-    throw new Error("Faucet is only available on test networks");
+    // Configuration/usage error on the caller's side, not a server fault.
+    throw new HttpError(400, "Faucet is only available on test networks");
   }
 }
 
@@ -168,17 +170,18 @@ export async function sendPaymentServer(
   // versa). A previous hardcoded "expected Testnet" gate silently disabled
   // payments entirely on mainnet-configured deployments.
 
-  // Validate destination
+  // Validate destination. These are caller mistakes — classify them as 400
+  // so production callers see the reason instead of a generic 500.
   try {
     StellarSdk.StrKey.decodeEd25519PublicKey(destination);
   } catch {
-    throw new Error("Invalid destination address.");
+    throw new HttpError(400, "Invalid destination address.");
   }
 
   // Validate memo up front so a too-long memo is rejected before submission
   // (Horizon rejects it after the fact with an opaque error).
   const memoError = validateMemo(memo);
-  if (memoError) throw new Error(memoError);
+  if (memoError) throw new HttpError(400, memoError);
 
   // Submit the signed transaction
   const signedTx = StellarSdk.TransactionBuilder.fromXDR(
@@ -255,11 +258,11 @@ function verifyPaymentTransaction(
       ? String(tx.memo.value)
       : "";
   if ((memo || "") !== txMemoValue) {
-    throw new Error("Transaction memo does not match requested memo");
+    throw new HttpError(400, "Transaction memo does not match requested memo");
   }
 
   if (tx.source !== senderPublicKey) {
-    throw new Error("Transaction source does not match sender address");
+    throw new HttpError(400, "Transaction source does not match sender address");
   }
 
   let paymentOps = 0;
@@ -268,24 +271,24 @@ function verifyPaymentTransaction(
     paymentOps++;
 
     if (op.destination !== destination) {
-      throw new Error("Transaction destination does not match requested recipient");
+      throw new HttpError(400, "Transaction destination does not match requested recipient");
     }
     if (op.amount !== amount) {
-      throw new Error("Transaction amount does not match requested amount");
+      throw new HttpError(400, "Transaction amount does not match requested amount");
     }
     const actualCode = op.asset.isNative() ? "XLM" : op.asset.code;
     if (actualCode !== expectedAssetCode) {
-      throw new Error("Transaction asset does not match requested asset");
+      throw new HttpError(400, "Transaction asset does not match requested asset");
     }
     // For non-native assets the issuer must match too — two assets can share
     // a code but have different issuers.
     if (!op.asset.isNative() && assetIssuer && op.asset.issuer !== assetIssuer) {
-      throw new Error("Transaction asset issuer does not match requested issuer");
+      throw new HttpError(400, "Transaction asset issuer does not match requested issuer");
     }
   }
 
   if (paymentOps === 0) {
-    throw new Error("Transaction contains no payment operation");
+    throw new HttpError(400, "Transaction contains no payment operation");
   }
 }
 
