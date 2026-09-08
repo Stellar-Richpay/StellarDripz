@@ -128,16 +128,6 @@ export function connectWallet(address: string, walletId: string, walletName: str
   );
 }
 
-// ---- Balance ----
-
-export function fetchBalance(address: string) {
-  return request<{
-    xlm: string;
-    raw: string;
-    assets: Array<{ code: string; balance: string; formatted: string }>;
-  }>(`/api/balance/${encodeURIComponent(address)}`);
-}
-
 // ---- Faucet ----
 
 export function requestFaucet(address: string) {
@@ -187,18 +177,6 @@ export function submitPayment(
 }
 
 // ---- Contract ----
-
-export function simulateContract(
-  contractId: string,
-  functionName: string,
-  args: unknown[],
-  signerAddress: string,
-) {
-  return request<{ resultValue?: string }>("/api/contract/invoke", {
-    method: "POST",
-    body: JSON.stringify({ contractId, functionName, args, signerAddress, simulate: true }),
-  });
-}
 
 export function buildContractCall(
   contractId: string,
