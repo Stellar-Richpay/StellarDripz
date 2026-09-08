@@ -105,8 +105,15 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
         state.wallet.publicKey,
       );
       setGreeting((resultValue as string) || "Hello from StellarDripz!");
-    } catch {
-      setGreeting("Hello from StellarDripz!");
+    } catch (err) {
+      // The read failed — surface why instead of silently resetting to the
+      // default, which previously made every failure look like "no greeting".
+      setGreeting("");
+      showToast({
+        type: "error",
+        title: "Read failed",
+        message: err instanceof Error ? err.message : "Error",
+      });
     } finally {
       setLoading(false);
     }
