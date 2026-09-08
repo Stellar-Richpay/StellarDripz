@@ -107,3 +107,61 @@ describe("apiClient CSRF integration", () => {
     expect(headers.get(CSRF_HEADER)).toBe("token-xyz");
   });
 });
+
+describe("apiClient request timeout", () => {
+  const fetchMock = jest.fn();
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = fetchMock as unknown as typeof fetch;
+    Object.defineProperty(document, "cookie", {
+      writable: true,
+      value: "",
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.useRealTimers();
+  });
+
+  /** A fetch mock that stays pending until the caller aborts its signal. */
+  function hangingFetch(): void {
+    fetchMock.mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () =>
+            reject(
+              init.signal?.reason instanceof Error
+                ? init.signal.reason
+                : new DOMException("The operation was aborted", "AbortError"),
+            ),
+          );
+        }),
+    );
+  }
+
+  it("aborts requests that exceed the default timeout", async () => {
+    jest.useFakeTimers();
+    hangingFetch();
+
+    const pending = request("/api/slow-endpoint", { method: "GET" });
+    // Attach the rejection handler before the timer fires so the rejection
+    // is never left unhandled while fake timers advance.
+    const assertion = expect(pending).rejects.toThrow(/timed out after 25s/);
+    await jest.advanceTimersByTimeAsync(25_000);
+    await assertion;
+  });
+
+  it("honors a caller-provided abort signal instead of the timer", async () => {
+    hangingFetch();
+    const controller = new AbortController();
+
+    const pending = request("/api/slow-endpoint", { method: "GET", signal: controller.signal });
+    controller.abort(new Error("caller cancelled"));
+
+    await expect(pending).rejects.toThrow(/caller cancelled/);
+  });
+});

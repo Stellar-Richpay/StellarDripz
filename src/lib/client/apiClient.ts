@@ -11,6 +11,15 @@
 
 const BASE_URL = "";
 
+/**
+ * Upper bound on how long a proxied API call may take. Routes can hang on a
+ * slow upstream (Horizon/Friendbot/RPC) or a stalled serverless cold start;
+ * without a client-side cap a failed request would leave the UI spinner
+ * running indefinitely. High enough to never clip a legit submit that waits
+ * on a wallet or a 30s transaction poll.
+ */
+const DEFAULT_TIMEOUT_MS = 25_000;
+
 /** Cookie name set by the server (src/lib/server/csrf.ts) and middleware. */
 const CSRF_COOKIE = "stellardripz_csrf";
 const CSRF_HEADER = "x-csrf-token";
@@ -37,7 +46,7 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
     headers.set(CSRF_HEADER, csrfToken);
   }
 
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetchWithTimeout(url, { ...options, headers });
 
   // Some routes may return empty bodies (204) or non-JSON error pages; parse
   // defensively instead of throwing an unhelpful SyntaxError.
@@ -73,6 +82,41 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
 
   return json as T;
+}
+
+/**
+ * fetch wrapper that never lets a request hang forever. The caller's own
+ * AbortSignal (when provided) is honored and still wins; otherwise a timer
+ * aborts the request after DEFAULT_TIMEOUT_MS with a readable error.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const callerSignal = init.signal;
+  if (callerSignal?.aborted) {
+    throw callerSignal.reason instanceof Error ? callerSignal.reason : new Error("Request aborted");
+  }
+
+  const controller = new AbortController();
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  if (callerSignal) callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+
+  const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (err) {
+    // The timer fired (or fetch aborted for an abort reason) and the caller
+    // did not cancel it: turn the raw AbortError into a readable message.
+    const isAbort =
+      (err as Error | undefined)?.name === "AbortError" ||
+      (err instanceof DOMException && err.name === "AbortError");
+    if (isAbort && !callerSignal?.aborted) {
+      throw new Error(`Request timed out after ${DEFAULT_TIMEOUT_MS / 1000}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", onCallerAbort);
+  }
 }
 
 // ---- Wallet ----
