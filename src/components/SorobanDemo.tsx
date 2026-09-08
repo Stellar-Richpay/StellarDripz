@@ -215,6 +215,8 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             onChange={(e) => setNewGreeting(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSetGreeting()}
             placeholder="New greeting..."
+            aria-label="New greeting (max 512 bytes)"
+            aria-invalid={greetingTooLong}
             disabled={loading || isNetworkMismatch}
             className="flex-1 rounded-lg border border-white/10 bg-surface-950 px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-stellar-purple/50 focus:outline-none disabled:opacity-50"
           />
@@ -226,7 +228,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
             Set
           </button>
           {greetingTooLong && (
-            <p className="mt-1 text-[10px] text-red-400">
+            <p className="mt-1 text-[10px] text-red-400" role="alert">
               Greeting exceeds the 512-byte contract limit.
             </p>
           )}
