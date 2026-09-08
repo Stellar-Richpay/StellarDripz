@@ -9,6 +9,7 @@ import { getNetworkState } from "@/lib/stellar/networkGuard";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
+import { memoByteLength } from "@/lib/stellar/memo";
 import { showToast } from "./Toast";
 
 interface SorobanDemoProps {
@@ -111,6 +112,11 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     }
   }, [state.wallet.publicKey, contractId]);
 
+  // The counter contract rejects greetings over 512 bytes; enforce the same
+  // cap here (in bytes, not characters) so an oversized message is caught
+  // before the user approves a wallet prompt that can only fail.
+  const greetingTooLong = memoByteLength(newGreeting) > 512;
+
   // ---- Proxied write: set greeting ---- //
   const handleSetGreeting = useCallback(async () => {
     if (!state.wallet.publicKey || !newGreeting.trim() || isNetworkMismatch) return;
@@ -207,11 +213,16 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
           />
           <button
             onClick={handleSetGreeting}
-            disabled={loading || !newGreeting.trim() || isNetworkMismatch}
+            disabled={loading || !newGreeting.trim() || isNetworkMismatch || greetingTooLong}
             className="rounded-lg border border-stellar-purple/30 bg-stellar-purple/10 px-3 py-1.5 text-xs font-medium text-stellar-purple hover:bg-stellar-purple/20 disabled:opacity-30"
           >
             Set
           </button>
+          {greetingTooLong && (
+            <p className="mt-1 text-[10px] text-red-400">
+              Greeting exceeds the 512-byte contract limit.
+            </p>
+          )}
           <button
             onClick={handleGetGreeting}
             disabled={loading}
