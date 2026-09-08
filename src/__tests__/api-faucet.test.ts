@@ -154,6 +154,19 @@ describe("POST /api/faucet/fund", () => {
     expect(json.error).toContain("Invalid");
   });
 
+  it("rate-limits per address, not per IP", async () => {
+    // The faucet bucket is keyed by address so one person can't drain
+    // Friendbot by cycling IPs, and multiple users behind one NAT aren't
+    // blocked by each other's requests.
+    const address = "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX";
+    const req = createReq("POST", { address });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+    expect(checkRateLimit).toHaveBeenCalledWith(expect.anything(), "faucet", address);
+  });
+
   it("does not consume a rate-limit bucket for a malformed address", async () => {
     // Validation runs before rate limiting, so a bad address must be a
     // cheap 400 that never touches the limiter maps.
