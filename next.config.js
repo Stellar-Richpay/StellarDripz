@@ -42,6 +42,10 @@ const nextConfig = {
           // Clickjacking protection (legacy header, widely supported).
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // Force HTTPS: once a client has seen this over TLS it will refuse
+          // plaintext for two years. Browsers ignore it on http, so local dev
+          // is unaffected.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           // Only send origin on same-origin requests; never leak full wallet URLs.
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           // Disable browser features the dApp doesn't need.
