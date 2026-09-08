@@ -6,7 +6,7 @@
  * so clients can implement "load more" without over-fetching or guessing.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { getTransactions, getTransactionsCount, type TxRecord } from "@/lib/server/dbService";
 
 export async function GET(request: NextRequest) {
@@ -21,9 +21,7 @@ export async function GET(request: NextRequest) {
   // NaN-safe clamping: a non-numeric limit/offset (or one out of range)
   // must fall back to sane defaults, not propagate NaN into the query.
   const rawLimit = parseInt(url.searchParams.get("limit") || "", 10);
-  const limit = Number.isFinite(rawLimit)
-    ? Math.max(1, Math.min(rawLimit, 100))
-    : 50;
+  const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 100)) : 50;
   const rawOffset = parseInt(url.searchParams.get("offset") || "", 10);
   const offset = Number.isFinite(rawOffset) ? Math.max(0, rawOffset) : 0;
 
@@ -42,11 +40,15 @@ export async function GET(request: NextRequest) {
     getTransactionsCount(address, type || undefined),
   ]);
 
-  return NextResponse.json({
-    transactions,
-    total,
-    offset,
-    limit,
-    hasMore: offset + transactions.length < total,
-  });
+  return attachRateLimitHeaders(
+    request,
+    NextResponse.json({
+      transactions,
+      total,
+      offset,
+      limit,
+      hasMore: offset + transactions.length < total,
+    }),
+    "general",
+  );
 }

@@ -43,6 +43,7 @@ jest.mock("next/server", () => {
 const mockCheckRateLimit = jest.fn().mockReturnValue(null);
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  attachRateLimitHeaders: jest.fn((_req: unknown, res: unknown) => res),
 }));
 
 const mockGetAnalytics = jest.fn().mockResolvedValue([]);

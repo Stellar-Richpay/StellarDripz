@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 
 export async function GET(request: NextRequest) {
   // Every request triggers three external probes, so it must be capped per IP
@@ -83,16 +83,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json(
-    {
-      timestamp: new Date().toISOString(),
-      network: STELLAR_NETWORK.network,
-      services: results,
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store",
+  return attachRateLimitHeaders(
+    request,
+    NextResponse.json(
+      {
+        timestamp: new Date().toISOString(),
+        network: STELLAR_NETWORK.network,
+        services: results,
       },
-    },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    ),
+    "general",
   );
 }

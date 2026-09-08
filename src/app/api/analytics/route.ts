@@ -10,7 +10,7 @@
  *   always be protected in production.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { getAnalytics, getAnalyticsSummary, type AnalyticsEntry } from "@/lib/server/dbService";
 
 /** Compare tokens in constant time to avoid timing side channels. */
@@ -56,19 +56,20 @@ export async function GET(request: NextRequest) {
       "balance_fetch",
     ];
     if (!VALID_TYPES.includes(rawType as AnalyticsEntry["eventType"])) {
-      return NextResponse.json(
-        { error: `Invalid event type: ${rawType}` },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: `Invalid event type: ${rawType}` }, { status: 400 });
     }
   }
   const eventType = rawType as AnalyticsEntry["eventType"] | null;
 
   if (summary) {
     const data = await getAnalyticsSummary();
-    return NextResponse.json({ summary: data });
+    return attachRateLimitHeaders(request, NextResponse.json({ summary: data }), "general");
   }
 
   const entries = await getAnalytics(eventType || undefined);
-  return NextResponse.json({ events: entries, total: entries.length });
+  return attachRateLimitHeaders(
+    request,
+    NextResponse.json({ events: entries, total: entries.length }),
+    "general",
+  );
 }

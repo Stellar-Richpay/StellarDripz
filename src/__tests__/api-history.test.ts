@@ -39,6 +39,11 @@ jest.mock("next/server", () => {
   return { NextRequest: MockNextRequest, NextResponse: MockNextResponse };
 });
 
+jest.mock("@/lib/server/rateLimiter", () => ({
+  checkRateLimit: jest.fn().mockReturnValue(null),
+  attachRateLimitHeaders: jest.fn((_req: unknown, res: unknown) => res),
+}));
+
 const mockGetTransactions = jest.fn();
 const mockGetTransactionsCount = jest.fn();
 jest.mock("@/lib/server/dbService", () => ({
@@ -130,25 +135,25 @@ describe("GET /api/history", () => {
   });
 
   it("falls back to the default limit on a non-numeric limit", async () => {
-    const req = new NextRequest(
-      "http://localhost:3000/api/history?limit=abc",
-    ) as InstanceType<typeof NextRequest>;
+    const req = new NextRequest("http://localhost:3000/api/history?limit=abc") as InstanceType<
+      typeof NextRequest
+    >;
     await GET(req);
     expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 50, 0);
   });
 
   it("falls back to zero offset on a negative offset", async () => {
-    const req = new NextRequest(
-      "http://localhost:3000/api/history?offset=-50",
-    ) as InstanceType<typeof NextRequest>;
+    const req = new NextRequest("http://localhost:3000/api/history?offset=-50") as InstanceType<
+      typeof NextRequest
+    >;
     await GET(req);
     expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 50, 0);
   });
 
   it("rejects an unknown type filter with 400", async () => {
-    const req = new NextRequest(
-      "http://localhost:3000/api/history?type=not_real",
-    ) as InstanceType<typeof NextRequest>;
+    const req = new NextRequest("http://localhost:3000/api/history?type=not_real") as InstanceType<
+      typeof NextRequest
+    >;
     const res = await GET(req);
     expect(res.status).toBe(400);
     expect(mockGetTransactions).not.toHaveBeenCalled();

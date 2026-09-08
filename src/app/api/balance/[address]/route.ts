@@ -3,7 +3,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { isValidStellarAddress } from "@/lib/stellar/address";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { fetchBalanceServer } from "@/lib/server/horizonService";
 import { toHttpError } from "@/lib/server/http";
 
@@ -23,13 +23,17 @@ export async function GET(
 
   try {
     const balance = await fetchBalanceServer(address);
-    return NextResponse.json(balance, {
-      headers: {
-        // Account balances are account-specific and change with every
-        // transaction — never let a shared cache serve another user's data.
-        "Cache-Control": "private, no-store, max-age=0",
-      },
-    });
+    return attachRateLimitHeaders(
+      request,
+      NextResponse.json(balance, {
+        headers: {
+          // Account balances are account-specific and change with every
+          // transaction — never let a shared cache serve another user's data.
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      }),
+      "general",
+    );
   } catch (err) {
     // Production-safe error text (raw Horizon errors are logged, not echoed).
     const httpError = toHttpError(err);
