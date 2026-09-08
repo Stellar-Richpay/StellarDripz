@@ -39,6 +39,11 @@ next-env.d.ts
 contracts/target/
 **/*.rs.bk
 
+# Runtime data — the in-memory DB fallback writes a JSON store here
+# containing transaction records with IPs/user agents; it must never
+# be committed or deployed.
+/data/
+
 # Database (JSON dump files — keep .gitkeep for directory tracking)
 data/*.json
 
