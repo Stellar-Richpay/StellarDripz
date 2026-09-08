@@ -162,6 +162,37 @@ mod counter_test {
     }
 
     #[test]
+    fn test_reset_only_clears_caller_state() {
+        let env = Env::default();
+        let alice = Address::generate(&env);
+        let bob = Address::generate(&env);
+        env.mock_all_auths();
+
+        let contract_id = env.register(StellarDripzCounter, ());
+        let client = StellarDripzCounterClient::new(&env, &contract_id);
+
+        client.increment(&alice);
+        client.increment(&alice);
+        client.increment(&bob);
+        client.set_greeting(&alice, &String::from_str(&env, "alice"));
+        client.set_greeting(&bob, &String::from_str(&env, "bob"));
+
+        client.reset(&alice);
+
+        // Alice's own state is gone…
+        assert_eq!(client.get_user(&alice), 0);
+        assert_eq!(
+            client.get_greeting(&alice),
+            String::from_str(&env, "Hello from StellarDripz!")
+        );
+
+        // …but Bob's state and the global counter are untouched.
+        assert_eq!(client.get_user(&bob), 1);
+        assert_eq!(client.get_greeting(&bob), String::from_str(&env, "bob"));
+        assert_eq!(client.get_global(), 3);
+    }
+
+    #[test]
     fn test_user_counter_independent() {
         let env = Env::default();
         let alice = Address::generate(&env);
