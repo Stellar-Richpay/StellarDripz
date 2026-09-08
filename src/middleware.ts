@@ -40,6 +40,13 @@ export function middleware(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") || crypto.randomUUID();
   response.headers.set("x-request-id", requestId);
 
+  // API responses are wallet data: balances, transactions, and cooldowns
+  // change the moment a payment lands. Letting a browser cache or a shared
+  // proxy serve a stale copy could show a user an outdated balance or a
+  // status page pretending to be healthy. Disable caching for the API layer
+  // entirely — the app is interactive, so there is nothing to gain from it.
+  response.headers.set("Cache-Control", "no-store");
+
   return response;
 }
 
