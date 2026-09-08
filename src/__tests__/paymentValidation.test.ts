@@ -1,3 +1,39 @@
+/**
+ * Tests for the server-side payment validators.
+ *
+ * horizonService transitively imports src/lib/server/http (for HttpError),
+ * which loads next/server at module load — the same shim the route tests
+ * use is required here or the suite fails with "Request is not defined".
+ */
+
+jest.mock("next/server", () => {
+  class MockNextRequest {
+    url: string;
+    method: string;
+    headers: { get: (name: string) => string | null };
+    constructor(input: string, init?: RequestInit) {
+      this.url = input;
+      this.method = init?.method || "GET";
+      this.headers = {
+        get: (name: string) =>
+          (init?.headers as Record<string, string> | undefined)?.[name.toLowerCase()] ?? null,
+      };
+    }
+  }
+  class MockNextResponse {
+    status: number;
+    private body: unknown;
+    constructor(body: unknown, init?: ResponseInit) {
+      this.status = init?.status || 200;
+      this.body = body;
+    }
+    static json(body: unknown, init?: ResponseInit) {
+      return new MockNextResponse(body, init);
+    }
+  }
+  return { NextRequest: MockNextRequest, NextResponse: MockNextResponse };
+});
+
 import { validateMemo, validateAmount, validateAssetCode } from "@/lib/server/horizonService";
 
 describe("validateMemo", () => {
