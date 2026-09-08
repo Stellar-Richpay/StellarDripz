@@ -51,7 +51,7 @@
     "@supabase/supabase-js": "^2.112.2",
     "@walletconnect/sign-client": "^2.23.10",
     "@walletconnect/types": "^2.23.10",
-    "next": "^14.2.35",
+    "next": "^16.3.4",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -67,7 +67,7 @@
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.35",
+    "eslint-config-next": "^16.3.4",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "postcss": "^8.5.26",
