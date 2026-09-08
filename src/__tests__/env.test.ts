@@ -3,6 +3,26 @@
  */
 import { getAppConfig, validateEnv } from "@/lib/env";
 
+/**
+ * Resolve log level from a fresh module load with the given env state.
+ * getAppConfig() caches its result, so each call re-imports the module to
+ * exercise the resolution path from scratch.
+ */
+async function resolveLogLevelWith(env: Record<string, string | undefined>): Promise<string> {
+  const previous = { ...process.env };
+  Object.keys(env).forEach((k) => {
+    if (env[k] === undefined) delete process.env[k];
+    else process.env[k] = env[k];
+  });
+  try {
+    jest.resetModules();
+    const fresh = await import("@/lib/env");
+    return fresh.getAppConfig().logLevel;
+  } finally {
+    process.env = previous;
+  }
+}
+
 describe("getAppConfig", () => {
   it("returns default config with fallback values", () => {
     const config = getAppConfig();
@@ -40,6 +60,18 @@ describe("getAppConfig", () => {
     const config2 = getAppConfig();
 
     expect(config1).toBe(config2);
+  });
+
+  it("falls back to the environment default for an invalid LOG_LEVEL", async () => {
+    // LOG_LEVEL=verbose is not a known level — it must not leak through the
+    // cast and silently disable all logging (shouldLog would compare undefined).
+    const level = await resolveLogLevelWith({ LOG_LEVEL: "verbose", NODE_ENV: "test" });
+    expect(level).toBe("debug");
+  });
+
+  it("accepts a valid LOG_LEVEL override", async () => {
+    const level = await resolveLogLevelWith({ LOG_LEVEL: "error", NODE_ENV: "test" });
+    expect(level).toBe("error");
   });
 
   it("produces valid app config with all required fields", () => {

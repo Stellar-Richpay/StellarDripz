@@ -2,6 +2,7 @@
  * Environment validation & configuration.
  * Validates required env vars at startup and provides typed config access.
  */
+import { setLogLevel } from "@/lib/logger";
 
 export interface AppConfig {
   nodeEnv: "development" | "production" | "test";
@@ -42,6 +43,23 @@ function positiveInt(value: string | undefined, fallback: number): number {
   if (!value || !value.trim()) return fallback;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
+type LogLevel = (typeof LOG_LEVELS)[number];
+
+/**
+ * Resolve the LOG_LEVEL env var. Unlike a bare cast, an unrecognized value
+ * (e.g. LOG_LEVEL=verbose) falls back to the environment default instead of
+ * being accepted — a bad level would otherwise make shouldLog() compare
+ * undefined and silently suppress every log line.
+ */
+function resolveLogLevel(nodeEnv: AppConfig["nodeEnv"]): LogLevel {
+  const raw = process.env.LOG_LEVEL;
+  if (raw && (LOG_LEVELS as readonly string[]).includes(raw.trim())) {
+    return raw.trim() as LogLevel;
+  }
+  return nodeEnv === "production" ? "info" : "debug";
 }
 
 let _config: AppConfig | null = null;
@@ -110,9 +128,13 @@ export function getAppConfig(): AppConfig {
     rateLimitContract: positiveInt(process.env.RATE_LIMIT_CONTRACT_MS, 30000),
     rateLimitGeneral: positiveInt(process.env.RATE_LIMIT_GENERAL_MS, 10000),
 
-    logLevel: (process.env.LOG_LEVEL ||
-      (nodeEnv === "production" ? "info" : "debug")) as AppConfig["logLevel"],
+    logLevel: resolveLogLevel(nodeEnv),
   };
+
+  // LOG_LEVEL was previously read into the config but never applied, leaving
+  // the logger pinned at its own hard-coded default. Apply it now so the env
+  // var actually controls server log verbosity.
+  setLogLevel(_config.logLevel);
 
   // Log config on startup (server-side only, only in dev)
   if (typeof window === "undefined" && _config.nodeEnv === "development") {
