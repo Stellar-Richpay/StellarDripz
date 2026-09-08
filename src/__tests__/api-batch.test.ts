@@ -156,6 +156,21 @@ describe("POST /api/batch", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rejects non-string address entries before calling Friendbot", async () => {
+    // Numbers/objects/null must not slip through: they normalize to empty
+    // strings, which the checksum validator rejects — the request must fail
+    // as a whole instead of fetching Friendbot with junk.
+    mockIsValid.mockImplementation((addr: unknown) => addr === VALID_ADDR);
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: [VALID_ADDR, 42, null, { x: 1 }] }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("rejects an invalid address before calling Friendbot", async () => {
     mockIsValid.mockReturnValue(false);
     const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
