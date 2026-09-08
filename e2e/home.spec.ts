@@ -195,7 +195,7 @@ test.describe("Payment sending", () => {
 
   test("POST /api/payment/send requires destination", async ({ request }) => {
     const response = await request.post("/api/payment/send", {
-      data: { destination: "", amount: "10", sourceSecret: "S123" },
+      data: { destination: "", amount: "10", senderAddress: "G123" },
     });
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
@@ -205,10 +205,25 @@ test.describe("Payment sending", () => {
       data: {
         destination: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
         amount: "",
-        sourceSecret: "S123",
+        senderAddress: "G123",
       },
     });
     expect(response.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test("POST /api/payment/send rejects an issuer on a native-XLM payload", async ({ request }) => {
+    // Contradictory payloads are rejected up front with a 400 and never
+    // reach Horizon, so this is deterministic in e2e.
+    const response = await request.post("/api/payment/send", {
+      data: {
+        senderAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+        destination: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+        amount: "1.0000000",
+        assetIssuer: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/non-native assetCode/i);
   });
 
   test("wallet picker shows multiple wallet options", async ({ page }) => {
