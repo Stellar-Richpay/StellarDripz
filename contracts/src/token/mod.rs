@@ -965,6 +965,41 @@ mod token_test {
         ));
     }
 
+    /// transfer_from must not consume the allowance when the owner's
+    /// balance is too small — the whole call reverts, so the allowance
+    /// survives for later spends.
+    #[test]
+    fn test_transfer_from_insufficient_balance_keeps_allowance() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        // Allowance (500) exceeds the owner's balance (100).
+        client.mint(&admin, &owner, &100i128);
+        let exp = env.ledger().sequence() + 9999u32;
+        client.approve(&owner, &spender, &500i128, &exp);
+
+        assert!(matches!(
+            client.try_transfer_from(&spender, &owner, &recipient, &200i128),
+            Err(Ok(TokenError::InsufficientBalance))
+        ));
+        // The failed call rolled back: allowance and balances are untouched.
+        assert_eq!(client.allowance(&owner, &spender), 500i128);
+        assert_eq!(client.balance(&owner), 100i128);
+        assert_eq!(client.balance(&recipient), 0i128);
+    }
+
     /// Revoking an allowance is timeless: it must not require a future
     /// expiration ledger, even when the allowance being cleared is stale.
     #[test]
