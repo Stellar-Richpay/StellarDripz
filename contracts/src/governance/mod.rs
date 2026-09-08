@@ -663,6 +663,56 @@ mod governance_test {
     }
 
     #[test]
+    fn test_vote_at_voting_end_boundary() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &5000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Boundary"),
+            &String::from_str(&env, "Vote at the last possible ledger"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+        let voting_end = client.get_proposal(&id).unwrap().voting_end;
+
+        // Voting exactly at voting_end is still allowed…
+        env.ledger().set_sequence_number(voting_end);
+        client.vote(&voter, &id, &VoteChoice::For);
+        assert_eq!(client.get_vote(&voter, &id).unwrap().power, 5000i128);
+
+        // …but one ledger later the window has closed.
+        let id2 = client.propose(
+            &proposer,
+            &String::from_str(&env, "Closed"),
+            &String::from_str(&env, "Too late to vote"),
+            &GovernanceAction::SetRewardRate(2i128),
+        );
+        env.ledger().set_sequence_number(voting_end + 1);
+        let err = client.try_vote(&voter, &id2, &VoteChoice::For);
+        assert_eq!(err, Err(Ok(GovError::VotingEnded)));
+    }
+
+    #[test]
     fn test_cancel_proposal() {
         let env = Env::default();
         env.mock_all_auths();
