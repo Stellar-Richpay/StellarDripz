@@ -167,7 +167,12 @@ export default function SendForm() {
           label="Payment Request"
         />
       )}
+      {/* noValidate: the amount input carries min/step attributes whose
+      native constraint-validation tooltip would fire instead of (and before)
+      our styled inline errors, and the browser's step message is confusing
+      for decimal amounts. handleSend validates everything itself. */}
       <form
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           handleSend();
