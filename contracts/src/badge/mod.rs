@@ -281,22 +281,35 @@ impl DripBadge {
         env.storage().persistent().has(&key)
     }
 
-    /// Get a user's claimed badge IDs.
-    ///
-    /// NOTE: This iterates through all badges (O(n)). For production use
-    /// with large badge counts, consider adding pagination parameters
-    /// (offset/limit) or an index of user→badge mappings.
+    /// Get a user's claimed badge IDs (whole set, oldest claim first).
     pub fn get_user_badges(env: Env, user: Address) -> Vec<u64> {
-        let mut badges = Vec::new(&env);
         let count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
+        Self::list_user_badges(env, user, 0, count.min(u32::MAX as u64) as u32)
+    }
 
-        for i in 1..=count {
+    /// Page through a user's claimed badge IDs, oldest claim first, with a
+    /// bounded (start, limit) window so frontends can page through large
+    /// badge sets without materializing the whole catalog. Mirrors the
+    /// list_badges pagination contract.
+    pub fn list_user_badges(env: Env, user: Address, start: u64, limit: u32) -> Vec<u64> {
+        let mut out = Vec::new(&env);
+        let count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
+        if count == 0 || limit == 0 {
+            return out;
+        }
+        let window = limit as u64;
+        let begin = start.saturating_add(1);
+        if begin > count {
+            return out;
+        }
+        let end = begin.saturating_add(window).saturating_sub(1).min(count);
+        for i in begin..=end {
             let key = (KEY_USER_BADGES, user.clone(), i);
             if env.storage().persistent().has(&key) {
-                badges.push_back(i);
+                out.push_back(i);
             }
         }
-        badges
+        out
     }
 
     /// Grant a badge directly (admin only, no user auth required).
