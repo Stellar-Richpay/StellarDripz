@@ -627,24 +627,24 @@ mod badge_test {
         // Page 1: two oldest claims (1, 2).
         let page1 = client.list_user_badges(&user, &0u64, &2u32);
         assert_eq!(page1.len(), 2);
-        assert_eq!(page1.get(0).unwrap(), &1u64);
-        assert_eq!(page1.get(1).unwrap(), &2u64);
+        assert_eq!(page1.get(0).unwrap(), 1u64);
+        assert_eq!(page1.get(1).unwrap(), 2u64);
 
         // Page 2: next two (3, 4).
         let page2 = client.list_user_badges(&user, &2u64, &2u32);
         assert_eq!(page2.len(), 2);
-        assert_eq!(page2.get(0).unwrap(), &3u64);
-        assert_eq!(page2.get(1).unwrap(), &4u64);
+        assert_eq!(page2.get(0).unwrap(), 3u64);
+        assert_eq!(page2.get(1).unwrap(), 4u64);
 
         // Tail and bounds.
         let tail = client.list_user_badges(&user, &4u64, &10u32);
         assert_eq!(tail.len(), 1);
-        assert_eq!(tail.get(0).unwrap(), &5u64);
+        assert_eq!(tail.get(0).unwrap(), 5u64);
         let empty = client.list_user_badges(&user, &5u64, &10u32);
         assert_eq!(empty.len(), 0);
 
         // The compatibility getter still returns the full set.
-        assert_eq!(client.get_user_badges(&user).len(), 5u64 as usize);
+        assert_eq!(client.get_user_badges(&user).len(), 5u32);
     }
 
     #[test]
