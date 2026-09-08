@@ -237,8 +237,11 @@ export default function SendForm() {
 
           {/* Asset selector */}
           <div>
-            <label className="block text-xs font-medium text-white/60 mb-1.5">Asset</label>
+            <label htmlFor="send-asset" className="block text-xs font-medium text-white/60 mb-1.5">
+              Asset
+            </label>
             <select
+              id="send-asset"
               value={selectedAsset}
               onChange={(e) => {
                 setSelectedAsset(e.target.value);
@@ -267,7 +270,9 @@ export default function SendForm() {
           {/* Amount */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-white/60">Amount</label>
+              <label htmlFor="send-amount" className="text-xs font-medium text-white/60">
+                Amount
+              </label>
               <button
                 type="button"
                 onClick={handleMax}
@@ -278,6 +283,7 @@ export default function SendForm() {
               </button>
             </div>
             <input
+              id="send-amount"
               type="number"
               value={amount}
               onChange={(e) => validateAmount(e.target.value)}
@@ -297,12 +303,15 @@ export default function SendForm() {
           {/* Memo (optional) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-white/60">Memo (optional)</label>
+              <label htmlFor="send-memo" className="text-xs font-medium text-white/60">
+                Memo (optional)
+              </label>
               <span className={`text-xs ${memoError ? "text-red-400" : "text-white/30"}`}>
                 {memoByteLength(memo)}/28 bytes
               </span>
             </div>
             <input
+              id="send-memo"
               type="text"
               value={memo}
               maxLength={64}
