@@ -22,16 +22,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "address is required" }, { status: 400 });
     }
 
-    // Per-address rate limiting (1 per 60s)
-    const rateLimitResponse = checkRateLimit(request, "faucet", address);
-    if (rateLimitResponse) return rateLimitResponse;
-
     // Full StrKey checksum validation (not just the character set) — a
     // wrong-checksum address otherwise sails past the regex and comes back as
-    // a confusing Friendbot 5xx instead of a clean 400.
+    // a confusing Friendbot 5xx instead of a clean 400. This runs BEFORE rate
+    // limiting: a malformed address must be a cheap 400, not a request that
+    // creates a junk per-address bucket in the limiter.
     if (!isValidStellarAddress(address)) {
       return NextResponse.json({ error: "Invalid address" }, { status: 400 });
     }
+
+    // Per-address rate limiting (1 per 60s)
+    const rateLimitResponse = checkRateLimit(request, "faucet", address);
+    if (rateLimitResponse) return rateLimitResponse;
 
     const { ip, userAgent } = getRequestMetadata(request);
 
