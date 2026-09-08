@@ -694,6 +694,49 @@ mod badge_test {
     }
 
     #[test]
+    fn test_update_badge_persists_metadata() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+        client.create_badge(
+            &admin,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &2u32,
+        );
+
+        // Success path: the updated name/description/uri/tier must actually
+        // persist (existing tests only covered update error paths).
+        client.update_badge(
+            &admin,
+            &1u64,
+            &String::from_str(&env, "Gold Dripper"),
+            &String::from_str(&env, "Awarded for 100 drips"),
+            &String::from_str(&env, "https://example.com/gold.png"),
+            &4u32,
+        );
+
+        let badge = client.get_badge(&1u64).unwrap();
+        assert_eq!(badge.name, String::from_str(&env, "Gold Dripper"));
+        assert_eq!(
+            badge.description,
+            String::from_str(&env, "Awarded for 100 drips")
+        );
+        assert_eq!(
+            badge.image_uri,
+            String::from_str(&env, "https://example.com/gold.png")
+        );
+        assert_eq!(badge.tier, 4u32);
+        // id is preserved across the update
+        assert_eq!(badge.id, 1u64);
+    }
+
+    #[test]
     fn test_initialize_guards() {
         let env = Env::default();
         env.mock_all_auths();
