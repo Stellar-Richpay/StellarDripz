@@ -124,6 +124,17 @@ describe("POST /api/wallet/connect", () => {
     expect(json.session.address).toBe("GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX");
   });
 
+  it("rejects an unsupported wallet id", async () => {
+    // Only whitelisted wallet IDs may create sessions — arbitrary strings
+    // must never land in the sessions table and analytics.
+    const req = createReq({
+      address: "GC2MCTJBOATQKMURSX443SX25PGV34SK7U56UJ3Y7HHXQ2JK57OR23SX",
+      walletId: "meta-mask",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
   it("rejects a wrong-checksum address that matches the character set", async () => {
     const req = createReq({
       address: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
