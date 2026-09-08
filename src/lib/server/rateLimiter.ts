@@ -79,12 +79,13 @@ const TESTNET_LIMITS: Record<string, RateLimitConfig> = {
  * previously evaluated once at import, so a mainnet deploy that started on
  * testnet could keep testnet limits for the process lifetime.
  *
- * RATE_LIMIT_FAUCET_MS / RATE_LIMIT_CONTRACT_MS / RATE_LIMIT_GENERAL_MS
- * widen the testnet window when explicitly set (per-env tuning on dev);
- * mainnet never reads them. A bare parseInt of a bad value would be NaN,
- * so windows must be finite positive numbers before they're used.
+ * RATE_LIMIT_FAUCET_MS / RATE_LIMIT_PAYMENT_MS / RATE_LIMIT_CONTRACT_MS /
+ * RATE_LIMIT_WALLET_MS / RATE_LIMIT_GENERAL_MS widen the testnet window
+ * when explicitly set (per-env tuning on dev); mainnet never reads them. A
+ * bare parseInt of a bad value would be NaN, so windows must be finite
+ * positive numbers before they're used.
  */
-function getLimitConfig(): Record<string, RateLimitConfig> {
+export function getLimitConfig(): Record<string, RateLimitConfig> {
   const isTestnet = getAppConfig().isTestnet;
   const base: Record<string, RateLimitConfig> = isTestnet
     ? { ...TESTNET_LIMITS }
@@ -93,7 +94,9 @@ function getLimitConfig(): Record<string, RateLimitConfig> {
   if (isTestnet) {
     const overrides: Array<[string, string | undefined]> = [
       ["faucet", process.env.RATE_LIMIT_FAUCET_MS],
+      ["payment", process.env.RATE_LIMIT_PAYMENT_MS],
       ["contract", process.env.RATE_LIMIT_CONTRACT_MS],
+      ["wallet", process.env.RATE_LIMIT_WALLET_MS],
       ["general", process.env.RATE_LIMIT_GENERAL_MS],
     ];
     for (const [category, raw] of overrides) {

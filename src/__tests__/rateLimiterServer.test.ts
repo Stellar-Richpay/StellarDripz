@@ -48,7 +48,12 @@ jest.mock("@/lib/env", () => ({
   getAppConfig: () => ({ isTestnet: mockIsTestnet.current }),
 }));
 
-import { getClientIp, checkRateLimit, clearRateLimits } from "@/lib/server/rateLimiter";
+import {
+  getClientIp,
+  checkRateLimit,
+  clearRateLimits,
+  getLimitConfig,
+} from "@/lib/server/rateLimiter";
 import { MAINNET_RATE_LIMITS } from "@/lib/stellar/mainnet";
 
 type MockRequest = {
@@ -122,7 +127,33 @@ describe("network-aware rate limits", () => {
 });
 
 describe("env-window overrides (testnet only)", () => {
-  const KEYS = ["RATE_LIMIT_FAUCET_MS", "RATE_LIMIT_CONTRACT_MS", "RATE_LIMIT_GENERAL_MS"];
+  const KEYS = [
+    "RATE_LIMIT_FAUCET_MS",
+    "RATE_LIMIT_PAYMENT_MS",
+    "RATE_LIMIT_CONTRACT_MS",
+    "RATE_LIMIT_WALLET_MS",
+    "RATE_LIMIT_GENERAL_MS",
+  ];
+
+  it("honors payment and wallet window overrides (in addition to the original three)", () => {
+    process.env.RATE_LIMIT_PAYMENT_MS = "15000";
+    process.env.RATE_LIMIT_WALLET_MS = "45000";
+    process.env.RATE_LIMIT_FAUCET_MS = "2000";
+
+    const config = getLimitConfig();
+    expect(config.payment.windowMs).toBe(15000);
+    expect(config.wallet.windowMs).toBe(45000);
+    expect(config.faucet.windowMs).toBe(2000);
+  });
+
+  it("ignores malformed payment/wallet overrides without disabling limits", () => {
+    process.env.RATE_LIMIT_PAYMENT_MS = "abc";
+    process.env.RATE_LIMIT_WALLET_MS = "-1";
+
+    const config = getLimitConfig();
+    expect(config.payment.windowMs).toBe(60_000);
+    expect(config.wallet.windowMs).toBe(60_000);
+  });
 
   beforeEach(() => {
     mockIsTestnet.current = true;
