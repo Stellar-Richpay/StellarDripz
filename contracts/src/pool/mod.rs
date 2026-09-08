@@ -849,6 +849,37 @@ mod pool_error_test {
     }
 
     #[test]
+    fn test_reward_claim_is_idempotent_after_full_payout() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+
+        token_client.mint(&admin, &admin, &5000i128);
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        token_client.approve(&admin, &client.address, &5000i128, &exp_ledger);
+        client.fund_rewards(&admin, &3000i128);
+
+        token_client.mint(&admin, &user, &5000i128);
+        token_client.approve(&user, &client.address, &5000i128, &exp_ledger);
+        client.stake(&user, &1000i128);
+
+        env.ledger()
+            .set_sequence_number(env.ledger().sequence() + 200);
+        let first = client.claim_reward(&user);
+        assert!(first > 0);
+        let pool_after_first = client.get_reward_pool();
+
+        // A second claim must pay out nothing further — the accrued window
+        // was reset at claim time, so calling again must not mint free money
+        // or double-drain the pool.
+        let second = client.claim_reward(&user);
+        assert_eq!(second, 0);
+        assert_eq!(client.get_reward_pool(), pool_after_first);
+    }
+
+    #[test]
     fn test_fund_rewards_rejects_non_admin() {
         let env = Env::default();
         env.mock_all_auths();
