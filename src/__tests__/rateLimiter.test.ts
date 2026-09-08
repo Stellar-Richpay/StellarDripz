@@ -89,5 +89,54 @@ describe("client rateLimiter", () => {
       expect(canRequestFaucet("GADDR123")).toBe(true);
     });
   });
+
+  describe("expiry pruning", () => {
+    it("drops expired entries so localStorage cannot grow without bound", () => {
+      // Simulate a cooldown that has already fully elapsed.
+      recordCooldown("GADDR123", 1);
+      jest.spyOn(Date, "now").mockReturnValueOnce(Date.now() + 10_000);
+
+      expect(getCooldownRemaining("GADDR123")).toBe(0);
+      jest.restoreAllMocks();
+
+      // The expired entry must no longer be persisted — storage holds only
+      // live windows, so repeated faucet use can't accumulate history.
+      const raw = window.localStorage.getItem("stellardripz_cooldowns");
+      const stored = raw ? (JSON.parse(raw) as { address: string }[]) : [];
+      expect(stored.find((e) => e.address === "GADDR123")).toBeUndefined();
+    });
+
+    it("keeps still-active entries while pruning expired ones", () => {
+      // Write one live and one already-expired entry directly, so the test
+      // doesn't depend on wall-clock timing.
+      window.localStorage.setItem(
+        "stellardripz_cooldowns",
+        JSON.stringify([
+          { address: "GADDR_ACTIVE", expiresAt: Date.now() + 60_000 },
+          { address: "GADDR_EXPIRED", expiresAt: Date.now() - 1_000 },
+        ]),
+      );
+
+      // A single read prunes only the expired entry.
+      const remaining = getCooldownRemaining("GADDR_ACTIVE");
+      expect(remaining).toBeGreaterThan(0);
+
+      const raw = window.localStorage.getItem("stellardripz_cooldowns");
+      const stored = raw ? (JSON.parse(raw) as { address: string }[]) : [];
+      expect(stored.find((e) => e.address === "GADDR_ACTIVE")).toBeDefined();
+      expect(stored.find((e) => e.address === "GADDR_EXPIRED")).toBeUndefined();
+    });
+
+    it("migrates legacy lastRequest entries written by older versions", () => {
+      // Older versions stored { address, lastRequest } against a fixed 60s
+      // window; the migration must read those back as still-active.
+      window.localStorage.setItem(
+        "stellardripz_cooldowns",
+        JSON.stringify([{ address: "GADDR_LEGACY", lastRequest: Date.now() - 10_000 }]),
+      );
+      const remaining = getCooldownRemaining("GADDR_LEGACY");
+      expect(remaining).toBeGreaterThan(40_000); // ~50s left of the 60s window
+    });
+  });
 });
 // Edge case: validates rate limit after multiple rapid requests
