@@ -40,11 +40,11 @@ StellarDripz provides an integrated platform addressing all four problems:
 
 | Contract | Purpose | Lines | Tests |
 |----------|---------|-------|-------|
-| DripToken | Fungible token with minter delegation | 230 | 5 |
-| DripPool | Staking with time-weighted rewards | 210 | 3 |
-| DripGovernance | Token-weighted proposal voting | 260 | 2 |
-| DripBadge | Achievement NFT badges | 170 | 3 |
-| Counter | Simple increment + greeting | 60 | 3 |
+| DripToken | Fungible token with minter delegation | 230 | 20 |
+| DripPool | Staking with time-weighted rewards | 210 | 16 |
+| DripGovernance | Token-weighted proposal voting | 260 | 16 |
+| DripBadge | Achievement NFT badges | 170 | 12 |
+| Counter | Simple increment + greeting | 60 | 8 |
 
 ### 2.2 Cross-Contract Communication
 
