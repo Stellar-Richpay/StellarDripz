@@ -42,6 +42,17 @@ describe("parseJsonBody", () => {
     await expect(parseJsonBody(req as never, 50)).rejects.toMatchObject({ status: 413 });
   });
 
+  it("counts UTF-8 bytes, not UTF-16 code units, against the cap", async () => {
+    // 20 '\u00e9' (é) characters = 20 code units but 40 UTF-8 bytes: a
+    // code-unit count would let a 30-byte cap through a 30-byte body.
+    const body = JSON.stringify({ data: "\u00e9".repeat(20) });
+    const codeUnits = body.length;
+    expect(codeUnits).toBeLessThan(40);
+    await expect(parseJsonBody(makeRequest(body) as never, 40)).rejects.toMatchObject({
+      status: 413,
+    });
+  });
+
   it("rejects malformed JSON with 400", async () => {
     const req = makeRequest("{not json");
     await expect(parseJsonBody(req as never)).rejects.toMatchObject({ status: 400 });

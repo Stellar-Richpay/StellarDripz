@@ -42,7 +42,11 @@ export async function parseJsonBody(
   }
 
   const text = await request.text();
-  if (text.length > maxBytes) {
+  // text.length counts UTF-16 code units, but maxBytes is a *byte* budget:
+  // a payload full of multi-byte characters (emoji, non-Latin scripts) could
+  // exceed the byte cap while still passing a code-unit count. Measure the
+  // UTF-8 encoding, which is what the HTTP layer and our JSON consumers see.
+  if (new TextEncoder().encode(text).length > maxBytes) {
     throw new HttpError(413, `Request body too large (max ${maxBytes} bytes)`);
   }
 
