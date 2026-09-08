@@ -818,6 +818,37 @@ mod pool_error_test {
     }
 
     #[test]
+    fn test_claim_reward_pays_out_and_decrements_pool() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+
+        // Fund the reward pool so there is something to pay out.
+        token_client.mint(&admin, &admin, &5000i128);
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        token_client.approve(&admin, &client.address, &5000i128, &exp_ledger);
+        client.fund_rewards(&admin, &3000i128);
+        assert_eq!(client.get_reward_pool(), 3000i128);
+
+        token_client.mint(&admin, &user, &5000i128);
+        token_client.approve(&user, &client.address, &5000i128, &exp_ledger);
+        client.stake(&user, &1000i128);
+        let balance_before = token_client.balance(&user);
+
+        env.ledger()
+            .set_sequence_number(env.ledger().sequence() + 200);
+        let claimable = client.claim_reward(&user);
+        assert!(claimable > 0);
+
+        // The reward pool shrank by exactly the payout…
+        assert_eq!(client.get_reward_pool(), 3000i128 - claimable);
+        // …and the user's token balance grew by the same amount.
+        assert_eq!(token_client.balance(&user), balance_before + claimable);
+    }
+
+    #[test]
     fn test_extreme_reward_rate_does_not_overflow() {
         let env = Env::default();
         env.mock_all_auths();
