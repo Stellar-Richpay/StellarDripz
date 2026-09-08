@@ -115,6 +115,13 @@ test.describe("API health check", () => {
     expect(typeof body.uptime).toBe("number");
   });
 
+  test("API responses are never cached", async ({ request }) => {
+    // The middleware stamps Cache-Control: no-store on the whole /api layer
+    // so balances/history can't be served stale; pin it end to end.
+    const response = await request.get("/api/health");
+    expect(response.headers()["cache-control"]).toContain("no-store");
+  });
+
   test("GET /api/status returns 200", async ({ request }) => {
     const response = await request.get("/api/status");
     expect(response.status()).toBe(200);
