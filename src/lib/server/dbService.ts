@@ -326,12 +326,15 @@ export async function getTransactions(
 
   // Fallback: in-memory. Mirror the Supabase path's ordering (most recent
   // first) so pagination behaves identically across backends — without the
-  // sort, offsets walked oldest-first here while Supabase walked newest-first.
+  // sort, offsets walked oldest-first here while Supabase walked newest-first
+  // — and clamp the page the same way (max 100) so a caller cannot request
+  // an unbounded slice from the memory backend while Supabase caps it.
   const db = getDb();
+  const capped = Math.max(1, Math.min(limit, 100));
   let txs = [...db.transactions].sort((a, b) => b.timestamp - a.timestamp);
   if (address) txs = txs.filter((t) => t.senderAddress === address);
   if (type) txs = txs.filter((t) => t.type === type);
-  return txs.slice(offset, offset + limit);
+  return txs.slice(offset, offset + capped);
 }
 
 /**
