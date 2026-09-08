@@ -2,6 +2,9 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  // Don't advertise the framework/version in X-Powered-By: it helps no one
+  // and gives attackers a version fingerprint for known CVEs.
+  poweredByHeader: false,
 
   // Security headers applied to every response.
   // NOTE: access-control-allow-origin is intentionally NOT set globally —
