@@ -757,6 +757,53 @@ mod governance_test {
     }
 
     #[test]
+    fn test_propose_requires_minimum_voting_power() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let weak = Address::generate(&env);
+        let boundary = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        // min_voting_power = 100; weak holds 10, boundary holds exactly 100.
+        token_client.mint(&admin, &weak, &10i128);
+        token_client.mint(&admin, &boundary, &100i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &100i128);
+
+        // A holder below the minimum cannot create proposals…
+        let err = client.try_propose(
+            &weak,
+            &String::from_str(&env, "Nope"),
+            &String::from_str(&env, "Not enough power"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+        assert_eq!(err, Err(Ok(GovError::InsufficientPower)));
+        assert_eq!(client.get_proposal_count(), 0u64);
+
+        // …and a holder at the minimum exactly can — the check is
+        // `power < min`, so 100 is sufficient.
+        let id = client.propose(
+            &boundary,
+            &String::from_str(&env, "Yes"),
+            &String::from_str(&env, "Exactly enough power"),
+            &GovernanceAction::SetRewardRate(2i128),
+        );
+        assert_eq!(id, 1u64);
+    }
+
+    #[test]
     fn test_cancel_proposal() {
         let env = Env::default();
         env.mock_all_auths();
