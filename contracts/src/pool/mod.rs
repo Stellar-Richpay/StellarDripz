@@ -863,6 +863,24 @@ mod pool_error_test {
     }
 
     #[test]
+    fn test_stake_on_inactive_pool_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+        token_client.mint(&admin, &user, &5000i128);
+        let exp_ledger = env.ledger().sequence() + 9999u32;
+        token_client.approve(&user, &client.address, &5000i128, &exp_ledger);
+
+        client.set_active(&admin, &false);
+        assert!(matches!(
+            client.try_stake(&user, &500i128),
+            Err(Ok(PoolError::PoolNotActive))
+        ));
+    }
+
+    #[test]
     fn test_extreme_reward_rate_does_not_overflow() {
         let env = Env::default();
         env.mock_all_auths();
