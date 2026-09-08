@@ -137,6 +137,31 @@ mod counter_test {
     }
 
     #[test]
+    fn test_write_calls_require_auth() {
+        let env = Env::default();
+        let user = Address::generate(&env);
+        // Intentionally NO mock_all_auths() — every state-changing call must
+        // reject an unauthenticated caller, not just be callable by anyone.
+
+        let contract_id = env.register(StellarDripzCounter, ());
+        let client = StellarDripzCounterClient::new(&env, &contract_id);
+
+        assert!(client.try_increment(&user).is_err());
+        assert!(client
+            .try_set_greeting(&user, &String::from_str(&env, "hi"))
+            .is_err());
+        assert!(client.try_reset(&user).is_err());
+
+        // Reads stay open: nothing was written.
+        assert_eq!(client.get_global(), 0);
+        assert_eq!(client.get_user(&user), 0);
+        assert_eq!(
+            client.get_greeting(&user),
+            String::from_str(&env, "Hello from StellarDripz!")
+        );
+    }
+
+    #[test]
     fn test_user_counter_independent() {
         let env = Env::default();
         let alice = Address::generate(&env);
