@@ -57,6 +57,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // An issuer is meaningless for the native asset: XLM has no issuer, and
+    // a payload naming both XLM and an issuer would have the issuer silently
+    // dropped later. Reject the contradictory combination up front.
+    if (body.assetIssuer && (!body.assetCode || body.assetCode === "XLM")) {
+      return NextResponse.json(
+        { error: "assetIssuer requires a non-native assetCode" },
+        { status: 400 },
+      );
+    }
+
     // If no signed XDR, just build the transaction for the frontend.
     // Building loads the account + sequence from Horizon, so it gets a
     // per-IP general-bucket cap (the per-address payment bucket is reserved

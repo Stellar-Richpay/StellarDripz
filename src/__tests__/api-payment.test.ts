@@ -146,6 +146,31 @@ describe("POST /api/payment/send", () => {
       expect(json.hash).toBe("payment-hash-abc");
     });
 
+    it("rejects an assetIssuer with no assetCode", async () => {
+      const req = createReq({
+        senderAddress: "GSENDER12345678901234567890123456789012345678",
+        destination: "GDEST45678901234567890123456789012345678901",
+        amount: "100.0000000",
+        assetIssuer: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/non-native assetCode/i);
+    });
+
+    it("rejects an assetIssuer combined with assetCode XLM", async () => {
+      const req = createReq({
+        senderAddress: "GSENDER12345678901234567890123456789012345678",
+        destination: "GDEST45678901234567890123456789012345678901",
+        amount: "100.0000000",
+        assetCode: "XLM",
+        assetIssuer: "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/non-native assetCode/i);
+    });
+
     it("returns 500 on payment error", async () => {
       mockSendPayment.mockRejectedValueOnce(new Error("Insufficient balance"));
       const req = createReq({

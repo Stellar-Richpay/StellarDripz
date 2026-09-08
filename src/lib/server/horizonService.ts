@@ -358,6 +358,12 @@ export async function buildPaymentTransaction(
   const memoError = validateMemo(memo);
   if (memoError) throw new Error(memoError);
 
+  // XLM is native — an issuer is never valid for it. Rejecting here (and not
+  // just in the route) protects every future caller of this builder.
+  if (assetIssuer && (!assetCode || assetCode === "XLM")) {
+    throw new Error("Asset issuer is only valid for non-native assets");
+  }
+
   // Non-native assets require an issuer — previously the sender was used as
   // the issuer, which silently built a payment for a different (usually
   // nonexistent) asset than the user held.
