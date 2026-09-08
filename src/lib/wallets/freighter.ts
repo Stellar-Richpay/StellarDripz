@@ -42,7 +42,12 @@ export async function connectFreighter(
     if (fNetwork === "TESTNET") network = "TESTNET";
     else if (fNetwork === "PUBLIC" || fNetwork === "MAINNET") network = "MAINNET";
   } catch {
-    network = "TESTNET";
+    // The probe failed — report UNKNOWN, not a guessed TESTNET. A wrong
+    // guess on a mainnet deployment would trip the wallet/app mismatch
+    // guard and block every send; UNKNOWN is treated as "can't tell" and
+    // never blocks. The connect-time mismatch warning still appears if the
+    // wallet later reports a real network.
+    network = "UNKNOWN";
   }
 
   persistWallet({ publicKey, walletId, walletName, connectedAt: Date.now() });
