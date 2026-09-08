@@ -35,6 +35,16 @@ export default function CooldownTimer({ address, onReady }: CooldownTimerProps) 
       if (secs > 0) {
         wasReady.current = false;
       }
+
+      // Stop ticking once the countdown ends. Previously the 1s interval ran
+      // forever after reaching zero (the component renders null but the timer
+      // kept firing), wasting cycles on every page that ever showed a
+      // cooldown. Clearing here is safe — a new address or onReady change
+      // re-runs the effect and restarts it.
+      if (secs === 0 && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
 
     check();
