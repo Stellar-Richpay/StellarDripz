@@ -92,11 +92,12 @@ describe("GET /api/history", () => {
   });
 
   it("passes query parameters to the database", async () => {
+    const valid = "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK";
     const req = new NextRequest(
-      "http://localhost:3000/api/history?address=GADDR123&type=faucet&limit=10",
+      `http://localhost:3000/api/history?address=${valid}&type=faucet&limit=10`,
     ) as InstanceType<typeof NextRequest>;
     await GET(req);
-    expect(mockGetTransactions).toHaveBeenCalledWith("GADDR123", "faucet", 10, 0);
+    expect(mockGetTransactions).toHaveBeenCalledWith(valid, "faucet", 10, 0);
   });
 
   it("clamps limit to 100", async () => {
@@ -148,6 +149,25 @@ describe("GET /api/history", () => {
     >;
     await GET(req);
     expect(mockGetTransactions).toHaveBeenCalledWith(undefined, undefined, 50, 0);
+  });
+
+  it("rejects a malformed address filter with 400", async () => {
+    const req = new NextRequest(
+      "http://localhost:3000/api/history?address=not-an-address",
+    ) as InstanceType<typeof NextRequest>;
+    const res = await GET(req);
+    expect(res.status).toBe(400);
+    expect(mockGetTransactions).not.toHaveBeenCalled();
+  });
+
+  it("accepts a checksum-valid address filter", async () => {
+    const valid = "GCNIK6CGM3DXD3NJPZBG4Z76NGCU6YNID3TK7OSTKOJXF3ALBVJWESXK";
+    const req = new NextRequest(
+      `http://localhost:3000/api/history?address=${valid}`,
+    ) as InstanceType<typeof NextRequest>;
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(mockGetTransactions).toHaveBeenCalledWith(valid, undefined, 50, 0);
   });
 
   it("rejects an unknown type filter with 400", async () => {

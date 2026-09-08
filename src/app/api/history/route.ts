@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { getTransactions, getTransactionsCount, type TxRecord } from "@/lib/server/dbService";
+import { isValidStellarAddress } from "@/lib/stellar/address";
 
 export async function GET(request: NextRequest) {
   // Rate limit history reads per IP — the endpoint can scan the DB and is
@@ -16,7 +17,14 @@ export async function GET(request: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse;
 
   const url = new URL(request.url);
-  const address = url.searchParams.get("address") || undefined;
+  const rawAddress = url.searchParams.get("address") || undefined;
+  // A malformed address filter can never match anything in the DB — reject it
+  // as a 400 instead of silently returning an empty page that looks like a
+  // real "no transactions" result.
+  if (rawAddress && !isValidStellarAddress(rawAddress)) {
+    return NextResponse.json({ error: "Invalid address" }, { status: 400 });
+  }
+  const address = rawAddress;
   const rawType = url.searchParams.get("type");
   // NaN-safe clamping: a non-numeric limit/offset (or one out of range)
   // must fall back to sane defaults, not propagate NaN into the query.
