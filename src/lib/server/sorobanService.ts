@@ -82,6 +82,17 @@ export async function submitContractInvocation(
     STELLAR_NETWORK.networkPassphrase,
   );
 
+  // The envelope must originate from the account the request claims to be
+  // signing as — mirror of the payment route's verifyPaymentTransaction().
+  // Without this, anyone could POST a signed XDR for any contract call and
+  // have it logged/attributed to an arbitrary signerAddress, and a
+  // mismatch would otherwise only surface as an opaque RPC error.
+  const innerTx =
+    signedTx instanceof StellarSdk.FeeBumpTransaction ? signedTx.innerTransaction : signedTx;
+  if (innerTx.source !== signerPublicKey) {
+    throw new Error("Signed transaction source does not match the claimed signer address");
+  }
+
   const simResponse = await sorobanServer.simulateTransaction(signedTx);
   if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Simulation failed: ${simResponse.error}`);
