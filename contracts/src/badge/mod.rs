@@ -737,6 +737,36 @@ mod badge_test {
     }
 
     #[test]
+    fn test_revoked_badge_can_be_reclaimed() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+        client.create_badge(
+            &admin,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &1u32,
+        );
+
+        client.claim_badge(&user, &1u64);
+        assert!(client.has_badge(&user, &1u64));
+
+        // Revocation removes the claim entirely (not just marks it dead), so
+        // the user can legitimately earn the badge again later.
+        client.revoke_badge(&admin, &user, &1u64);
+        assert!(!client.has_badge(&user, &1u64));
+
+        client.claim_badge(&user, &1u64);
+        assert!(client.has_badge(&user, &1u64));
+    }
+
+    #[test]
     fn test_initialize_guards() {
         let env = Env::default();
         env.mock_all_auths();
