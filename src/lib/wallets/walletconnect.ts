@@ -39,7 +39,14 @@ async function getClient(): Promise<SignClient> {
     projectId: PROJECT_ID,
     metadata: {
       name: "StellarDripz",
-      description: "Stellar testnet faucet & smart contract dApp",
+      // The description the mobile wallet shows during pairing should
+      // match the network the session is actually for — "testnet" in the
+      // description of a mainnet deployment is confusing at best and a
+      // red flag at worst.
+      description:
+        STELLAR_NETWORK.network === "MAINNET"
+          ? "Stellar Dripz — faucet & smart contract dApp (Mainnet)"
+          : "Stellar testnet faucet & smart contract dApp",
       url: "https://stellardripz.vercel.app",
       icons: ["https://stellardripz.vercel.app/favicon.ico"],
     },
