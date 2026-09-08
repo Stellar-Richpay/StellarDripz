@@ -50,8 +50,8 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [ ] 🔲 Add contract interaction wizard (guided flow for mint/transfer/stake/vote)
 
 ### Testing
-- [x] ✅ 18 Rust contract tests, 2 fuzz tests
-- [x] ✅ 124 TypeScript tests (20 suites)
+- [x] ✅ 76 Rust contract tests (incl. 4 property-based fuzz tests)
+- [x] ✅ 253 TypeScript tests (35 suites)
 - [x] ✅ TypeScript strict mode — zero compilation errors
 - [ ] 🔲 Achieve >80% code coverage on contracts (add edge case tests)
 - [ ] 🔲 Add integration tests against live testnet contracts
