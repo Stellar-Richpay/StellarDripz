@@ -1,10 +1,3 @@
-export interface AddressBookEntry {
-  id: string;
-  name: string;
-  address: string;
-  createdAt: number;
-}
-
 import { storageGetJSON, storageSetJSON } from "@/lib/storage";
 
 export interface AddressBookEntry {
