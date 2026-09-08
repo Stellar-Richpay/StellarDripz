@@ -94,3 +94,39 @@ Accept `unsafe-inline`/`unsafe-eval` with defense-in-depth via other headers.
 - `frame-ancestors 'self'` prevents clickjacking
 - `base-uri 'self'` prevents base tag injection
 - Future: evaluate nonce approach when wallet SDKs support it
+
+---
+
+## ADR-005: Runtime Config Overrides and Stream Guards
+
+**Date:** 2026-09-08
+**Status:** Accepted
+
+### Context
+Operators need to tune rate limits and log verbosity without code changes,
+and the SSE event endpoint holds connections open indefinitely — a burst of
+tabs (or an attacker) can exhaust a serverless function pool.
+
+### Decision
+1. Rate-limit windows for the `payment`, `wallet`, `faucet`, and `general`
+   buckets are configurable via `RATE_LIMIT_WINDOW_*` environment variables.
+2. `LOG_LEVEL` is validated against the known levels (`debug|info|warn|error`)
+   and applied at startup via `setLogLevel`; unrecognized values are rejected
+   instead of silently disabling all logging through an invalid cast.
+3. The SSE events endpoint caps concurrent streams per IP (`MAX_STREAMS_PER_IP
+   = 5`); each stream's poll interval is clamped to 1–60s, and slot release is
+   idempotent so a double disconnect cannot undercount active streams.
+
+### Rationale
+- Deploy-time tuning avoids redeploys for operational knobs; documented in
+  `.env.example`.
+- An invalid `LOG_LEVEL` previously passed the type cast and silently turned
+  every logger call into a no-op.
+- Without a stream cap, N tabs per visitor multiply into unbounded function
+  invocations; the idempotent release guards against drift in the accounting.
+
+### Consequences
+- Default windows still apply when the env vars are absent (no behavior change
+  for existing deployments).
+- SSE streams remain capped per IP; legitimate multi-tab users may hit the cap
+  and see a 429 with a clear message.
