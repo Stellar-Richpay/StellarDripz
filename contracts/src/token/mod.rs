@@ -274,7 +274,10 @@ impl DripToken {
 
         let current_ledger = env.ledger().sequence();
         if allowance_val.expiration_ledger > 0 && current_ledger > allowance_val.expiration_ledger {
-            env.storage().persistent().remove(&allowance_key);
+            // Do not attempt to remove the stale entry here: this invocation
+            // fails with AllowanceExpired, and a failed Soroban call rolls
+            // back every storage write — the remove would be reverted anyway.
+            // Readers already treat an expired entry as a zero allowance.
             return Err(TokenError::AllowanceExpired);
         }
 
@@ -471,6 +474,7 @@ impl DripToken {
 mod token_test {
     use super::*;
     use soroban_sdk::testutils::Address as _;
+    use soroban_sdk::testutils::Ledger as _;
     use soroban_sdk::Env;
 
     #[test]
@@ -879,6 +883,85 @@ mod token_test {
         // Re-approving after revocation still works.
         client.approve(&owner, &spender, &100i128, &exp);
         assert_eq!(client.allowance(&owner, &spender), 100i128);
+    }
+
+    /// Allowances stay usable through their expiration ledger, then read as
+    /// zero and reject spends once the ledger passes it.
+    #[test]
+    fn test_allowance_expiry_boundaries() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let recipient = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        client.mint(&admin, &owner, &1000i128);
+
+        let exp = env.ledger().sequence() + 10u32;
+        client.approve(&owner, &spender, &300i128, &exp);
+
+        // Still spendable on the expiration ledger itself.
+        env.ledger().set_sequence_number(exp);
+        client.transfer_from(&spender, &owner, &recipient, &10i128);
+        assert_eq!(client.allowance(&owner, &spender), 290i128);
+
+        // Past the expiration ledger the getter reads zero.
+        env.ledger().set_sequence_number(exp + 1);
+        assert_eq!(client.allowance(&owner, &spender), 0i128);
+
+        // A spend attempt past the expiration ledger is rejected (the failed
+        // call rolls back, so the stale entry itself is left for a later
+        // approve to overwrite or the TTL to reclaim).
+        env.ledger().set_sequence_number(exp + 2);
+        assert!(matches!(
+            client.try_transfer_from(&spender, &owner, &recipient, &5i128),
+            Err(Ok(TokenError::AllowanceExpired))
+        ));
+        assert_eq!(client.allowance(&owner, &spender), 0i128);
+
+        // Renewing the allowance after expiry works and restores spends.
+        let renewed = env.ledger().sequence() + 50u32;
+        client.approve(&owner, &spender, &100i128, &renewed);
+        client.transfer_from(&spender, &owner, &recipient, &40i128);
+        assert_eq!(client.allowance(&owner, &spender), 60i128);
+    }
+
+    /// Expirations in the past (or the current ledger) are meaningless.
+    #[test]
+    fn test_approve_rejects_past_or_current_expiration() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+
+        let current = env.ledger().sequence();
+        assert!(matches!(
+            client.try_approve(&owner, &spender, &100i128, &current),
+            Err(Ok(TokenError::ExpirationInPast))
+        ));
+        assert!(matches!(
+            client.try_approve(&owner, &spender, &100i128, &current.saturating_sub(1)),
+            Err(Ok(TokenError::ExpirationInPast))
+        ));
     }
 
     /// A negative allowance is meaningless and must be rejected up front.
