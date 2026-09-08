@@ -542,6 +542,54 @@ mod badge_test {
     }
 
     #[test]
+    fn test_metadata_length_bounds() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+
+        // At the limit (64/256/256 bytes) creation succeeds…
+        let id = client.create_badge(
+            &admin,
+            &String::from_str(&env, &"n".repeat(64)),
+            &String::from_str(&env, &"d".repeat(256)),
+            &String::from_str(&env, &"u".repeat(256)),
+            &1u32,
+        );
+        assert_eq!(id, 1u64);
+
+        // …and one byte over any cap is rejected with the typed error.
+        for over in [
+            ("n".repeat(65), "d".repeat(10), "u".repeat(10)),
+            ("n".repeat(10), "d".repeat(257), "u".repeat(10)),
+            ("n".repeat(10), "d".repeat(10), "u".repeat(257)),
+        ] {
+            let err = client.try_create_badge(
+                &admin,
+                &String::from_str(&env, &over.0),
+                &String::from_str(&env, &over.1),
+                &String::from_str(&env, &over.2),
+                &1u32,
+            );
+            assert_eq!(err, Err(Ok(BadgeError::MetadataTooLong)));
+        }
+
+        // The same bounds apply on update.
+        let err = client.try_update_badge(
+            &admin,
+            &1u64,
+            &String::from_str(&env, &"x".repeat(65)),
+            &String::from_str(&env, "ok"),
+            &String::from_str(&env, "ok"),
+            &1u32,
+        );
+        assert_eq!(err, Err(Ok(BadgeError::MetadataTooLong)));
+    }
+
+    #[test]
     fn test_version() {
         let env = Env::default();
         let contract_id = env.register(DripBadge, ());
