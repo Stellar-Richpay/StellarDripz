@@ -153,5 +153,16 @@ describe("POST /api/faucet/fund", () => {
     const json = await res.json();
     expect(json.error).toContain("Invalid");
   });
+
+  it("does not consume a rate-limit bucket for a malformed address", async () => {
+    // Validation runs before rate limiting, so a bad address must be a
+    // cheap 400 that never touches the limiter maps.
+    const req = createReq("POST", { address: "not-an-address" });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+
+    const { checkRateLimit } = jest.requireMock("@/lib/server/rateLimiter");
+    expect(checkRateLimit).not.toHaveBeenCalled();
+  });
 });
 // Edge case: handles empty address string gracefully
