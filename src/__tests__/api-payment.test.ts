@@ -108,6 +108,27 @@ describe("POST /api/payment/send", () => {
       expect(res.status).toBe(400);
     });
 
+    it("returns 400 when the amount fails validation", async () => {
+      // The service layer rejects the amount (negative, too many decimals,
+      // zero) — the route must surface that as a client 400 before building.
+      const { validateAmount } = jest.requireMock("@/lib/server/horizonService");
+      validateAmount.mockReturnValue("Amount must be positive");
+
+      const req = createReq({
+        senderAddress: VALID_SENDER,
+        destination: VALID_DEST,
+        amount: "-5",
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("Amount must be positive");
+      expect(mockBuildPayment).not.toHaveBeenCalled();
+
+      // Restore the default so this stub cannot leak into later tests
+      // (clearAllMocks only clears calls, not implementations).
+      validateAmount.mockReturnValue(null);
+    });
+
     it("builds a transaction and returns XDR", async () => {
       const req = createReq({
         senderAddress: VALID_SENDER,
