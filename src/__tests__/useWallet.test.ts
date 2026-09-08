@@ -84,6 +84,36 @@ describe("useWallet", () => {
       });
     });
 
+    it("skips state updates and registration when unmounted during reconnect", async () => {
+      mockLoadPersistedWallet.mockReturnValue({ walletId: "freighter" });
+      let resolveConnect: (value: unknown) => void = () => {};
+      mockConnectWithWallet.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveConnect = resolve;
+          }),
+      );
+
+      const { unmount } = renderHook(() => useWallet());
+      await waitFor(() => {
+        expect(mockConnectWithWallet).toHaveBeenCalledWith("freighter");
+      });
+
+      // Leave the page before the wallet approves: no backend registration
+      // should fire and no state updates should target the unmounted hook.
+      unmount();
+      await act(async () => {
+        resolveConnect({
+          publicKey: "GPUBKEY123456789012345678901234567890123456",
+          network: "TESTNET",
+          walletId: "freighter",
+          walletName: "Freighter",
+        });
+      });
+
+      expect(mockConnectAndRegister).not.toHaveBeenCalled();
+    });
+
     it("handles auto-connect failure gracefully", async () => {
       mockLoadPersistedWallet.mockReturnValue({ walletId: "freighter" });
       mockConnectWithWallet.mockRejectedValue(new Error("CONNECTION_FAILED"));

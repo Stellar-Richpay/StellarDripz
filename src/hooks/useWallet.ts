@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { WalletState, SupportedWallet } from "@/types/stellar";
 import {
   connectWithWallet,
@@ -44,9 +44,15 @@ export function useWallet(): UseWalletReturn {
   });
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks whether this hook instance is still mounted. Auto-reconnect (and a
+  // manual connect) can resolve after the user has navigated away; without the
+  // guard the late resolution would setState on an unmounted component and,
+  // worse, fire a pointless backend registration for a page nobody is on.
+  const mountedRef = useRef(true);
 
   // Initialise wallet detection and auto-reconnect
   useEffect(() => {
+    mountedRef.current = true;
     setWallet((prev) => ({
       ...prev,
       isAnyWalletInstalled: checkAnyWalletInstalled(),
@@ -59,6 +65,7 @@ export function useWallet(): UseWalletReturn {
       setError(null);
       connectWithWallet(persisted.walletId)
         .then(async (result) => {
+          if (!mountedRef.current) return;
           setWallet((prev) => ({
             ...prev,
             connected: true,
@@ -75,18 +82,28 @@ export function useWallet(): UseWalletReturn {
           try {
             await connectAndRegister(result.publicKey, result.walletId, result.walletName);
           } catch {
-            setError("Connected, but the session couldn't be registered with the server.");
+            if (mountedRef.current) {
+              setError("Connected, but the session couldn't be registered with the server.");
+            }
           }
         })
         .catch((err) => {
           // The wallet itself rejected or failed to reconnect — clear the
           // stale persisted session and tell the user why instead of
-          // silently dropping them on a disconnected screen.
+          // silently dropping them on a disconnected screen. Clearing is a
+          // side effect that should happen even if the hook already unmounted.
           clearPersistedWallet();
+          if (!mountedRef.current) return;
           setError(getWalletErrorMessage(err));
         })
-        .finally(() => setConnecting(false));
+        .finally(() => {
+          if (mountedRef.current) setConnecting(false);
+        });
     }
+
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   const connect = useCallback(async (walletId: string) => {
@@ -94,6 +111,7 @@ export function useWallet(): UseWalletReturn {
     setError(null);
     try {
       const result = await connectWithWallet(walletId);
+      if (!mountedRef.current) return;
       setWallet((prev) => ({
         ...prev,
         connected: true,
@@ -104,13 +122,13 @@ export function useWallet(): UseWalletReturn {
       }));
       await connectAndRegister(result.publicKey, result.walletId, result.walletName);
     } catch (err) {
-      setError(getWalletErrorMessage(err));
+      if (mountedRef.current) setError(getWalletErrorMessage(err));
       // Intentionally do NOT rethrow: callers that fail to catch would get an
       // unhandled promise rejection, and the error is already surfaced via
       // state (and returned as a boolean for programmatic use).
       return;
     } finally {
-      setConnecting(false);
+      if (mountedRef.current) setConnecting(false);
     }
   }, []);
 
