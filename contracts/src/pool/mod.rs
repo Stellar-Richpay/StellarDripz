@@ -931,4 +931,18 @@ mod pool_error_test {
         let reward = client.calculate_reward(&user);
         assert!(reward >= 0);
     }
+    #[test]
+    fn test_calculate_reward_without_stake_is_zero() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        // An account that never staked must accrue nothing — a nonzero
+        // reward would mint value from an empty stake.
+        env.ledger().set_sequence_number(10_000);
+        assert_eq!(client.calculate_reward(&user), 0);
+        assert_eq!(client.claim_reward(&user), 0);
+    }
 }
