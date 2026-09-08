@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getAddressError } from "@/lib/stellar/address";
 import { copyToClipboard } from "@/lib/clipboard";
 import {
@@ -28,6 +28,16 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
   const [addrError, setAddrError] = useState("");
   // Addresses whose full value was copied to the clipboard (for check feedback).
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // The copy-feedback timer must not outlive the modal: firing after unmount
+  // is a setState-on-unmounted-component, and a stale timer from a previous
+  // copy could clear a newer entry's feedback early.
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -210,7 +220,11 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
                   onClick={() => {
                     void copyToClipboard(entry.address);
                     setCopiedId(entry.id);
-                    setTimeout(() => setCopiedId((id) => (id === entry.id ? null : id)), 1500);
+                    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+                    copyTimerRef.current = setTimeout(
+                      () => setCopiedId((id) => (id === entry.id ? null : id)),
+                      1500,
+                    );
                   }}
                   className={`rounded-lg p-1.5 transition-all ${
                     copiedId === entry.id
