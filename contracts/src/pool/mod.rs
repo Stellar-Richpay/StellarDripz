@@ -849,6 +849,20 @@ mod pool_error_test {
     }
 
     #[test]
+    fn test_fund_rewards_rejects_non_admin() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let attacker = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        assert!(matches!(
+            client.try_fund_rewards(&attacker, &1000i128),
+            Err(Ok(PoolError::NotAuthorized))
+        ));
+    }
+
+    #[test]
     fn test_extreme_reward_rate_does_not_overflow() {
         let env = Env::default();
         env.mock_all_auths();
