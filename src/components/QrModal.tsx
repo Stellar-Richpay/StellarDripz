@@ -26,6 +26,7 @@ export default function QrModal({
   assetIssuer,
 }: QrModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,15 @@ export default function QrModal({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose]);
+
+  // The copy-confirmation timer must not outlive the modal: firing it after
+  // unmount is a setState-on-unmounted-component (and if the modal is
+  // reopened quickly, an old timer can clear the new "copied" state early).
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -68,7 +78,8 @@ export default function QrModal({
   const handleCopy = async () => {
     await copyToClipboard(address);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (
