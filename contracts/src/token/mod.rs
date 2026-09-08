@@ -337,19 +337,20 @@ impl DripToken {
         }
 
         let current_ledger = env.ledger().sequence();
-        if expiration_ledger <= current_ledger {
-            return Err(TokenError::ExpirationInPast);
-        }
-
         let key = (KEY_ALLOWANCES, &owner, &spender);
         if amount == 0 {
             // Revoking an allowance should delete the record, not persist a
             // zero-value entry that keeps paying rent and stays in storage
             // forever. Reads already treat a missing key as 0, so removal is
             // semantically identical to a zero allowance — without the dead
-            // storage.
+            // storage. Revocation is timeless: a user clearing an old,
+            // possibly already-expired allowance must not need to invent a
+            // future expiration ledger for the revoke to be accepted.
             env.storage().persistent().remove(&key);
         } else {
+            if expiration_ledger <= current_ledger {
+                return Err(TokenError::ExpirationInPast);
+            }
             let allowance = AllowanceValue {
                 amount,
                 expiration_ledger,
