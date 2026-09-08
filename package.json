@@ -26,6 +26,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"e2e/**/*.ts\"",
     "test": "jest --verbose",
+    "test:coverage": "jest --coverage",
     "verify": "npm run lint && npm run typecheck && npm test && npm run format:check",
     "verify:contracts": "npm run contracts:fmt:check && npm run contracts:clippy && npm run contracts:test",
     "test:watch": "jest --watch",
