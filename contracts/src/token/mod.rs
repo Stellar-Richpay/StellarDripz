@@ -510,6 +510,29 @@ mod token_test {
     }
 
     #[test]
+    fn test_uninitialized_reads_return_safe_defaults() {
+        let env = Env::default();
+        let user = Address::generate(&env);
+        let spender = Address::generate(&env);
+
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+
+        // A fresh contract (never initialized) must read as empty, not panic:
+        // frontends read these getters before any init transaction exists.
+        assert_eq!(client.balance(&user), 0);
+        assert_eq!(client.total_supply(), 0);
+        assert_eq!(client.allowance(&user, &spender), 0);
+        assert_eq!(client.get_minter(), None);
+        assert_eq!(client.token_version(), 1u32);
+
+        // The admin getter must not panic pre-initialization; it reports the
+        // zero address, which is unusable for any admin-gated call.
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        assert_eq!(client.admin(), zero);
+    }
+
+    #[test]
     fn test_initialize_twice_is_rejected() {
         let env = Env::default();
         env.mock_all_auths();
