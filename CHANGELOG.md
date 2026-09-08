@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Byte-accurate body cap**: the JSON request-body limit is enforced on UTF-8 bytes, not UTF-16 code units
 
 ### Fixed
+- **Byte-accurate memo validation**: the send form measures text memos in UTF-8 bytes (28-byte protocol limit) instead of characters, matches the server's validator, and disables submit while the memo is invalid
+- **Event duplicate stacking**: the direct-poll fallback dedupes across polling rounds via a persistent seen-keys set (each round previously re-added the same on-chain events), and a failed latest-ledger probe no longer replays history from ledger 0
+- **Unfunded-account copy**: the "use the faucet" hint is testnet-only — on mainnet it referenced a hard-disabled button
+- **Network badge on mobile**: the wallet-vs-app network warning is no longer hidden below the `sm` breakpoint
+- **Greeting byte cap**: the Soroban demo disables Set with an inline error when the greeting exceeds the contract's 512-byte limit
+- **Address-book bounds**: labels capped at 40 chars and 100 entries max (oldest evicted) so localStorage can't grow without limit
+- **API caching**: the middleware stamps `Cache-Control: no-store` on all API responses so balances/history can never be served stale
+- **Native form validation**: the send form uses `noValidate` so styled inline errors win over the browser's confusing step/constraint tooltip
 - **Signer validation**: the contract-invoke route rejects signer addresses that fail the StrKey checksum, and submitted contract XDRs must originate from the claimed signer before they are simulated or logged
 - **Native-asset issuer**: payment payloads that combine an issuer with XLM (or no asset code) are rejected instead of silently dropping the issuer
 - **useWallet lifecycle**: reconnect/connect results no longer update state or fire backend registration after the hook unmounts
@@ -30,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - **Envelope-source verification**: `/api/contract/invoke` now rejects a signed XDR whose source account differs from the claimed signer, closing a forged-attribution hole on par with the payment route
+
+### Tests
+- **Pool coverage**: lock-period enforcement (TokensLocked), claim_reward payout accounting, fund_rewards admin gate, and inactive-pool stake rejection are now pinned
+- **Governance coverage**: vote-at-voting-end boundary, execute-while-voting-active rejection, and the proposal minimum-voting-power gate (incl. exact-boundary semantics)
+- **Counter coverage**: greeting size limit pinned as byte-exact (512 accepted / 513 rejected, multi-byte UTF-8 included)
 
 ---
 
