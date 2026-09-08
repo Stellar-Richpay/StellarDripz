@@ -7,6 +7,26 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 
+/**
+ * Bound an external probe with a hard deadline. The Horizon/RPC SDK calls
+ * below carry no timeout of their own, and this endpoint is a monitoring
+ * surface — a stalled node must fail the probe in seconds, not hang a
+ * serverless function until the platform kills it.
+ */
+async function withProbeTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after 5s`)), 5000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Every request triggers three external probes, so it must be capped per IP
   // — an unauthenticated caller could otherwise use this endpoint to drive
@@ -30,7 +50,7 @@ export async function GET(request: NextRequest) {
   try {
     const start = Date.now();
     const horizon = new StellarSdk.Horizon.Server(STELLAR_NETWORK.horizonUrl);
-    await horizon.ledgers().limit(1).call();
+    await withProbeTimeout(horizon.ledgers().limit(1).call(), "Horizon probe");
     results.horizon = { status: "ok", latency: Date.now() - start };
   } catch (err) {
     results.horizon = {
@@ -43,7 +63,7 @@ export async function GET(request: NextRequest) {
   try {
     const start = Date.now();
     const rpc = new StellarSdk.rpc.Server(STELLAR_NETWORK.sorobanRpcUrl);
-    await rpc.getLatestLedger();
+    await withProbeTimeout(rpc.getLatestLedger(), "Soroban RPC probe");
     results.sorobanRpc = { status: "ok", latency: Date.now() - start };
   } catch (err) {
     results.sorobanRpc = {
