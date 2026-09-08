@@ -4,11 +4,11 @@
 
 A full-featured Stellar testnet faucet and smart contract platform built with Next.js, Soroban, and Stellar SDK. Features multi-wallet support, real-time event streaming, on-chain governance, token staking, and achievement badges.
 
-[![CI/CD Pipeline](https://github.com/StellarDripz/StellarDripz/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/StellarDripz/StellarDripz/actions)
-[![Docker Build](https://github.com/StellarDripz/StellarDripz/actions/workflows/docker-build.yml/badge.svg)](https://github.com/StellarDripz/StellarDripz/actions/workflows/docker-build.yml)
-[![Lint](https://github.com/StellarDripz/StellarDripz/actions/workflows/lint-strict.yml/badge.svg)](https://github.com/StellarDripz/StellarDripz/actions/workflows/lint-strict.yml)
-[![E2E Tests](https://github.com/StellarDripz/StellarDripz/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/StellarDripz/StellarDripz/actions/workflows/e2e-tests.yml)
-[![Code Coverage](https://github.com/StellarDripz/StellarDripz/actions/workflows/code-coverage.yml/badge.svg)](https://github.com/StellarDripz/StellarDripz/actions/workflows/code-coverage.yml)
+[![CI/CD Pipeline](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions)
+[![Docker Build](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/docker-build.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/docker-build.yml)
+[![Lint](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/lint-strict.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/lint-strict.yml)
+[![E2E Tests](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/e2e-tests.yml)
+[![Code Coverage](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/code-coverage.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/code-coverage.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Soroban](https://img.shields.io/badge/Soroban-27-blue)](https://soroban.stellar.org)
@@ -187,7 +187,7 @@ contracts/src/
 
 ```bash
 # Clone
-git clone https://github.com/StellarDripz/StellarDripz.git
+git clone https://github.com/Stellar-Richpay/StellarDripz.git
 cd stellardripz
 
 # Install dependencies
@@ -259,7 +259,7 @@ npm start
 
 ### Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/StellarDripz/StellarDripz)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Stellar-Richpay/StellarDripz)
 
 1. Push to GitHub
 2. Connect to Vercel
