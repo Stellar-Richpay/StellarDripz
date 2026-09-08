@@ -171,6 +171,30 @@ describe("POST /api/contract/invoke", () => {
       );
     });
 
+    it("returns 400 when an argument value is not an integer", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "increment",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [1.5],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/unsupported numeric argument/i);
+    });
+
+    it("returns 400 when an argument has an unsupported shape", async () => {
+      const req = createReq({
+        contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",
+        functionName: "increment",
+        signerAddress: "GSIGNER12345678901234567890123456789012345678",
+        args: [{ unexpected: "shape" }],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/unsupported argument type/i);
+    });
+
     it("returns 500 on contract error", async () => {
       mockSubmit.mockRejectedValueOnce(new Error("Contract call reverted"));
       const req = createReq({

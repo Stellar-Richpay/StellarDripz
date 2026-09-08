@@ -22,7 +22,7 @@ import {
   submitContractInvocation,
 } from "@/lib/server/sorobanService";
 import * as StellarSdk from "@stellar/stellar-sdk";
-import { parseJsonBody, toHttpError, getRequestMetadata } from "@/lib/server/http";
+import { parseJsonBody, toHttpError, getRequestMetadata, HttpError } from "@/lib/server/http";
 
 /** Upper bounds that keep request bodies within Soroban's practical limits. */
 const MAX_ARGS = 32;
@@ -202,8 +202,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert args to ScVal with comprehensive type support
-    const scValArgs: StellarSdk.xdr.ScVal[] = (body.args || []).map(argToScVal);
+    // Convert args to ScVal with comprehensive type support. Conversion
+    // failures are the caller's fault (bad types, out-of-range numbers,
+    // malformed wrappers) so they must surface as 400s with a helpful
+    // message — not the generic 500 that an unclassified Error produced in
+    // production, where toHttpError() hides the text.
+    let scValArgs: StellarSdk.xdr.ScVal[];
+    try {
+      scValArgs = (body.args || []).map(argToScVal);
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      throw new HttpError(
+        400,
+        err instanceof Error ? err.message : "Invalid contract arguments",
+      );
+    }
 
     // Read-only simulation. Both this and the build branch below drive a
     // Soroban RPC simulateContractCall — real compute on the RPC provider's
