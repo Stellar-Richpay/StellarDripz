@@ -648,6 +648,52 @@ mod badge_test {
     }
 
     #[test]
+    fn test_admin_gates() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let stranger = Address::generate(&env);
+        let user = Address::generate(&env);
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+        client.create_badge(
+            &admin,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &2u32,
+        );
+
+        // Non-admin cannot grant badges.
+        let err = client.try_grant_badge(&stranger, &user, &1);
+        assert_eq!(err, Err(Ok(BadgeError::NotAuthorized)));
+
+        // Updating a missing badge reports NotFound, not a silent success.
+        let err = client.try_update_badge(
+            &admin,
+            &99u64,
+            &String::from_str(&env, "X"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &1u32,
+        );
+        assert_eq!(err, Err(Ok(BadgeError::BadgeNotFound)));
+
+        // The tier range is enforced on update just like creation.
+        let err = client.try_update_badge(
+            &admin,
+            &1u64,
+            &String::from_str(&env, "X"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &9u32,
+        );
+        assert_eq!(err, Err(Ok(BadgeError::InvalidTier)));
+    }
+
+    #[test]
     fn test_version() {
         let env = Env::default();
         let contract_id = env.register(DripBadge, ());
