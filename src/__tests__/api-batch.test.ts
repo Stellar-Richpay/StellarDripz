@@ -109,14 +109,11 @@ describe("POST /api/batch", () => {
   });
 
   it("funds each distinct valid address", async () => {
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: [VALID_ADDR, VALID_ADDR_2] }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: [VALID_ADDR, VALID_ADDR_2] }),
+    });
     const res = await POST(req);
     const json = (await res.json()) as { total: number; succeeded: number };
     expect(json.total).toBe(2);
@@ -125,14 +122,11 @@ describe("POST /api/batch", () => {
   });
 
   it("dedupes repeated addresses before funding", async () => {
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: [VALID_ADDR, VALID_ADDR] }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: [VALID_ADDR, VALID_ADDR] }),
+    });
     const res = await POST(req);
     const json = (await res.json()) as { total: number };
     // One address funded once, not twice (which would 429 the second call).
@@ -142,42 +136,33 @@ describe("POST /api/batch", () => {
 
   it("rejects more than the max batch size", async () => {
     const many = Array.from({ length: 11 }, () => VALID_ADDR);
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: many }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: many }),
+    });
     const res = await POST(req);
     expect(res.status).toBe(400);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("rejects an empty address list", async () => {
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: [] }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: [] }),
+    });
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
 
   it("rejects an invalid address before calling Friendbot", async () => {
     mockIsValid.mockReturnValue(false);
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: ["GNOTVALID"] }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: ["GNOTVALID"] }),
+    });
     const res = await POST(req);
     expect(res.status).toBe(400);
     expect(mockFetch).not.toHaveBeenCalled();
@@ -187,14 +172,11 @@ describe("POST /api/batch", () => {
     mockFetch.mockImplementation(() =>
       Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) }),
     );
-    const req = new (jest.requireMock("next/server").NextRequest)(
-      "http://localhost/api/batch",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ addresses: [VALID_ADDR] }),
-      },
-    );
+    const req = new (jest.requireMock("next/server").NextRequest)("http://localhost/api/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ addresses: [VALID_ADDR] }),
+    });
     const res = await POST(req);
     const json = (await res.json()) as { failed: number; results: Array<{ status: string }> };
     expect(json.failed).toBe(1);
