@@ -66,6 +66,7 @@ export function getSupportedWallets(): SupportedWallet[] {
     id: w.id,
     name: w.name,
     iconUrl: w.iconUrl,
+    installUrl: w.installUrl,
     installed: w.checkInstalled(),
   }));
 }

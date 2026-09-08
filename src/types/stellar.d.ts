@@ -11,6 +11,8 @@ export interface SupportedWallet {
   name: string;
   iconUrl: string;
   installed: boolean;
+  /** Official download/install URL for the wallet (may be empty). */
+  installUrl: string;
 }
 
 export interface WalletState {

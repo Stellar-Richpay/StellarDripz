@@ -23,6 +23,12 @@ function walletIcon(id: string | null): string {
   return wallet?.iconUrl || "🔑";
 }
 
+/** Resolve the official install URL for a wallet ID, if the registry has one. */
+function walletInstallUrl(id: string): string {
+  const wallet = getSupportedWallets().find((w) => w.id === id);
+  return wallet?.installUrl || "";
+}
+
 /**
  * Multi-wallet selector component.
  * Supports browser extensions (Freighter, xBull, LOBSTR), web wallet (Albedo),
@@ -261,25 +267,41 @@ export default function WalletConnect() {
             </div>
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {wallets.map((w: SupportedWallet) => (
-                <button
+                <div
                   key={w.id}
-                  onClick={() => handleConnect(w.id)}
-                  disabled={connecting}
-                  className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 hover:border-stellar-blue/30 active:scale-[0.98] disabled:opacity-50"
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:border-stellar-blue/30"
                 >
-                  <span className="text-2xl">{w.iconUrl || "🔑"}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-white">{w.name}</p>
-                    <p className="text-[10px] text-white/40">
-                      {w.id === "walletconnect" && !w.installed
-                        ? getWalletConnectStatus().message
-                        : w.installed
-                          ? "Available"
-                          : "Not detected"}
-                    </p>
-                  </div>
-                  <span className="text-white/20">→</span>
-                </button>
+                  <button
+                    onClick={() => handleConnect(w.id)}
+                    disabled={connecting}
+                    className="flex flex-1 min-w-0 items-center gap-3 text-left active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span className="text-2xl">{w.iconUrl || "🔑"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white">{w.name}</p>
+                      <p className="text-[10px] text-white/40">
+                        {w.id === "walletconnect" && !w.installed
+                          ? getWalletConnectStatus().message
+                          : w.installed
+                            ? "Available"
+                            : "Not detected"}
+                      </p>
+                    </div>
+                  </button>
+                  {!w.installed && w.id !== "walletconnect" && (
+                    // The registry's installUrl was dead: "Not detected"
+                    // offered no way to get the wallet. Link out so a user
+                    // who hit an uninstalled wallet can fix it in one click.
+                    <a
+                      href={walletInstallUrl(w.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-medium text-stellar-blue hover:bg-white/10"
+                    >
+                      Install
+                    </a>
+                  )}
+                </div>
               ))}
             </div>
           </div>
