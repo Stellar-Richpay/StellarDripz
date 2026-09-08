@@ -372,7 +372,13 @@ impl DripGovernance {
         // Quorum check: a minimum share of the total supply must have
         // participated (For + Against + Abstain) for the outcome to bind.
         let quorum_bps: u32 = s::get_persistent(&env, &KEY_QUORUM_BPS, 0u32);
-        if quorum_bps > 0 && quorum_bps <= MAX_QUORUM_BPS {
+        // Fail closed on corrupt storage: set_quorum validates the range, so
+        // an out-of-range value can only come from a storage bug or manual
+        // tampering. Clamping to the maximum enforces the strictest possible
+        // threshold (full participation) instead of silently skipping the
+        // quorum gate and letting a single vote bind the outcome.
+        let quorum_bps = quorum_bps.min(MAX_QUORUM_BPS);
+        if quorum_bps > 0 {
             let threshold = total_supply
                 .checked_mul(quorum_bps as i128)
                 .map(|v| v / MAX_QUORUM_BPS as i128)
