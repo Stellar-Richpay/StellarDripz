@@ -330,7 +330,10 @@ export default function WalletConnect() {
       </p>
 
       {error && (
-        <p className="mb-3 text-sm text-red-400 bg-red-500/5 rounded-lg py-2 px-3 border border-red-500/20">
+        <p
+          role="alert"
+          className="mb-3 text-sm text-red-400 bg-red-500/5 rounded-lg py-2 px-3 border border-red-500/20"
+        >
           {error}
         </p>
       )}
