@@ -715,6 +715,35 @@ mod governance_test {
     }
 
     #[test]
+    fn test_vote_on_nonexistent_proposal_errors() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &voter, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        // Voting on a proposal id that was never created must surface a typed
+        // error, not a silent no-op or a panic on missing storage.
+        let err = client.try_vote(&voter, &999u64, &VoteChoice::For);
+        assert_eq!(err, Err(Ok(GovError::ProposalNotFound)));
+    }
+
+    #[test]
     fn test_execute_while_voting_active_is_rejected() {
         let env = Env::default();
         env.mock_all_auths();
