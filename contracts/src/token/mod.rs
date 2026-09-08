@@ -339,11 +339,20 @@ impl DripToken {
         }
 
         let key = (KEY_ALLOWANCES, &owner, &spender);
-        let allowance = AllowanceValue {
-            amount,
-            expiration_ledger,
-        };
-        s::set_and_extend(&env, &key, &allowance, TTL_REFRESH_THRESHOLD);
+        if amount == 0 {
+            // Revoking an allowance should delete the record, not persist a
+            // zero-value entry that keeps paying rent and stays in storage
+            // forever. Reads already treat a missing key as 0, so removal is
+            // semantically identical to a zero allowance — without the dead
+            // storage.
+            env.storage().persistent().remove(&key);
+        } else {
+            let allowance = AllowanceValue {
+                amount,
+                expiration_ledger,
+            };
+            s::set_and_extend(&env, &key, &allowance, TTL_REFRESH_THRESHOLD);
+        }
 
         e::publish(&env, (e::EVENT_APPROVE, &owner, &spender), amount);
         Ok(())
@@ -833,6 +842,43 @@ mod token_test {
         // Well above the default ~4095-ledger write TTL, proving the entry
         // was extended toward the ledger max.
         assert!(ttl_after_write > 4096);
+    }
+
+    /// Revoking an allowance (approve 0) removes the stored entry instead of
+    /// keeping a zero-value record alive, and re-approving afterwards works.
+    #[test]
+    fn test_approve_zero_prunes_allowance_storage() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+
+        let exp = env.ledger().sequence() + 9999u32;
+        client.approve(&owner, &spender, &500i128, &exp);
+        assert_eq!(client.allowance(&owner, &spender), 500i128);
+
+        // Revoke.
+        client.approve(&owner, &spender, &0i128, &exp);
+        assert_eq!(client.allowance(&owner, &spender), 0i128);
+
+        // The entry must be gone from storage, not stored as a zero value.
+        let key = (KEY_ALLOWANCES, &owner, &spender);
+        let present = env.as_contract(&contract_id, || env.storage().persistent().has(&key));
+        assert!(!present);
+
+        // Re-approving after revocation still works.
+        client.approve(&owner, &spender, &100i128, &exp);
+        assert_eq!(client.allowance(&owner, &spender), 100i128);
     }
 
     /// A negative allowance is meaningless and must be rejected up front.
