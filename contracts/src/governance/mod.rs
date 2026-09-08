@@ -700,15 +700,11 @@ mod governance_test {
         client.vote(&voter, &id, &VoteChoice::For);
         assert_eq!(client.get_vote(&voter, &id).unwrap().power, 5000i128);
 
-        // …but one ledger later the window has closed.
-        let id2 = client.propose(
-            &proposer,
-            &String::from_str(&env, "Closed"),
-            &String::from_str(&env, "Too late to vote"),
-            &GovernanceAction::SetRewardRate(2i128),
-        );
+        // …but one ledger later the window has closed. Voting on the same
+        // proposal again would hit AlreadyVoted after the window check, so
+        // VotingEnded is what must surface here.
         env.ledger().set_sequence_number(voting_end + 1);
-        let err = client.try_vote(&voter, &id2, &VoteChoice::For);
+        let err = client.try_vote(&voter, &id, &VoteChoice::Against);
         assert_eq!(err, Err(Ok(GovError::VotingEnded)));
     }
 
