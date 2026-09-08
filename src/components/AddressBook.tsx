@@ -232,6 +232,8 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
                       : "text-white/30 hover:text-white/70 hover:bg-white/5"
                   }`}
                   title={copiedId === entry.id ? "Copied!" : "Copy address"}
+                  aria-label={`Copy ${entry.name || "address"} to clipboard`}
+                  aria-live="polite"
                 >
                   {copiedId === entry.id ? (
                     <svg
@@ -267,6 +269,7 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
                   onClick={() => handleEdit(entry)}
                   className="rounded-lg p-1.5 text-white/30 hover:text-white/70 hover:bg-white/5 transition-all"
                   title="Edit"
+                  aria-label={`Edit ${entry.name || "address"}`}
                 >
                   <svg
                     className="h-3.5 w-3.5"
@@ -286,6 +289,7 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
                   onClick={() => handleDelete(entry.id)}
                   className="rounded-lg p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
                   title="Delete"
+                  aria-label={`Delete ${entry.name || "address"} from address book`}
                 >
                   <svg
                     className="h-3.5 w-3.5"
