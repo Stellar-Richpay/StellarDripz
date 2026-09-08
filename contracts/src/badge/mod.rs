@@ -694,6 +694,27 @@ mod badge_test {
     }
 
     #[test]
+    fn test_initialize_guards() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+
+        // The zero address cannot become admin.
+        let err = client.try_initialize_badge(&zero);
+        assert_eq!(err, Err(Ok(BadgeError::InvalidAddress)));
+
+        client.initialize_badge(&admin);
+
+        // A second initialization is refused — the admin slot is already set.
+        let err = client.try_initialize_badge(&admin);
+        assert_eq!(err, Err(Ok(BadgeError::AlreadyInitialized)));
+    }
+
+    #[test]
     fn test_version() {
         let env = Env::default();
         let contract_id = env.register(DripBadge, ());
