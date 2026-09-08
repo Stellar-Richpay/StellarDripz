@@ -126,6 +126,16 @@ test.describe("API health check", () => {
     const response = await request.get("/api/status");
     expect(response.status()).toBe(200);
   });
+
+  test("robots.txt hides admin and API paths from crawlers", async ({ request }) => {
+    // The admin dashboard and API endpoints expose wallet addresses and
+    // session data; robots.txt must keep them out of search indexes.
+    const response = await request.get("/robots.txt");
+    expect(response.status()).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("Disallow: /admin");
+    expect(body).toContain("Disallow: /api/");
+  });
 });
 
 // ─── Faucet Flow ────────────────────────────────────────────────────
