@@ -224,7 +224,8 @@ npm run verify:contracts      # fmt check + clippy (-D warnings) + tests
 ```
 
 The contracts exercise typed errors, quorum voting, reward accounting,
-TTL maintenance, and property-style fuzz invariants (55 tests).
+allowance-expiry boundaries, TTL maintenance, pool parameter guards, and
+property-style fuzz invariants (61 tests).
 
 ### Frontend Tests
 
@@ -234,12 +235,12 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (29 suites, 180 tests, all passing ✅):
+Test suites (31 suites, 217 tests, all passing ✅):
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `walletService`
 - API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
-- Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `apiClient`, `env`, `config`
+- Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `sorobanSubmit`
 - Validation: `addressValidation`, `contractTypes`, `paymentValidation`, `networkGuard`
-- Integration + rate limiter server suites
+- Integration + wallet-service suites
 
 Coverage is collected with `npx jest --coverage`; the enforced global gate
 (45% branches / 50% functions / 55% lines) mirrors what CI runs inline.
@@ -500,7 +501,7 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 6. **CI/CD & Testing (2:30-3:00)**
    - Show GitHub Actions pipeline running
-   - Show test output (55 contract + 180 frontend tests passing)
+   - Show test output (61 contract + 217 frontend tests passing)
    - Show Vercel deployment
    - Admin dashboard analytics
 
@@ -512,9 +513,9 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 ![CI/CD Pipeline](./screenshots/cicd-pipeline.png)
 *GitHub Actions workflow — contract tests, frontend tests, lint, build, and Vercel deploy all passing.*
 
-### Test Output — All 180 Tests Passing
+### Test Output — All 217 Tests Passing
 ![Test Output](./screenshots/test-output.png)
-*29 test suites, 180 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
+*31 test suites, 217 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
 
 ### Mobile Responsive UI
 ![Mobile UI](./screenshots/mobile-responsive.png)
@@ -606,13 +607,13 @@ Subscribes to real-time Soroban contract events via SSE with automatic polling f
 
 | Category | Suites | Tests |
 |----------|--------|-------|
-| Services | 6 | 35+ |
+| Services | 7 | 40+ |
 | Hooks | 5 | 30+ |
-| API Routes | 11 | 60+ |
-| Validation & other | 7 | 55+ |
-| **Total** | **29** | **180** |
+| API Routes | 11 | 70+ |
+| Validation & other | 8 | 75+ |
+| **Total** | **31** | **217** |
 
-All 180 tests pass with zero failures. TypeScript strict mode compiles cleanly.
+All 217 tests pass with zero failures. TypeScript strict mode compiles cleanly.
 
 ### Running Tests
 

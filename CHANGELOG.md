@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-09 hardening wave (contract-invoke & rate-limit)
+
+### Added
+- **Payment/wallet rate-limit overrides**: `RATE_LIMIT_PAYMENT_MS` and `RATE_LIMIT_WALLET_MS` now widen testnet buckets like the existing three overrides (documented in both `.env` templates; mainnet still ignores all overrides)
+- **Rate-limit headers on reads**: `/api/balance`, `/api/history`, `/api/status`, `/api/analytics` attach `X-RateLimit-*` headers to successful responses so pollers can back off before hitting a 429
+- **Client request timeout**: proxied API calls abort after 25s with a readable error instead of spinning forever on a hung upstream
+- **Contract tests**: allowance-expiry boundary coverage, past-expiration rejection, and pool `min <= max` parameter guards (61 contract tests total)
+
+### Changed
+- **Exact ScVal integers**: contract-invoke arguments are converted with BigInt math and per-type range checks — i128/u128 values above 2^53 are no longer silently rounded, and overflow/negative values are rejected with a 400 instead of wrapping
+- **Arg errors are client errors**: malformed contract-invoke arguments return 400s with the specific reason rather than a generic production 500
+- **`approve(0)` prunes**: revoking a token allowance deletes the stored record instead of keeping a zero-value entry alive
+- **Byte-accurate body cap**: the JSON request-body limit is enforced on UTF-8 bytes, not UTF-16 code units
+
+### Fixed
+- **Signer validation**: the contract-invoke route rejects signer addresses that fail the StrKey checksum, and submitted contract XDRs must originate from the claimed signer before they are simulated or logged
+- **Native-asset issuer**: payment payloads that combine an issuer with XLM (or no asset code) are rejected instead of silently dropping the issuer
+- **useWallet lifecycle**: reconnect/connect results no longer update state or fire backend registration after the hook unmounts
+- **Pool config**: `min_stake` above `max_stake` is rejected at init and in admin setters, so staking can't be silently bricked
+- **Expired-allowance branch**: removed the misleading `remove()` in `transfer_from`'s error path (a failed Soroban call rolls back writes, so it could never persist) and pinned the real semantics in tests
+
+### Security
+- **Envelope-source verification**: `/api/contract/invoke` now rejects a signed XDR whose source account differs from the claimed signer, closing a forged-attribution hole on par with the payment route
+
+---
+
 ## [Unreleased]
 
 ### Added
