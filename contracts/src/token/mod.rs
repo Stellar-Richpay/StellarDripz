@@ -965,6 +965,49 @@ mod token_test {
         ));
     }
 
+    /// Revoking an allowance is timeless: it must not require a future
+    /// expiration ledger, even when the allowance being cleared is stale.
+    #[test]
+    fn test_revoke_ignores_expiration() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+
+        let current = env.ledger().sequence();
+        let future = current + 50u32;
+        client.approve(&owner, &spender, &500i128, &future);
+
+        // Revoking with the current ledger (previously ExpirationInPast)
+        // succeeds and prunes the entry.
+        client.approve(&owner, &spender, &0i128, &current);
+        assert_eq!(client.allowance(&owner, &spender), 0i128);
+
+        // Revoking with a past ledger works too, including for a stale
+        // allowance that already expired on its own.
+        client.approve(&owner, &spender, &200i128, &future);
+        env.ledger().set_sequence_number(future + 1);
+        client.approve(&owner, &spender, &0i128, &future);
+        assert_eq!(client.allowance(&owner, &spender), 0i128);
+
+        // Non-zero approvals still enforce the future-expiration rule.
+        env.ledger().set_sequence_number(current);
+        assert!(matches!(
+            client.try_approve(&owner, &spender, &100i128, &current),
+            Err(Ok(TokenError::ExpirationInPast))
+        ));
+    }
+
     /// A negative allowance is meaningless and must be rejected up front.
     #[test]
     fn test_approve_rejects_negative_amount() {
