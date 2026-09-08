@@ -46,20 +46,20 @@ export default function Header() {
         {/* Network badge — reflects the real network and flags mismatches */}
         <div
           role="status"
-          className={`hidden sm:flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${
+          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs ${
             networkMismatch
               ? "border-red-500/30 bg-red-500/10 text-red-400"
               : "border-white/10 bg-white/5 text-white/50"
           }`}
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
             <span
               className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
                 networkMismatch ? "bg-red-500" : "bg-stellar-green"
               }`}
             />
             <span
-              className={`relative inline-flex h-2 w-2 rounded-full ${
+              className={`relative inline-flex h-1.5 w-1.5 rounded-full sm:h-2 sm:w-2 ${
                 networkMismatch ? "bg-red-500" : "bg-stellar-green"
               }`}
             />
