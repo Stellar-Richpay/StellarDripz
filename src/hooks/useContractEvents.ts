@@ -11,14 +11,14 @@ interface UseContractEventsOptions {
 }
 
 /** Stable identity for an event, used to drop duplicates across SSE + polling. */
-function eventKey(evt: ContractEvent): string {
+export function eventKey(evt: ContractEvent): string {
   return [evt.contractId, evt.topic, evt.value, evt.ledgerSequence || "", evt.txHash || ""].join(
     "|",
   );
 }
 
 /** Prepend incoming events, skipping any whose key already exists. */
-function appendUnique(prev: ContractEvent[], incoming: ContractEvent[]): ContractEvent[] {
+export function appendUnique(prev: ContractEvent[], incoming: ContractEvent[]): ContractEvent[] {
   if (incoming.length === 0) return prev;
   const known = new Set(prev.map(eventKey));
   const fresh = incoming.filter((e) => !known.has(eventKey(e)));
