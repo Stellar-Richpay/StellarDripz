@@ -4,6 +4,7 @@
  */
 import type { NetworkType } from "@/types/stellar";
 import { STELLAR_NETWORK } from "../stellar/network";
+import { storageSetJSON } from "../storage";
 
 function persistWallet(wallet: {
   publicKey: string;
@@ -11,12 +12,10 @@ function persistWallet(wallet: {
   walletName: string;
   connectedAt: number;
 }): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem("stellardripz_wallet", JSON.stringify(wallet));
-  } catch {
-    /* blocked */
-  }
+  // Same key + guards as the other connectors, via the shared storage
+  // helper — a local copy of this logic drifted here and duplicated the
+  // try/catch dance (and any future hardening) from walletKit.
+  storageSetJSON("stellardripz_wallet", wallet);
 }
 
 /**
