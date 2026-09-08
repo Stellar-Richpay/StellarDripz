@@ -77,6 +77,11 @@ impl DripPool {
         if reward_rate < 0 || min_stake < 0 {
             return Err(PoolError::InvalidParameter);
         }
+        // A minimum above the (default) maximum would make every stake fail
+        // with BelowMinStake/ExceedsMaxStake; reject the impossible config.
+        if min_stake > DEFAULT_MAX_STAKE {
+            return Err(PoolError::InvalidParameter);
+        }
         if admin.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
             || token_contract_id.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
         {
@@ -418,6 +423,11 @@ impl DripPool {
                 active: false,
             },
         );
+        // A minimum above the configured maximum makes staking impossible;
+        // reject instead of silently bricking the pool for users.
+        if min_stake > config.max_stake {
+            return Err(PoolError::InvalidParameter);
+        }
         config.min_stake = min_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("min_stk"), &admin), min_stake);
@@ -445,6 +455,11 @@ impl DripPool {
                 active: false,
             },
         );
+        // A maximum below the configured minimum makes staking impossible;
+        // reject the inconsistent pair.
+        if max_stake < config.min_stake {
+            return Err(PoolError::InvalidParameter);
+        }
         config.max_stake = max_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
         e::publish(&env, (symbol_short!("max_stk"), &admin), max_stake);
@@ -700,6 +715,53 @@ mod pool_error_test {
         assert!(matches!(
             client.try_stake(&user, &200i128),
             Err(Ok(PoolError::ExceedsMaxStake))
+        ));
+    }
+
+    #[test]
+    fn test_min_stake_above_max_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        client.set_max_stake(&admin, &100i128);
+        assert!(matches!(
+            client.try_set_min_stake(&admin, &200i128),
+            Err(Ok(PoolError::InvalidParameter))
+        ));
+        // Raising max first makes the same minimum valid again.
+        client.set_max_stake(&admin, &300i128);
+        client.set_min_stake(&admin, &200i128);
+        assert_eq!(client.get_pool_config().min_stake, 200i128);
+    }
+
+    #[test]
+    fn test_max_stake_below_min_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        assert!(matches!(
+            client.try_set_max_stake(&admin, &5i128), // below min_stake 10
+            Err(Ok(PoolError::InvalidParameter))
+        ));
+    }
+
+    #[test]
+    fn test_initialize_rejects_min_above_default_max() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let token_id = Address::generate(&env);
+        let contract_id = env.register(DripPool, ());
+        let client = DripPoolClient::new(&env, &contract_id);
+
+        let too_high = DEFAULT_MAX_STAKE + 1i128;
+        assert!(matches!(
+            client.try_initialize_pool(&admin, &token_id, &100i128, &too_high, &100u32),
+            Err(Ok(PoolError::InvalidParameter))
         ));
     }
 
