@@ -19,6 +19,7 @@ pub enum BadgeError {
     InvalidTier = 5,
     InvalidAddress = 6,
     NotClaimed = 7,
+    MetadataTooLong = 8,
 }
 
 // ---- Data Types ----
@@ -51,6 +52,13 @@ const CONTRACT_VERSION: u32 = 1;
 
 const MIN_TIER: u32 = 1;
 const MAX_TIER: u32 = 4;
+
+/// Byte caps for badge metadata, bounding per-badge storage cost the way the
+/// governance and counter contracts bound theirs. String::len() counts UTF-8
+/// bytes, so multi-byte text is measured by its on-chain size.
+const MAX_NAME_BYTES: u32 = 64;
+const MAX_DESC_BYTES: u32 = 256;
+const MAX_URI_BYTES: u32 = 256;
 
 fn is_zero_address(env: &Env, addr: &Address) -> bool {
     addr.to_string() == String::from_str(env, ZERO_ADDRESS_STR)
@@ -103,6 +111,12 @@ impl DripBadge {
         if !(MIN_TIER..=MAX_TIER).contains(&tier) {
             return Err(BadgeError::InvalidTier);
         }
+        if name.len() > MAX_NAME_BYTES
+            || description.len() > MAX_DESC_BYTES
+            || image_uri.len() > MAX_URI_BYTES
+        {
+            return Err(BadgeError::MetadataTooLong);
+        }
 
         let mut count: u64 = s::get_persistent(&env, &KEY_BADGE_COUNT, 0u64);
         count = count.checked_add(1).expect("Badge count overflow");
@@ -151,6 +165,12 @@ impl DripBadge {
 
         if !(MIN_TIER..=MAX_TIER).contains(&tier) {
             return Err(BadgeError::InvalidTier);
+        }
+        if name.len() > MAX_NAME_BYTES
+            || description.len() > MAX_DESC_BYTES
+            || image_uri.len() > MAX_URI_BYTES
+        {
+            return Err(BadgeError::MetadataTooLong);
         }
 
         let updated = Badge {
