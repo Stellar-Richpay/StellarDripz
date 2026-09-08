@@ -29,4 +29,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
-      - run: npx prettier --check "src/**/*.{ts,tsx}" --ignore-path .prettierignore
+      # Use the canonical format:check script rather than an inline glob so
+      # the check covers e2e/ too and always matches what `npm run format`
+      # writes locally — an inline pattern here silently skipped e2e files.
+      - run: npm run format:check
