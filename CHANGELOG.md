@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-09 hardening wave (typed events & edge hardening)
+
+### Added
+- **SDK-27 typed events**: all five contracts emit via `#[contractevent]` structs instead of the deprecated `env.events().publish()` shim; each struct pins its original topic symbol (`topics = ["stake"]`, …) so off-chain topic filters are byte-identical, and the deprecated shim was deleted
+- **Governance lock-period validation**: `propose()` rejects `SetLockPeriod` actions above the pool's `MAX_LOCK_PERIOD` (shared constant) up front, so a doomed proposal can't burn a full voting cycle
+- **Typed-event pinning test**: the counter test asserts the emitted `IncrementEvent` XDR matches the struct's `to_xdr()` output, locking the encoding
+- **Client-side read timeouts**: browser-direct Horizon/RPC reads (balance, simulate, events, latest ledger) race a 10s timer, matching the server budget
+- **Edge security headers**: the middleware stamps `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and `X-Frame-Options` on every API response as defense-in-depth beyond `next.config`; pinned in e2e
+- **Deterministic API-contract e2e tests**: 11 assertions for batch/wallet-connect/contract-invoke/events validation that run entirely server-side (no Stellar network needed) plus the security-header pin
+- **Deploy-script fail-fast**: `DEPLOYER_SECRET_KEY` must be a valid Stellar seed and the WASM must be non-empty before any network work
+- **ADR-007** records the typed-events migration policy
+
+### Changed
+- **Honest contract-submission status**: an invocation whose confirmation poll expires is reported as `status: "pending"` (and toasted as submitted, not confirmed) instead of a false success
+- **LOBSTR wallet persistence** reuses walletKit's shared `persistWallet` instead of a drifted local copy
+- **Admin analytics rows** are keyed on event fields instead of array indexes
+- **SCF roadmap / README** refreshed: publish-migration and error-code items checked off, admin dashboard marked shipped, test counts updated (94 contract / 276 frontend)
+
+### Fixed
+- **Stalled RPC calls**: `simulateTransaction` and `sendTransaction` on the server are bounded by the same 10s timeout as the rest of the service
+- **Unbounded browser reads**: direct Horizon/RPC fetches no longer hang the UI on a dead node
+- **CSRF-broken e2e test**: the exact-status payment test 403'd before validation (cookieless POST); it now bootstraps the CSRF token and passes, and a second latent bug (identical sender/destination) is corrected
+- **Copy feedback honesty**: QRFundModal/QrModal/WalletConnect/AddressBook only show "Copied!" when the clipboard write actually succeeded, with unmount-safe timers
+- **Background-poll waste**: `useContractEvents` skips direct RPC poll ticks in hidden tabs (cursor only advances on visible ticks)
+- **Unknown status/type rendering**: TransactionFeedback renders readable fallbacks instead of `class="...undefined"`
+
+---
+
 ## [Unreleased] — 2026-09 hardening wave (contract reliability & request hygiene)
 
 ### Added
