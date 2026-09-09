@@ -1605,4 +1605,87 @@ mod governance_test {
         let config = pool_client.get_pool_config();
         assert_eq!(config.max_stake, 50_000i128);
     }
+
+    /// An address holding no tokens has no voting power and must be refused
+    /// at vote time (the NoVotingPower branch of vote()).
+    #[test]
+    fn test_vote_without_tokens_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let powerless = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        // Only the proposer holds tokens; `powerless` holds nothing.
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "P"),
+            &String::from_str(&env, "D"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+
+        let err = client.try_vote(&powerless, &id, &VoteChoice::For);
+        assert_eq!(err, Err(Ok(GovError::NoVotingPower)));
+        // No vote recorded, and the proposal's tallies are untouched.
+        assert!(client.get_vote(&powerless, &id).is_none());
+        assert_eq!(client.get_proposal(&id).unwrap().for_votes, 0i128);
+    }
+
+    /// A voter may only cast one vote per proposal (the AlreadyVoted branch).
+    #[test]
+    fn test_double_vote_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &5000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "P"),
+            &String::from_str(&env, "D"),
+            &GovernanceAction::SetRewardRate(1i128),
+        );
+
+        client.vote(&voter, &id, &VoteChoice::For);
+        // A second vote (even a different choice) is rejected — one address,
+        // one vote; otherwise a single holder could flip any outcome.
+        let err = client.try_vote(&voter, &id, &VoteChoice::Against);
+        assert_eq!(err, Err(Ok(GovError::AlreadyVoted)));
+        assert_eq!(client.get_proposal(&id).unwrap().for_votes, 5000i128);
+        assert_eq!(client.get_proposal(&id).unwrap().against_votes, 0i128);
+    }
 }

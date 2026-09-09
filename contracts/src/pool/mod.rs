@@ -1163,4 +1163,42 @@ mod pool_error_test {
         assert_eq!(client.calculate_reward(&user), 0);
         assert_eq!(client.claim_reward(&user), 0);
     }
+
+    /// Unstaking more than the recorded stake (including a user with no
+    /// stake at all) is rejected — the pool cannot return tokens it never
+    /// received.
+    #[test]
+    fn test_unstake_without_stake_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        // No stake recorded: any unstake is over the recorded amount.
+        let err = client.try_unstake(&user, &1i128);
+        assert_eq!(err, Err(Ok(PoolError::InsufficientStake)));
+
+        // A non-positive amount is invalid regardless of stake.
+        let err = client.try_unstake(&user, &0i128);
+        assert_eq!(err, Err(Ok(PoolError::InvalidParameter)));
+    }
+
+    /// Staking a non-positive amount is rejected up front, before any
+    /// token transfer or accounting.
+    #[test]
+    fn test_stake_zero_amount_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, _) = setup(&env, &admin);
+
+        let err = client.try_stake(&user, &0i128);
+        assert_eq!(err, Err(Ok(PoolError::InvalidParameter)));
+        let err = client.try_stake(&user, &(-5i128));
+        assert_eq!(err, Err(Ok(PoolError::InvalidParameter)));
+    }
 }
