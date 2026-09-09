@@ -27,6 +27,10 @@ pub enum GovError {
     InvalidVoteTotal = 11,
     QuorumNotMet = 12,
     QuorumTooHigh = 13,
+    /// The proposal passed but its on-chain action could not be applied
+    /// (e.g. the target contract rejected it). Execution reverts so the
+    /// proposal is NOT marked executed.
+    ActionFailed = 14,
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
@@ -392,14 +396,20 @@ impl DripGovernance {
         if proposal.for_votes > proposal.against_votes {
             proposal.passed = true;
 
-            // Apply the governance action on-chain via cross-contract calls
+            // Apply the governance action on-chain via cross-contract calls.
+            // The Result is propagated on purpose: if the target contract
+            // rejects the action (e.g. governance is not the pool's admin, or
+            // a mint is unauthorized), the whole execute() reverts and the
+            // proposal stays unexecuted. Previously the Result was dropped, so
+            // a failed action was silently swallowed and the proposal was
+            // marked executed even though its action never ran.
             let action_key = (KEY_PROPOSAL, symbol_short!("action"), proposal_id);
             if let Some(action) = env
                 .storage()
                 .persistent()
                 .get::<_, GovernanceAction>(&action_key)
             {
-                Self::apply_action(&env, &action);
+                Self::apply_action(&env, &action)?;
             }
         }
         proposal.executed = true;
@@ -419,7 +429,12 @@ impl DripGovernance {
     }
 
     /// Apply a governance action via cross-contract calls to DripPool/DripToken.
-    fn apply_action(env: &Env, action: &GovernanceAction) {
+    ///
+    /// Returns Err(GovError::ActionFailed) when the target contract rejects
+    /// the action, so execute() can revert instead of recording a success that
+    /// never happened. A dropped Result here would silently continue past a
+    /// rejected set_reward_rate / mint and mark the proposal executed anyway.
+    fn apply_action(env: &Env, action: &GovernanceAction) -> Result<(), GovError> {
         let admin_addr = env.current_contract_address();
         let pool_id: Address = s::get_persistent(
             env,
@@ -432,32 +447,56 @@ impl DripGovernance {
             Address::from_string(&String::from_str(env, ZERO_ADDRESS_STR)),
         );
 
+        let pool_client = pool::DripPoolClient::new(env, &pool_id);
+        let token_client = token::DripTokenClient::new(env, &token_id);
+
+        // The plain client methods escalate contract errors to panics; the
+        // try_ variants return Result<Result<T, E>, HostError> so a rejected
+        // action (wrong admin, unauthorized mint, bad parameter) can be
+        // surfaced instead of silently succeeding.
+        fn action_failed<E>(_e: E) -> GovError {
+            GovError::ActionFailed
+        }
+
         match action {
             GovernanceAction::SetRewardRate(rate) => {
-                let pool_client = pool::DripPoolClient::new(env, &pool_id);
-                pool_client.set_reward_rate(&admin_addr, rate);
+                pool_client
+                    .try_set_reward_rate(&admin_addr, rate)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
             GovernanceAction::SetMinStake(min) => {
-                let pool_client = pool::DripPoolClient::new(env, &pool_id);
-                pool_client.set_min_stake(&admin_addr, min);
+                pool_client
+                    .try_set_min_stake(&admin_addr, min)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
             GovernanceAction::SetMaxStake(max) => {
-                let pool_client = pool::DripPoolClient::new(env, &pool_id);
-                pool_client.set_max_stake(&admin_addr, max);
+                pool_client
+                    .try_set_max_stake(&admin_addr, max)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
             GovernanceAction::SetLockPeriod(period) => {
-                let pool_client = pool::DripPoolClient::new(env, &pool_id);
-                pool_client.set_lock_period(&admin_addr, period);
+                pool_client
+                    .try_set_lock_period(&admin_addr, period)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
             GovernanceAction::SetActive(active) => {
-                let pool_client = pool::DripPoolClient::new(env, &pool_id);
-                pool_client.set_active(&admin_addr, active);
+                pool_client
+                    .try_set_active(&admin_addr, active)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
             GovernanceAction::MintTokens(to, amount) => {
-                let token_client = token::DripTokenClient::new(env, &token_id);
-                token_client.mint(&admin_addr, to, amount);
+                token_client
+                    .try_mint(&admin_addr, to, amount)
+                    .map_err(action_failed)?
+                    .map_err(action_failed)?;
             }
         }
+        Ok(())
     }
 
     /// Get voting power by querying the token contract's balance.
@@ -1271,6 +1310,58 @@ mod governance_test {
         env.ledger().set_sequence_number(500);
         let err = client.try_execute(&admin, &id);
         assert_eq!(err, Err(Ok(GovError::InvalidVoteTotal)));
+    }
+
+    /// A proposal whose action is rejected by the target contract must NOT be
+    /// marked executed — previously the cross-contract Result was dropped, so
+    /// execute() recorded success even though the action never ran.
+    #[test]
+    fn test_failed_action_prevents_execution() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &proposer, &1000i128);
+        token_client.mint(&admin, &voter, &5000i128);
+
+        let governance_id = env.register(DripGovernance, ());
+        // The pool's admin is the plain admin address — NOT governance — so
+        // set_reward_rate from execute() is rejected by the pool.
+        let pool_id = env.register(DripPool, ());
+        let pool_client = pool::DripPoolClient::new(&env, &pool_id);
+        pool_client.initialize_pool(&admin, &token_id, &100i128, &10i128, &100u32);
+
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &0i128);
+
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "Rejected action"),
+            &String::from_str(&env, "Pool admin is not governance"),
+            &GovernanceAction::SetRewardRate(50i128),
+        );
+        client.vote(&voter, &id, &VoteChoice::For);
+        env.ledger().set_sequence_number(500);
+
+        let err = client.try_execute(&admin, &id);
+        assert_eq!(err, Err(Ok(GovError::ActionFailed)));
+        // The whole call reverted: the proposal stays unexecuted and the pool
+        // rate was not touched.
+        let prop = client.get_proposal(&id).unwrap();
+        assert!(!prop.executed);
+        assert!(!prop.passed);
+        assert_eq!(pool_client.get_pool_config().reward_rate, 100i128);
     }
 
     #[test]
