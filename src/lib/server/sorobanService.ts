@@ -54,7 +54,10 @@ export async function simulateContractCallServer(
     .setTimeout(30)
     .build();
 
-  const simResponse = await sorobanServer.simulateTransaction(tx);
+  const simResponse = await withTimeout(
+    sorobanServer.simulateTransaction(tx),
+    "Soroban simulateTransaction",
+  );
   if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Simulation failed: ${simResponse.error}`);
   }
@@ -118,7 +121,10 @@ export async function submitContractInvocation(
     throw new Error("Signed transaction source does not match the claimed signer address");
   }
 
-  const simResponse = await sorobanServer.simulateTransaction(signedTx);
+  const simResponse = await withTimeout(
+    sorobanServer.simulateTransaction(signedTx),
+    "Soroban simulateTransaction",
+  );
   if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Simulation failed: ${simResponse.error}`);
   }
@@ -131,7 +137,10 @@ export async function submitContractInvocation(
     finalXdr,
     STELLAR_NETWORK.networkPassphrase,
   );
-  const response = await sorobanServer.sendTransaction(finalSignedTx);
+  const response = await withTimeout(
+    sorobanServer.sendTransaction(finalSignedTx),
+    "Soroban sendTransaction",
+  );
 
   if (response.status === "ERROR") {
     throw new Error(`Contract submission failed: ${JSON.stringify(response)}`);
