@@ -437,6 +437,18 @@ impl DripToken {
         val.amount
     }
 
+    /// Allowance value including its expiration ledger. The plain allowance()
+    /// getter collapses an expired grant to 0, so frontends and auditors that
+    /// need to show *when* a grant lapses (or that it already did) can read
+    /// the raw record. Missing allowances read as amount 0 / expiration 0.
+    pub fn get_allowance_detail(env: Env, owner: Address, spender: Address) -> AllowanceValue {
+        let key = (KEY_ALLOWANCES, &owner, &spender);
+        env.storage().persistent().get(&key).unwrap_or(AllowanceValue {
+            amount: 0,
+            expiration_ledger: 0,
+        })
+    }
+
     pub fn admin(env: Env) -> Address {
         s::get_persistent(
             &env,
@@ -870,6 +882,37 @@ mod token_test {
         // Well above the default ~4095-ledger write TTL, proving the entry
         // was extended toward the ledger max.
         assert!(ttl_after_write > 4096);
+    }
+
+    /// The allowance-detail getter exposes the raw amount and expiration
+    /// ledger, and reports 0/0 for a missing allowance.
+    #[test]
+    fn test_allowance_detail_getter() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let owner = Address::generate(&env);
+        let spender = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+
+        // No allowance yet: 0 / 0.
+        let missing = client.get_allowance_detail(&owner, &spender);
+        assert_eq!(missing.amount, 0i128);
+        assert_eq!(missing.expiration_ledger, 0u32);
+
+        let exp = env.ledger().sequence() + 5000u32;
+        client.approve(&owner, &spender, &300i128, &exp);
+        let detail = client.get_allowance_detail(&owner, &spender);
+        assert_eq!(detail.amount, 300i128);
+        assert_eq!(detail.expiration_ledger, exp);
     }
 
     /// Admin/config entries written once at init carry the network default
