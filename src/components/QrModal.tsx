@@ -76,7 +76,12 @@ export default function QrModal({
       : address;
 
   const handleCopy = async () => {
-    await copyToClipboard(address);
+    // Only confirm when the write actually succeeded: copyToClipboard returns
+    // false if both the Clipboard API and the execCommand fallback fail, and
+    // a false "Copied!" would teach the user to trust a copy that never
+    // happened.
+    const ok = await copyToClipboard(address);
+    if (!ok) return;
     setCopied(true);
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopied(false), 2000);

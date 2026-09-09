@@ -42,6 +42,11 @@ export default function WalletConnect() {
   const [showQr, setShowQr] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  // The copy-confirmation timer must not outlive the component: firing after
+  // unmount (e.g. the user disconnects right after copying) is a
+  // setState-on-unmounted-component, and a stale timer could clear a newer
+  // copy's feedback early.
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── WalletConnect QR state ──────────────────────────────────────
   const [wcUri, setWcUri] = useState<string | null>(null);
@@ -91,6 +96,14 @@ export default function WalletConnect() {
     }
   }, [wallet.connected]);
 
+  // Clear the copy-confirmation timer on unmount.
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    },
+    [],
+  );
+
   // ── Connection handler ──────────────────────────────────────────
 
   const handleConnect = async (walletId: string) => {
@@ -125,9 +138,16 @@ export default function WalletConnect() {
 
   const handleCopy = async () => {
     if (!wallet.publicKey) return;
-    await copyToClipboard(wallet.publicKey);
+    // Only confirm when the write actually succeeded — a false "Copied!"
+    // (clipboard API + fallback both failed) would mislead the user into
+    // trusting a copy that never happened.
+    const ok = await copyToClipboard(wallet.publicKey);
+    if (!ok) return;
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // Clear a pending timer first so a rapid second copy can't be cut short
+    // by the first copy's stale reset.
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   // ── Connected state ─────────────────────────────────────────────

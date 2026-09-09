@@ -218,13 +218,18 @@ export default function AddressBook({ open, onClose, onSelect }: AddressBookProp
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => {
-                    void copyToClipboard(entry.address);
-                    setCopiedId(entry.id);
-                    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-                    copyTimerRef.current = setTimeout(
-                      () => setCopiedId((id) => (id === entry.id ? null : id)),
-                      1500,
-                    );
+                    // Only confirm when the write actually succeeded — a false
+                    // checkmark would mislead the user into trusting a copy that
+                    // never happened.
+                    void copyToClipboard(entry.address).then((ok) => {
+                      if (!ok) return;
+                      setCopiedId(entry.id);
+                      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+                      copyTimerRef.current = setTimeout(
+                        () => setCopiedId((id) => (id === entry.id ? null : id)),
+                        1500,
+                      );
+                    });
                   }}
                   className={`rounded-lg p-1.5 transition-all ${
                     copiedId === entry.id
