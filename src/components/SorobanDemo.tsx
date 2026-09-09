@@ -73,7 +73,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
       const address = state.wallet.publicKey;
       const { xdr } = await buildContractCall(contractId, "increment", [address], address);
       const signedXdr = await signTx(xdr, address);
-      const { hash, resultValue } = await submitContract(
+      const { hash, resultValue, status } = await submitContract(
         signedXdr,
         contractId,
         "increment",
@@ -81,7 +81,11 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
       );
 
       setCounter(resultValue ? parseInt(resultValue, 10) : (counter || 0) + 1);
-      showToast({ type: "success", title: "Incremented!", message: `TX: ${hash.slice(0, 10)}...` });
+      showToast({
+        type: status === "pending" ? "info" : "success",
+        title: status === "pending" ? "Increment submitted" : "Incremented!",
+        message: `TX: ${hash.slice(0, 10)}...`,
+      });
     } catch (err) {
       showToast({
         type: "error",
@@ -141,11 +145,15 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
         address,
       );
       const signedXdr = await signTx(xdr, address);
-      await submitContract(signedXdr, contractId, "set_greeting", address);
+      const { status } = await submitContract(signedXdr, contractId, "set_greeting", address);
 
       setGreeting(newGreeting.trim());
       setNewGreeting("");
-      showToast({ type: "success", title: "Greeting updated!", message: newGreeting.trim() });
+      showToast({
+        type: status === "pending" ? "info" : "success",
+        title: status === "pending" ? "Greeting submitted" : "Greeting updated!",
+        message: newGreeting.trim(),
+      });
     } catch (err) {
       showToast({
         type: "error",

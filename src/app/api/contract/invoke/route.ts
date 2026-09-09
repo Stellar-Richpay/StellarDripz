@@ -339,6 +339,10 @@ export async function POST(request: NextRequest) {
           success: true,
           hash: result.hash,
           resultValue: result.resultValue,
+          // "success" = submitted and confirmed; "pending" = submitted but
+          // the confirmation poll window expired (RPC lag). The UI must not
+          // present a pending submission as a confirmed success.
+          status: result.status,
         }),
         "contract",
         body.signerAddress,

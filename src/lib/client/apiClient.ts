@@ -196,7 +196,15 @@ export function submitContract(
   functionName: string,
   signerAddress: string,
 ) {
-  return request<{ success: boolean; hash: string; resultValue?: string }>("/api/contract/invoke", {
+  return request<{
+    success: boolean;
+    hash: string;
+    resultValue?: string;
+    // "success" = submitted and confirmed on-chain; "pending" = submitted
+    // but the confirmation poll expired (RPC lag) — callers must not present
+    // a pending submission as a confirmed success.
+    status?: "success" | "pending";
+  }>("/api/contract/invoke", {
     method: "POST",
     body: JSON.stringify({ signedXdr, contractId, functionName, signerAddress }),
   });

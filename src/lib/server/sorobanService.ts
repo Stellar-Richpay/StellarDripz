@@ -104,7 +104,7 @@ export async function submitContractInvocation(
   functionName: string,
   signerPublicKey: string,
   requestInfo: { ip?: string; userAgent?: string },
-): Promise<{ hash: string; resultValue?: string }> {
+): Promise<{ hash: string; resultValue?: string; status: "success" | "pending" }> {
   const signedTx = StellarSdk.TransactionBuilder.fromXDR(
     signedXdr,
     STELLAR_NETWORK.networkPassphrase,
@@ -220,7 +220,15 @@ export async function submitContractInvocation(
     data: { contractId, functionName, status: txStatus },
   });
 
-  return { hash: response.hash, resultValue };
+  // `status` tells the caller whether the confirmation poll reached a
+  // terminal SUCCESS, or whether the transaction was submitted but the
+  // confirmation window expired (still pending on-chain). The caller must
+  // not present an unconfirmed submission as a confirmed success.
+  return {
+    hash: response.hash,
+    resultValue,
+    status: txStatus === "success" ? "success" : "pending",
+  };
 }
 
 // ---- Events ----
