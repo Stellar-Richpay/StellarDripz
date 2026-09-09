@@ -95,6 +95,12 @@ export function useContractEvents({
     setError("SSE unavailable — polling directly from Soroban RPC");
 
     pollRef.current = setInterval(async () => {
+      // Skip ticks while the tab is hidden: a background tab polling Soroban
+      // RPC every few seconds burns the RPC provider's quota (and the user's
+      // data) for events nobody is looking at. The next visible tick resumes
+      // from the same ledger cursor, so no events are lost — they just batch
+      // up until the user returns.
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const latestLedger = await directGetLatestLedger();
         // A failed RPC health check returns 0; polling from ledger 0 would
