@@ -177,6 +177,26 @@ impl DripGovernance {
             return Err(GovError::InvalidParameter);
         }
 
+        // Validate the action's parameters up front: a proposal whose action
+        // can never execute (negative rate, mint of zero, mint to the burn
+        // address) would otherwise run a full voting cycle and only fail at
+        // execution time, wasting everyone's votes.
+        match &action {
+            GovernanceAction::SetRewardRate(rate)
+            | GovernanceAction::SetMinStake(rate)
+            | GovernanceAction::SetMaxStake(rate)
+                if *rate < 0 =>
+            {
+                return Err(GovError::InvalidParameter);
+            }
+            GovernanceAction::MintTokens(to, amount)
+                if *amount <= 0 || to.to_string() == String::from_str(&env, ZERO_ADDRESS_STR) =>
+            {
+                return Err(GovError::InvalidParameter);
+            }
+            _ => {}
+        }
+
         let token_id: Address = s::get_persistent(
             &env,
             &KEY_TOKEN_ID,
@@ -1315,6 +1335,65 @@ mod governance_test {
     /// A proposal whose action is rejected by the target contract must NOT be
     /// marked executed — previously the cross-contract Result was dropped, so
     /// execute() recorded success even though the action never ran.
+    /// A proposal whose action can never execute must be rejected at creation
+    /// — a negative rate or a zero-address mint would only fail at execution
+    /// time after a full voting cycle.
+    #[test]
+    fn test_propose_validates_action_parameters() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        let pool_id = Address::generate(&env);
+        let contract_id = env.register(DripGovernance, ());
+        let client = DripGovernanceClient::new(&env, &contract_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        let bad = |action: GovernanceAction| {
+            client.try_propose(
+                &proposer,
+                &String::from_str(&env, "Bad action"),
+                &String::from_str(&env, "Cannot execute"),
+                &action,
+            )
+        };
+
+        // Negative rates are rejected for every rate-style action.
+        for action in [
+            GovernanceAction::SetRewardRate(-1i128),
+            GovernanceAction::SetMinStake(-5i128),
+            GovernanceAction::SetMaxStake(-5i128),
+        ] {
+            assert_eq!(bad(action), Err(Ok(GovError::InvalidParameter)));
+        }
+
+        // A non-positive mint and a mint to the burn address are rejected.
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        assert_eq!(
+            bad(GovernanceAction::MintTokens(Address::generate(&env), 0i128)),
+            Err(Ok(GovError::InvalidParameter))
+        );
+        assert_eq!(
+            bad(GovernanceAction::MintTokens(zero, 100i128)),
+            Err(Ok(GovError::InvalidParameter))
+        );
+
+        // No rejected proposal consumed an id.
+        assert_eq!(client.get_proposal_count(), 0u64);
+    }
+
     #[test]
     fn test_failed_action_prevents_execution() {
         let env = Env::default();
