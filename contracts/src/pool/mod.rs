@@ -20,6 +20,10 @@ pub enum PoolError {
     InsufficientStake = 6,
     TokensLocked = 7,
     InvalidParameter = 8,
+    /// A token transfer (allowance/balance) failed during a pool operation.
+    /// The whole call reverts so pool accounting can never diverge from the
+    /// token contract's actual balances.
+    TransferFailed = 9,
 }
 
 // ---- Data Types ----
@@ -138,7 +142,18 @@ impl DripPool {
         );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer_from(&pool_address, &user, &pool_address, &amount);
+        // Must not ignore the transfer's Result: if the user has no allowance
+        // (or insufficient balance), transfer_from returns Err and the stake
+        // below would otherwise be recorded against tokens that never moved —
+        // a phantom stake that accrues rewards on nothing. Propagate so the
+        // whole call reverts.
+        fn transfer_failed<E>(_e: E) -> PoolError {
+            PoolError::TransferFailed
+        }
+        token_client
+            .try_transfer_from(&pool_address, &user, &pool_address, &amount)
+            .map_err(transfer_failed)?
+            .map_err(transfer_failed)?;
         let stake_key = StakeKey::Stake(user.clone());
         let existing = env
             .storage()
@@ -241,7 +256,13 @@ impl DripPool {
         );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer(&pool_address, &user, &amount);
+        fn transfer_failed<E>(_e: E) -> PoolError {
+            PoolError::TransferFailed
+        }
+        token_client
+            .try_transfer(&pool_address, &user, &amount)
+            .map_err(transfer_failed)?
+            .map_err(transfer_failed)?;
         e::publish(&env, (e::EVENT_UNSTAKE, &user), amount);
         Ok(())
     }
@@ -291,7 +312,13 @@ impl DripPool {
         );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer(&pool_address, &user, &claimable);
+        fn transfer_failed<E>(_e: E) -> PoolError {
+            PoolError::TransferFailed
+        }
+        token_client
+            .try_transfer(&pool_address, &user, &claimable)
+            .map_err(transfer_failed)?
+            .map_err(transfer_failed)?;
 
         // Carry forward unclaimed portion if pool was insufficient
         let unclaimed = total_reward
@@ -368,7 +395,13 @@ impl DripPool {
         );
         let pool_address = env.current_contract_address();
         let token_client = token::DripTokenClient::new(&env, &token_id);
-        token_client.transfer_from(&pool_address, &admin, &pool_address, &amount);
+        fn transfer_failed<E>(_e: E) -> PoolError {
+            PoolError::TransferFailed
+        }
+        token_client
+            .try_transfer_from(&pool_address, &admin, &pool_address, &amount)
+            .map_err(transfer_failed)?
+            .map_err(transfer_failed)?;
         // Update on-chain reward pool tracking
         let mut reward_pool: i128 = s::get_persistent(&env, &KEY_REWARD_POOL, 0i128);
         reward_pool = reward_pool
@@ -891,6 +924,30 @@ mod pool_error_test {
             client.try_fund_rewards(&attacker, &1000i128),
             Err(Ok(PoolError::NotAuthorized))
         ));
+    }
+
+    /// Staking without an allowance must fail loudly instead of recording a
+    /// phantom stake: transfer_from returns InsufficientAllowance, and the
+    /// stake bookkeeping must not proceed against tokens that never moved.
+    #[test]
+    fn test_stake_without_allowance_is_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
+        let (client, token_client) = setup(&env, &admin);
+        token_client.mint(&admin, &user, &5000i128);
+
+        // No approve() for the pool contract — the transfer must fail and the
+        // whole stake call must revert.
+        let err = client.try_stake(&user, &500i128);
+        assert_eq!(err, Err(Ok(PoolError::TransferFailed)));
+
+        // Nothing was recorded: no stake, no phantom total.
+        assert_eq!(client.get_stake(&user).amount, 0i128);
+        assert_eq!(client.get_total_staked(), 0i128);
+        // And the user still holds every token.
+        assert_eq!(token_client.balance(&user), 5000i128);
     }
 
     #[test]
