@@ -138,14 +138,20 @@ export async function submitContractInvocation(
   }
 
   const MAX_POLL_ATTEMPTS = 30;
-  let getTx = await sorobanServer.getTransaction(response.hash);
+  let getTx = await withTimeout(
+    sorobanServer.getTransaction(response.hash),
+    "Soroban getTransaction",
+  );
   let attempts = 0;
   while (
     getTx.status === StellarSdk.rpc.Api.GetTransactionStatus.NOT_FOUND &&
     attempts < MAX_POLL_ATTEMPTS
   ) {
     await new Promise((r) => setTimeout(r, 1000));
-    getTx = await sorobanServer.getTransaction(response.hash);
+    getTx = await withTimeout(
+      sorobanServer.getTransaction(response.hash),
+      "Soroban getTransaction",
+    );
     attempts++;
   }
 
@@ -212,7 +218,7 @@ export async function submitContractInvocation(
 
 /** Resolve the latest ledger sequence from the Soroban RPC server. */
 export async function getLatestLedgerServer(): Promise<number> {
-  const ledger = await sorobanServer.getLatestLedger();
+  const ledger = await withTimeout(sorobanServer.getLatestLedger(), "Soroban getLatestLedger");
   return Number(ledger.sequence);
 }
 
@@ -236,11 +242,14 @@ export async function getContractEventsServer(
 ): Promise<{ events: Array<{ topic: string; value: string }>; latestLedger: number }> {
   startLedger = await resolveStartLedger(startLedger);
   try {
-    const response = await sorobanServer.getEvents({
-      startLedger,
-      filters: [{ type: "contract", contractIds: [contractId], topics: [["*"]] }],
-      limit: 10,
-    });
+    const response = await withTimeout(
+      sorobanServer.getEvents({
+        startLedger,
+        filters: [{ type: "contract", contractIds: [contractId], topics: [["*"]] }],
+        limit: 10,
+      }),
+      "Soroban getEvents",
+    );
 
     const events: Array<{ topic: string; value: string }> = [];
     let latestLedger = startLedger;
