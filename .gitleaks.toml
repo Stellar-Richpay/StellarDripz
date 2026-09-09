@@ -10,35 +10,32 @@ useDefault = true
   description = "False positives from test fixtures, docs, and example keys"
 
   # Stellar placeholder public key (G-address) used throughout contracts
-  [[allowlist.regexes]]
-    description = "GAAA... placeholder Stellar public key"
-    regex = '''GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'''
-
-  # Stellar testnet passphrases and public network identifiers
-  [[allowlist.regexes]]
-    description = "Stellar testnet/futurenet network passphrases"
-    regex = '''(Test SDF (Network|Future Network|Network ; September 2015)|Public Global Stellar Network ; September 2015)'''
-
-  # Placeholder/sample secret keys in test fixtures
-  [[allowlist.regexes]]
-    description = "Sample Stellar secret keys in test fixtures"
-    regex = '''S[A-Z0-9]{55}'''
+  regexes = [
+    '''GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF''',
+    # Stellar testnet/futurenet network passphrases and public network identifiers
+    '''(Test SDF (Network|Future Network|Network ; September 2015)|Public Global Stellar Network ; September 2015)''',
+    # Placeholder/sample secret keys in test fixtures
+    '''S[A-Z0-9]{55}''',
+  ]
 
   # Path-level allowlist for files that contain known safe content
-  [[allowlist.paths]]
-    description = "Test files, config samples, and documentation"
-    paths = [
-      '''src/__tests__/''',
-      '''contracts/test_snapshots/''',
-      '''screenshots/''',
-      '''demo/''',
-      '''CHANGELOG.md''',
-      '''CONTRIBUTING.md''',
-      '''README.md''',
-      '''SECURITY.md''',
-      '''SECURITY_HOF.md''',
-      '''CODE_OF_CONDUCT.md''',
-      '''LICENSE''',
-      '''.cspell.json''',
-      '''.github/''',
-    ]
+  paths = [
+    '''src/__tests__/''',
+    '''contracts/test_snapshots/''',
+    '''screenshots/''',
+    '''demo/''',
+    # Env templates with truncated/commented placeholders only — real .env
+    # files are gitignored and would still be flagged.
+    '''\.env\.example''',
+    '''\.env\.local\.example''',
+    '''docs/WHITEPAPER\.md''',
+    '''CHANGELOG.md''',
+    '''CONTRIBUTING.md''',
+    '''README.md''',
+    '''SECURITY.md''',
+    '''SECURITY_HOF.md''',
+    '''CODE_OF_CONDUCT.md''',
+    '''LICENSE''',
+    '''.cspell.json''',
+    '''.github/''',
+  ]
