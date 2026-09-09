@@ -104,8 +104,26 @@ async function main() {
     console.error("❌ DEPLOYER_SECRET_KEY is required. Set it to a funded Testnet secret key.");
     process.exit(1);
   }
+  // Fail fast on a malformed secret instead of letting Keypair.fromSecret
+  // throw an obscure error mid-script, after network calls have already
+  // started (or, worse, after an upload transaction was submitted).
+  if (!StellarSdk.StrKey.isValidEd25519SecretSeed(SECRET_KEY)) {
+    console.error(
+      "❌ DEPLOYER_SECRET_KEY is not a valid Stellar secret seed (expected an S... key).",
+    );
+    process.exit(1);
+  }
   if (!fs.existsSync(WASM_PATH)) {
     console.error(`❌ WASM not found at ${WASM_PATH}\n   Build with: npm run contracts:build`);
+    process.exit(1);
+  }
+  // A 0-byte (or truncated) "wasm" would only fail later at simulate time
+  // with a confusing RPC error — reject it before any network work.
+  const wasmStat = fs.statSync(WASM_PATH);
+  if (wasmStat.size === 0) {
+    console.error(
+      `❌ WASM at ${WASM_PATH} is empty (0 bytes). Rebuild with: npm run contracts:build`,
+    );
     process.exit(1);
   }
 
