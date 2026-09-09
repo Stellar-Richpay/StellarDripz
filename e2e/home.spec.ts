@@ -1,4 +1,17 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
+
+/**
+ * Bootstrap the CSRF double-submit token for state-changing API calls.
+ * The middleware stamps the stellardripz_csrf cookie on every API response;
+ * route handlers require the same value echoed back in X-CSRF-Token, so a
+ * raw cookieless POST is rejected with 403 before any validation runs.
+ */
+async function csrfHeaders(request: APIRequestContext): Promise<Record<string, string>> {
+  const bootstrap = await request.get("/api/status");
+  const setCookie = bootstrap.headers()["set-cookie"] || "";
+  const token = setCookie.match(/stellardripz_csrf=([^;]+)/)?.[1] || "";
+  return { "x-csrf-token": token };
+}
 
 test.describe("StellarDripz Homepage", () => {
   test.beforeEach(async ({ page }) => {
@@ -127,6 +140,19 @@ test.describe("API health check", () => {
     expect(response.headers()["cache-control"]).toContain("no-store");
   });
 
+  test("API responses carry security headers", async ({ request }) => {
+    // The middleware (and next.config) stamp security headers on the whole
+    // /api layer; pin them so a config change can't silently drop API
+    // responses back to permissive defaults.
+    const response = await request.get("/api/health");
+    const headers = response.headers();
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(headers["x-frame-options"]).toBe("SAMEORIGIN");
+    // Every API response is stamped with a request id for log correlation.
+    expect(headers["x-request-id"]).toBeTruthy();
+  });
+
   test("GET /api/status returns 200", async ({ request }) => {
     const response = await request.get("/api/status");
     expect(response.status()).toBe(200);
@@ -235,11 +261,16 @@ test.describe("Payment sending", () => {
 
   test("POST /api/payment/send rejects an issuer on a native-XLM payload", async ({ request }) => {
     // Contradictory payloads are rejected up front with a 400 and never
-    // reach Horizon, so this is deterministic in e2e.
+    // reach Horizon, so this is deterministic in e2e. The CSRF cookie is
+    // bootstrapped first — without it the gate 403s before validation runs.
     const response = await request.post("/api/payment/send", {
+      headers: { ...(await csrfHeaders(request)) },
       data: {
+        // Distinct valid addresses: the same address for both would trip the
+        // earlier "sender and destination must differ" check, never reaching
+        // the asset-code validation under test.
         senderAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
-        destination: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+        destination: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
         amount: "1.0000000",
         assetIssuer: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
       },
@@ -317,5 +348,138 @@ test.describe("Contract interaction", () => {
     const response = await request.get("/api/events");
     // Without contractId, the endpoint should return a client error
     expect(response.status()).toBeGreaterThanOrEqual(400);
+  });
+
+  test("events endpoint rejects a malformed contractId", async ({ request }) => {
+    // A checksum-invalid contract ID fails fast with 400 instead of opening
+    // an SSE stream that errors on every poll.
+    const response = await request.get("/api/events?contractId=C123");
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/invalid contract id/i);
+  });
+});
+
+// ─── Deterministic API Contracts ────────────────────────────────────
+//
+// These assertions exercise validation logic that runs entirely server-side
+// before any external network call (Horizon/RPC/Friendbot), so they are
+// deterministic in CI sandboxes without Stellar network access.
+
+test.describe("API contracts (deterministic)", () => {
+  test("POST /api/batch requires a non-empty addresses array", async ({ request }) => {
+    const response = await request.post("/api/batch", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: { addresses: [] },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/addresses array is required/i);
+  });
+
+  test("POST /api/batch caps the batch size", async ({ request }) => {
+    const response = await request.post("/api/batch", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        addresses: Array(11).fill("GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H"),
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/maximum 10 addresses/i);
+  });
+
+  test("POST /api/batch rejects a checksum-invalid address", async ({ request }) => {
+    const response = await request.post("/api/batch", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: { addresses: ["G123"] },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/invalid address/i);
+  });
+
+  test("POST /api/wallet/connect requires address and walletId", async ({ request }) => {
+    const response = await request.post("/api/wallet/connect", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: { address: "" },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/address and walletId are required/i);
+  });
+
+  test("POST /api/wallet/connect rejects unsupported wallet ids", async ({ request }) => {
+    const response = await request.post("/api/wallet/connect", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        address: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+        walletId: "metamask",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/unsupported wallet/i);
+  });
+
+  test("POST /api/wallet/connect rejects a checksum-invalid address", async ({ request }) => {
+    const response = await request.post("/api/wallet/connect", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: { address: "G123", walletId: "freighter" },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/invalid stellar address/i);
+  });
+
+  test("POST /api/contract/invoke rejects a checksum-invalid contract ID", async ({ request }) => {
+    const response = await request.post("/api/contract/invoke", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        contractId: "C123",
+        functionName: "get_global",
+        args: [],
+        signerAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/invalid contract id/i);
+  });
+
+  test("POST /api/contract/invoke rejects an invalid function name", async ({ request }) => {
+    const response = await request.post("/api/contract/invoke", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        contractId: "CCAIIGMOBRZ2P6OHSYABBB35TJDSXBTC2T5IX7KVPXNIQKXGDJ46R2AE",
+        functionName: "bad name!",
+        args: [],
+        signerAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/invalid function name/i);
+  });
+
+  test("POST /api/contract/invoke rejects an unsupported argument type", async ({ request }) => {
+    // Unknown argument shapes must fail loudly (400) instead of being
+    // silently coerced and only failing later at the RPC layer.
+    const response = await request.post("/api/contract/invoke", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        contractId: "CCAIIGMOBRZ2P6OHSYABBB35TJDSXBTC2T5IX7KVPXNIQKXGDJ46R2AE",
+        functionName: "get_global",
+        args: [{ unknownShape: true }],
+        signerAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/unsupported argument type/i);
+  });
+
+  test("POST /api/contract/invoke rejects an out-of-range i128", async ({ request }) => {
+    const response = await request.post("/api/contract/invoke", {
+      headers: { ...(await csrfHeaders(request)) },
+      data: {
+        contractId: "CCAIIGMOBRZ2P6OHSYABBB35TJDSXBTC2T5IX7KVPXNIQKXGDJ46R2AE",
+        functionName: "get_global",
+        args: [{ i128: "99999999999999999999999999999999999999999" }],
+        signerAddress: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      },
+    });
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toMatch(/out of range/i);
   });
 });
