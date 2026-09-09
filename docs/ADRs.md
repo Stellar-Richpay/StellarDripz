@@ -130,3 +130,65 @@ tabs (or an attacker) can exhaust a serverless function pool.
   for existing deployments).
 - SSE streams remain capped per IP; legitimate multi-tab users may hit the cap
   and see a 429 with a clear message.
+
+---
+
+## ADR-006: Contract Storage TTL Strategy and Cross-Contract Error Propagation
+
+**Date:** 2026-09-09
+**Status:** Accepted
+
+### Context
+The five Soroban contracts write user data and configuration to persistent
+storage. Two failure modes threatened the deployed contracts:
+
+1. **TTL expiry of config keys.** Soroban persistent entries written without
+   an explicit extension carry the network default TTL of ~4096 ledgers —
+   roughly 6 hours at ~5s ledgers. The token/pool/governance/badge contracts
+   wrote their admin and config keys (`ADMIN`, `POOL_CFG`, `TOK_ID`,
+   `VOT_PER`, ...) exactly once at init and almost never rewrote them, so
+   every deployment was scheduled to lose its admin slot and configuration
+   within hours of going quiet. Admin checks would read a zero address,
+   metadata getters would fall back to defaults, and the pool would silently
+   read an inactive default config.
+2. **Dropped cross-contract `Result`s.** `execute()` and the pool's
+   stake/unstake/claim/fund paths called other contracts via the generated
+   clients and discarded the returned `Result`. Soroban does not auto-revert
+   the caller's transaction when a cross-contract call returns `Err` — the
+   error comes back as a value. A failed token transfer was therefore
+   silently swallowed: `stake()` could record a phantom stake (rewards on
+   tokens never deposited), `claim_reward()` could decrement the reward pool
+   without paying out, and `execute()` could mark a proposal executed even
+   though its action never ran.
+
+### Decision
+1. **Extend-on-read:** the shared `get_persistent` helper bumps the entry's
+   TTL toward the ledger max on every successful read. Config stays alive for
+   exactly as long as anyone interacts with the contract; an idle contract's
+   entries still eventually expire and free rent. User data keeps the existing
+   extend-on-write behavior (`set_and_extend`, ~1 year TTL).
+2. **Propagate cross-contract errors:** every call to another contract uses
+   the `try_` client variants and maps both error layers (`HostError` +
+   contract error) to a typed error (`GovError::ActionFailed`,
+   `PoolError::TransferFailed`). The pool's four token-touching operations and
+   governance `execute()` now revert the whole transaction when the target
+   contract rejects the call.
+
+### Rationale
+- Extend-on-read is the standard pattern for long-lived contract state and
+  needs no per-contract bookkeeping: any read of a config key refreshes it.
+- A failed cross-contract call and a successful one are indistinguishable to
+  the caller unless the `Result` is handled; reverting on failure keeps
+  on-chain accounting and off-chain expectations consistent.
+- Up-front validation of governance action parameters (`propose()` rejects
+  negative rates and zero-address mints) prevents doomed proposals from
+  burning a full voting cycle.
+
+### Consequences
+- Every contract read of a config key now costs one `extend_ttl` host call
+  (a no-op when the TTL is already above the threshold).
+- Proposals whose actions fail now revert instead of being marked executed;
+  proposers must fix the action's prerequisites (e.g. pool admin setup) and
+  re-vote.
+- Committed test snapshots reflect the extended `live_until` values; CI fails
+  if `cargo test` leaves the snapshot tree dirty.
