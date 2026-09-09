@@ -55,6 +55,10 @@ const KEY_TOKEN_ID: Symbol = symbol_short!("TOK_ID");
 pub const DEFAULT_MAX_STAKE: i128 = 10_000_000_000_000i128;
 /// Reward calculation divisor (10 million = 10^7 for decimal precision)
 pub const REWARD_DIVISOR: i128 = 10_000_000i128;
+/// Upper bound on the lock period (~1 year at ~5s ledgers). A typo'd or
+/// maliciously large value would otherwise freeze every user's stake until
+/// the contract itself expires — reject it up front.
+pub const MAX_LOCK_PERIOD: u32 = 6_307_200;
 
 #[contract]
 pub struct DripPool;
@@ -84,6 +88,10 @@ impl DripPool {
         // A minimum above the (default) maximum would make every stake fail
         // with BelowMinStake/ExceedsMaxStake; reject the impossible config.
         if min_stake > DEFAULT_MAX_STAKE {
+            return Err(PoolError::InvalidParameter);
+        }
+        // A lock period beyond the cap freezes user funds effectively forever.
+        if lock_period > MAX_LOCK_PERIOD {
             return Err(PoolError::InvalidParameter);
         }
         if admin.to_string() == String::from_str(&env, ZERO_ADDRESS_STR)
@@ -502,6 +510,11 @@ impl DripPool {
     pub fn set_lock_period(env: Env, admin: Address, lock_period: u32) -> Result<(), PoolError> {
         if !Self::is_admin(&env, &admin) {
             return Err(PoolError::NotAuthorized);
+        }
+        // Same cap as initialization: raising the lock beyond ~1 year would
+        // freeze every stake far past any reasonable horizon.
+        if lock_period > MAX_LOCK_PERIOD {
+            return Err(PoolError::InvalidParameter);
         }
         admin.require_auth();
         let mut config: PoolConfig = s::get_persistent(
@@ -929,6 +942,42 @@ mod pool_error_test {
     /// Staking without an allowance must fail loudly instead of recording a
     /// phantom stake: transfer_from returns InsufficientAllowance, and the
     /// stake bookkeeping must not proceed against tokens that never moved.
+    /// A lock period beyond the cap must be rejected at init and in the
+    /// admin setter — otherwise one bad config freezes every stake forever.
+    #[test]
+    fn test_lock_period_capped() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let token_id = Address::generate(&env);
+        let contract_id = env.register(DripPool, ());
+        let client = DripPoolClient::new(&env, &contract_id);
+
+        // One ledger past the cap is rejected at init…
+        assert!(matches!(
+            client.try_initialize_pool(
+                &admin,
+                &token_id,
+                &100i128,
+                &10i128,
+                &(MAX_LOCK_PERIOD + 1)
+            ),
+            Err(Ok(PoolError::InvalidParameter))
+        ));
+
+        // …and the cap itself is accepted.
+        client.initialize_pool(&admin, &token_id, &100i128, &10i128, &MAX_LOCK_PERIOD);
+        assert_eq!(client.get_pool_config().lock_period, MAX_LOCK_PERIOD);
+
+        // The admin setter enforces the same bound.
+        assert!(matches!(
+            client.try_set_lock_period(&admin, &(MAX_LOCK_PERIOD + 1)),
+            Err(Ok(PoolError::InvalidParameter))
+        ));
+        client.set_lock_period(&admin, &MAX_LOCK_PERIOD);
+        assert_eq!(client.get_pool_config().lock_period, MAX_LOCK_PERIOD);
+    }
+
     #[test]
     fn test_stake_without_allowance_is_rejected() {
         let env = Env::default();
