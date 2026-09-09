@@ -47,6 +47,19 @@ export function middleware(request: NextRequest) {
   // entirely — the app is interactive, so there is nothing to gain from it.
   response.headers.set("Cache-Control", "no-store");
 
+  // Security headers, set here at the edge in addition to next.config.js.
+  // Config headers are applied per-route at the framework layer, which is
+  // fine in practice — but the middleware is the single choke point every
+  // /api/* response passes through, so declaring the security posture here
+  // too means a future config change (or a route that bypasses it) cannot
+  // silently drop API responses back to permissive defaults.
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  // Only send origin on same-origin requests; never leak full wallet URLs.
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // Clickjacking protection for API responses (config CSP adds the modern
+  // frame-ancestors directive for page responses).
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+
   return response;
 }
 
