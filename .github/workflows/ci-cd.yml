@@ -148,7 +148,8 @@ jobs:
   # ─── Deploy Preview (Vercel) ─────────────────────────────────────
   deploy-preview:
     name: 🚀 Deploy Preview
-    if: github.event_name == 'pull_request'
+    # Skip until the Vercel credentials are configured in repo secrets.
+    if: github.event_name == 'pull_request' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != ''
     needs: [build]
     runs-on: ubuntu-latest
     environment:
@@ -180,7 +181,9 @@ jobs:
   # ─── Deploy Production ───────────────────────────────────────────
   deploy-production:
     name: 🌐 Deploy Production
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Skip until the Vercel credentials are configured in repo secrets;
+    # once added, deploys resume automatically on every push to main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != ''
     needs: [build]
     runs-on: ubuntu-latest
     environment:
