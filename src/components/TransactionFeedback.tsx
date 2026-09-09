@@ -33,21 +33,30 @@ export default function TransactionFeedback() {
     contract: "Contract Call",
   };
 
+  // Records can carry values outside the known unions (older rows, migrated
+  // data, or future types written by a newer backend). Look them up
+  // defensively so an unknown status renders the neutral idle styling instead
+  // of a broken `undefined` class name, and an unknown type labels the row
+  // "Transaction" instead of printing the literal string "undefined".
+  const status =
+    latestTx.status in statusColors ? latestTx.status : ("idle" as keyof typeof statusColors);
+  const type = latestTx.type in typeLabels ? latestTx.type : ("send" as keyof typeof typeLabels);
+
   return (
-    <div className={`rounded-xl border px-4 py-3 ${statusColors[latestTx.status]}`}>
+    <div className={`rounded-xl border px-4 py-3 ${statusColors[status]}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {latestTx.status === "pending" ? (
+          {status === "pending" ? (
             <span
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-yellow-400/30 border-t-yellow-400"
               role="status"
               aria-label="Transaction pending"
             />
           ) : (
-            <span>{statusIcons[latestTx.status]}</span>
+            <span>{statusIcons[status]}</span>
           )}
-          <span className="text-xs font-semibold">{typeLabels[latestTx.type]}</span>
-          <span className="text-[10px] opacity-60 uppercase">{latestTx.status}</span>
+          <span className="text-xs font-semibold">{typeLabels[type]}</span>
+          <span className="text-[10px] opacity-60 uppercase">{status}</span>
         </div>
         <span className="text-[10px] opacity-60">
           {latestTx.timestamp ? latestTx.timestamp.toLocaleTimeString() : ""}
