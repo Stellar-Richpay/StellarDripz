@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAccountExplorerUrl } from "@/lib/stellar/explorer";
+import { copyToClipboard } from "@/lib/clipboard";
 import type { TransactionRecord } from "@/types/stellar";
 
 type TxFilter = "all" | TransactionRecord["type"];
@@ -41,6 +42,17 @@ function TxStatusBadge({ status }: { status: TransactionRecord["status"] }) {
 }
 
 function TxRow({ tx }: { tx: TransactionRecord }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyHash = async () => {
+    if (!tx.hash) return;
+    const ok = await copyToClipboard(tx.hash);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 transition-all hover:border-white/10">
       <div className="flex items-center justify-between mb-2">
@@ -122,6 +134,15 @@ function TxRow({ tx }: { tx: TransactionRecord }) {
               {tx.hash.slice(0, 16)}...
             </span>
           )}
+          <button
+            type="button"
+            onClick={handleCopyHash}
+            aria-label="Copy transaction hash"
+            title="Copy transaction hash"
+            className="font-mono text-[10px] text-white/30 hover:text-white/70 transition-colors"
+          >
+            {copied ? "✓ copied" : "⧉ copy"}
+          </button>
         </div>
       )}
 
@@ -187,7 +208,11 @@ export default function TransactionHistory() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+        <div
+          className="space-y-3 max-h-80 overflow-y-auto pr-1"
+          aria-live="polite"
+          aria-label="Transaction list — status updates are announced automatically"
+        >
           {visible.map((tx) => (
             <TxRow key={tx.id} tx={tx} />
           ))}
