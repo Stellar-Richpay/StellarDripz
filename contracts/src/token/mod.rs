@@ -443,10 +443,13 @@ impl DripToken {
     /// the raw record. Missing allowances read as amount 0 / expiration 0.
     pub fn get_allowance_detail(env: Env, owner: Address, spender: Address) -> AllowanceValue {
         let key = (KEY_ALLOWANCES, &owner, &spender);
-        env.storage().persistent().get(&key).unwrap_or(AllowanceValue {
-            amount: 0,
-            expiration_ledger: 0,
-        })
+        env.storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or(AllowanceValue {
+                amount: 0,
+                expiration_ledger: 0,
+            })
     }
 
     pub fn admin(env: Env) -> Address {
@@ -939,15 +942,17 @@ mod token_test {
 
         // Freshly written with the default TTL — far below the refresh
         // threshold the storage helper extends toward.
-        let ttl_before =
-            env.as_contract(&contract_id, || env.storage().persistent().get_ttl(&s::KEY_ADMIN));
+        let ttl_before = env.as_contract(&contract_id, || {
+            env.storage().persistent().get_ttl(&s::KEY_ADMIN)
+        });
         assert!(ttl_before < TTL_REFRESH_THRESHOLD);
 
         // The admin getter reads the entry through the shared helper, which
         // must extend it toward the ledger max.
         client.admin();
-        let ttl_after =
-            env.as_contract(&contract_id, || env.storage().persistent().get_ttl(&s::KEY_ADMIN));
+        let ttl_after = env.as_contract(&contract_id, || {
+            env.storage().persistent().get_ttl(&s::KEY_ADMIN)
+        });
         assert!(ttl_after > ttl_before);
         assert!(ttl_after > TTL_REFRESH_THRESHOLD);
     }
