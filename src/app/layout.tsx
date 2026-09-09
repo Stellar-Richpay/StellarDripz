@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import Header from "@/components/Header";
 import ToastContainer from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 
 const isTestnet = STELLAR_NETWORK.network === "TESTNET";
@@ -62,6 +64,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      {/* Apply the stored/system theme before first paint so a light-mode
+          visitor never sees a dark flash (see src/lib/theme.ts). */}
+      <Script
+        id="theme-init"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+      />
       <body className="min-h-screen bg-surface-950 bg-grid font-sans">
         <AppProvider>
           <Header />

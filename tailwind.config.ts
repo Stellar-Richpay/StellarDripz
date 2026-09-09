@@ -19,15 +19,23 @@ const config: Config = {
           red: "#EF4444",
           orange: "#F59E0B",
         },
+        // The app was built dark-first with hardcoded text-white / bg-white/N
+        // / bg-surface-* utilities everywhere. Remapping those tokens to CSS
+        // variables (defined in globals.css) lets the light theme flip the
+        // entire UI with a single [data-theme="light"] override instead of a
+        // class-by-class refactor — text-white/40, bg-white/5, border-white/10
+        // and every surface shade all follow the --ink / --surface-* vars.
+        white: "rgb(var(--ink) / <alpha-value>)",
+        black: "rgb(var(--ink-inverse) / <alpha-value>)",
         surface: {
-          50: "#F8FAFC",
-          100: "#F1F5F9",
-          200: "#E2E8F0",
-          300: "#CBD5E1",
-          700: "#334155",
-          800: "#1E293B",
-          900: "#0F172A",
-          950: "#020617",
+          50: "rgb(var(--surface-50) / <alpha-value>)",
+          100: "rgb(var(--surface-100) / <alpha-value>)",
+          200: "rgb(var(--surface-200) / <alpha-value>)",
+          300: "rgb(var(--surface-300) / <alpha-value>)",
+          700: "rgb(var(--surface-700) / <alpha-value>)",
+          800: "rgb(var(--surface-800) / <alpha-value>)",
+          900: "rgb(var(--surface-900) / <alpha-value>)",
+          950: "rgb(var(--surface-950) / <alpha-value>)",
         },
       },
       fontFamily: {

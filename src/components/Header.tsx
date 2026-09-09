@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppContext } from "@/context/AppContext";
+import ThemeToggle from "@/components/ThemeToggle";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 
 /**
@@ -66,6 +67,9 @@ export default function Header() {
           </span>
           {badgeLabel}
         </div>
+
+        {/* Light / Auto / Dark theme toggle */}
+        <ThemeToggle />
       </div>
     </header>
   );
