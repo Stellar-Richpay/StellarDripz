@@ -169,7 +169,7 @@ contracts/src/
 └── common/
     ├── mod.rs
     ├── storage.rs    # Shared storage helpers
-    ├── events.rs     # Common event emitters
+    ├── events.rs     # Shared transfer event + symbols
     └── types.rs      # Shared types
 ```
 
@@ -515,9 +515,9 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 ![CI/CD Pipeline](./screenshots/cicd-pipeline.png)
 *GitHub Actions workflow — contract tests, frontend tests, lint, build, and Vercel deploy all passing.*
 
-### Test Output — All 217 Tests Passing
+### Test Output — All Tests Passing
 ![Test Output](./screenshots/test-output.png)
-*35 test suites, 251 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
+*38 test suites, 276 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
 
 ### Mobile Responsive UI
 ![Mobile UI](./screenshots/mobile-responsive.png)
