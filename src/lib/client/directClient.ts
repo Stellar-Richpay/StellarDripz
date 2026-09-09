@@ -11,6 +11,26 @@ import { formatAssetAmount, formatXlmAmount } from "@/lib/stellar/format";
 
 // ---- Lazy-initialized singletons ---- //
 
+/**
+ * Bound an external-network promise with a hard timeout. Browser-side reads
+ * must not hang on a stalled Horizon/RPC node — a dead node should surface an
+ * error in seconds, not leave the UI spinning on a pending fetch forever.
+ * Matches the 10s budget used server-side in src/lib/server/sorobanService.ts.
+ */
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after 10s`)), 10_000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 let _horizonServer: StellarSdk.Horizon.Server | null = null;
 let _sorobanServer: StellarSdk.rpc.Server | null = null;
 
@@ -54,7 +74,7 @@ export interface DirectSimulateResult {
  * Fetch account balance directly from Horizon (no API proxy).
  */
 export async function directFetchBalance(address: string): Promise<DirectBalanceResult> {
-  const account = await horizon().loadAccount(address);
+  const account = await withTimeout(horizon().loadAccount(address), "Horizon account fetch");
 
   const assets: DirectBalanceResult["assets"] = [];
   let xlm = "0.0000000";
@@ -95,7 +115,10 @@ export async function directSimulateContract(
   args: StellarSdk.xdr.ScVal[],
   signerPublicKey: string,
 ): Promise<DirectSimulateResult> {
-  const sourceAccount = await horizon().loadAccount(signerPublicKey);
+  const sourceAccount = await withTimeout(
+    horizon().loadAccount(signerPublicKey),
+    "Horizon account fetch",
+  );
   const contract = new StellarSdk.Contract(contractId);
   const op = contract.call(functionName, ...args);
 
@@ -107,7 +130,10 @@ export async function directSimulateContract(
     .setTimeout(30)
     .build();
 
-  const simResponse = await soroban().simulateTransaction(tx);
+  const simResponse = await withTimeout(
+    soroban().simulateTransaction(tx),
+    "Soroban simulateTransaction",
+  );
   if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
     throw new Error(`Contract simulation failed: ${simResponse.error}`);
   }
@@ -129,11 +155,14 @@ export async function directFetchContractEvents(
   limit = 10,
 ): Promise<{ events: DirectContractEvent[]; latestLedger: number }> {
   try {
-    const response = await soroban().getEvents({
-      startLedger,
-      filters: [{ type: "contract", contractIds: [contractId], topics: [["*"]] }],
-      limit,
-    });
+    const response = await withTimeout(
+      soroban().getEvents({
+        startLedger,
+        filters: [{ type: "contract", contractIds: [contractId], topics: [["*"]] }],
+        limit,
+      }),
+      "Soroban getEvents",
+    );
 
     const events: DirectContractEvent[] = [];
     let latestLedger = startLedger;
@@ -167,7 +196,7 @@ export async function directFetchContractEvents(
  */
 export async function directGetLatestLedger(): Promise<number> {
   try {
-    const health = await soroban().getLatestLedger();
+    const health = await withTimeout(soroban().getLatestLedger(), "Soroban getLatestLedger");
     return health.sequence;
   } catch {
     return 0;
