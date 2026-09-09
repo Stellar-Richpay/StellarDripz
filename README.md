@@ -225,8 +225,9 @@ npm run verify:contracts      # fmt check + clippy (-D warnings) + tests
 
 The contracts exercise typed errors, quorum voting, reward accounting,
 allowance-expiry boundaries, lock-period enforcement, TTL maintenance,
-pool parameter guards, badge metadata bounds and pagination, and
-property-style fuzz invariants (73 tests).
+pool parameter guards, badge metadata bounds and pagination,
+cross-contract failure propagation, and property-style fuzz invariants
+(92 tests).
 
 ### Frontend Tests
 
@@ -236,7 +237,7 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (35 suites, 251 tests, all passing ✅):
+Test suites (38 suites, 276 tests, all passing ✅):
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `useContractEvents`, `walletService`
 - API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
 - Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `sorobanSubmit`, `horizonService`
@@ -502,7 +503,7 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 6. **CI/CD & Testing (2:30-3:00)**
    - Show GitHub Actions pipeline running
-   - Show test output (73 contract + 251 frontend tests passing)
+   - Show test output (92 contract + 276 frontend tests passing)
    - Show Vercel deployment
    - Admin dashboard analytics
 

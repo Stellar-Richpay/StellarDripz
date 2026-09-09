@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] — 2026-09 hardening wave (contract reliability & request hygiene)
+
+### Added
+- **Contract TTL strategy**: config/admin keys are extended toward the ledger max on every read (`extend-on-read`), so a quiet contract no longer loses its admin slot and configuration when the network-default TTL (~4096 ledgers) elapses; pinned by a token test asserting the ADMIN entry's TTL jumps past the refresh threshold after one read
+- **Pool lock-period cap**: `MAX_LOCK_PERIOD` (~1 year) enforced at init and in `set_lock_period`, so a typo'd value can't freeze every stake effectively forever
+- **Governance action validation**: `propose()` rejects negative reward/min/max stakes and non-positive or zero-address mints up front, instead of letting a doomed proposal run a full voting cycle
+- **Token allowance detail**: `get_allowance_detail()` exposes the raw allowance record (amount + expiration ledger) so frontends can show when a grant lapses
+- **Batch route deadline**: a 25s wall-clock cap stops funding once exceeded and reports remaining addresses as explicitly skipped instead of dropping them on a function timeout
+- **Rate-limit headers on batch**: `/api/batch` now attaches `X-RateLimit-*` headers to success responses like every other rate-limited route
+- **Copy-hash button**: transaction rows can copy the full hash with one click (shared clipboard helper + transient confirmation)
+- **Screen-reader announcements**: the transaction list is `aria-live="polite"`, so status changes (pending → success/error) are announced
+- **CI snapshot gate**: the contract job fails if `cargo test` leaves `contracts/test_snapshots` dirty, so orphaned/outdated snapshots can't slip through
+- **Node version consistency**: `e2e-tests`, `code-coverage`, and `docs-deploy` now read `.node-version` like the rest of CI
+
+### Fixed
+- **Phantom stakes**: the pool's stake/unstake/claim/fund paths dropped cross-contract `Result`s, so a stake with no allowance recorded tokens that never moved (accruing rewards on nothing) and a failed payout could desync the reward pool; all four call sites now propagate failures as `PoolError::TransferFailed` and revert
+- **Falsely-executed proposals**: `execute()` dropped the action's `Result`, so a rejected `set_reward_rate`/mint marked the proposal executed anyway; `apply_action` now propagates both error layers as `GovError::ActionFailed` and the whole call reverts
+- **Zero-address badge claims**: `grant_badge`/`claim_badge` reject the burn address, which previously could permanently squat on a badge with a claim nobody could use
+- **Orphaned test snapshots**: eight snapshot files left untracked by the recent test-pinning commits are committed; the governance execute-once test is pinned end-to-end
+- **SSE stream hangs**: `getEvents`/`getLatestLedger`/`getTransaction` are bounded by the same 10s timeout as the simulate/build paths, so a stalled RPC node can't silently kill a stream
+- **Horizon hangs**: `loadAccount`, `fetchBaseFee`, and `submitTransaction` are bounded by a 10s timeout — a dead Horizon now errors in seconds instead of burning the function budget
+- **Rate-limiter timer**: the cleanup `setInterval` is `unref()`'d so it can't keep a serverless instance or test process alive
+- **Silent DB data loss**: JSON-fallback read/write failures are logged at warn level instead of swallowed, so a corrupt file or disk-full no longer erases history silently
+- **Background polling**: `useBalance` and `useTransactionHistory` skip ticks while the tab is hidden and refresh on return, saving quota and battery
+- **Enter-key double-fire**: the Soroban demo's greeting input can no longer fire a second write via Enter while one is in flight
+
+### Security
+- **Health e2e pin**: the e2e suite asserts the health endpoint's documented contract (200/503, healthy|degraded) instead of requiring a live external network
+
+### Docs
+- **ADR-006** records the contract TTL strategy and cross-contract error-propagation policy
+- README test counts refreshed (92 contract + 276 frontend tests, 38 suites)
+
+---
+
 ## [Unreleased] — 2026-09 hardening wave (contract-invoke & rate-limit)
 
 ### Added
