@@ -194,6 +194,13 @@ impl DripBadge {
     pub fn claim_badge(env: Env, user: Address, badge_id: u64) -> Result<(), BadgeError> {
         user.require_auth();
 
+        // The zero address can never authenticate, but guard anyway so a
+        // claim can never be recorded against the burn sentinel (which would
+        // permanently squat on the badge with no owner able to use it).
+        if is_zero_address(&env, &user) {
+            return Err(BadgeError::InvalidAddress);
+        }
+
         // Check badge exists
         let badge_key = (KEY_BADGE, badge_id);
         if !env.storage().persistent().has(&badge_key) {
@@ -328,6 +335,13 @@ impl DripBadge {
             return Err(BadgeError::NotAuthorized);
         }
         admin.require_auth();
+
+        // An admin grant needs no user auth, so a grant to the zero address
+        // would otherwise succeed and permanently occupy the badge with a
+        // claim nobody can use — reject it like mint-to-zero in the token.
+        if is_zero_address(&env, &user) {
+            return Err(BadgeError::InvalidAddress);
+        }
 
         let badge_key = (KEY_BADGE, badge_id);
         if !env.storage().persistent().has(&badge_key) {
@@ -762,6 +776,42 @@ mod badge_test {
         client.revoke_badge(&admin, &user, &1u64);
         assert!(!client.has_badge(&user, &1u64));
 
+        client.claim_badge(&user, &1u64);
+        assert!(client.has_badge(&user, &1u64));
+    }
+
+    /// Granting (or claiming) a badge for the zero address would permanently
+    /// occupy the badge with a claim nobody can ever use.
+    #[test]
+    fn test_zero_address_claims_rejected() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let zero = Address::from_string(&String::from_str(&env, ZERO_ADDRESS_STR));
+        let contract_id = env.register(DripBadge, ());
+        let client = DripBadgeClient::new(&env, &contract_id);
+        client.initialize_badge(&admin);
+        client.create_badge(
+            &admin,
+            &String::from_str(&env, "G"),
+            &String::from_str(&env, "D"),
+            &String::from_str(&env, ""),
+            &1u32,
+        );
+
+        // An admin grant to the zero address is refused…
+        let err = client.try_grant_badge(&admin, &zero, &1u64);
+        assert_eq!(err, Err(Ok(BadgeError::InvalidAddress)));
+        assert!(!client.has_badge(&zero, &1u64));
+
+        // …and so is a claim from it.
+        let err = client.try_claim_badge(&zero, &1u64);
+        assert_eq!(err, Err(Ok(BadgeError::InvalidAddress)));
+        assert!(!client.has_badge(&zero, &1u64));
+
+        // A real user is unaffected.
+        let user = Address::generate(&env);
         client.claim_badge(&user, &1u64);
         assert!(client.has_badge(&user, &1u64));
     }
