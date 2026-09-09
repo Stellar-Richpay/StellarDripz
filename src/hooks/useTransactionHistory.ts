@@ -108,11 +108,25 @@ export function useTransactionHistory({
     refresh();
   }, [refresh]);
 
-  // Auto-refresh
+  // Auto-refresh. Skip ticks while the tab is hidden (background polls only
+  // burn quota for data nobody sees) and refresh on return so the list is
+  // current the moment the user switches back.
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return;
-    const interval = setInterval(refresh, refreshInterval);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refresh();
+    }, refreshInterval);
+
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refresh, refreshInterval]);
 
   return { transactions, loading, error, total, hasMore, refresh };

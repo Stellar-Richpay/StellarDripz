@@ -96,12 +96,27 @@ export function useBalance({
     refresh();
   }, [refresh]);
 
-  // Auto-refresh
+  // Auto-refresh. Background tabs keep polling the network for data nobody
+  // is looking at, burning Horizon quota and battery — skip ticks while the
+  // document is hidden, and refresh immediately when the tab becomes visible
+  // again so the displayed balance is fresh the moment the user returns.
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || !address) return;
 
-    const interval = setInterval(refresh, refreshInterval);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refresh();
+    }, refreshInterval);
+
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [refresh, refreshInterval, address]);
 
   return { balance, loading, error, refresh };
