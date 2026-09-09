@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -40,6 +40,18 @@ export default function QRFundModal({ address }: QRFundModalProps) {
  * lock) mount and unmount exactly with the dialog's visibility.
  */
 function QrDialog({ faucetUrl, onClose }: { faucetUrl: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  // The copy-confirmation timer must not outlive the modal: firing after
+  // unmount is a setState-on-unmounted-component (and a stale timer from a
+  // previous copy could clear a newer copy's feedback early).
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -56,6 +68,18 @@ function QrDialog({ faucetUrl, onClose }: { faucetUrl: string; onClose: () => vo
       document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
+
+  // Only show "Copied!" when the write actually succeeded — copyToClipboard
+  // returns false when both the Clipboard API and the execCommand fallback
+  // fail (e.g. permissions denied), and a false confirmation would teach the
+  // user to trust a copy that never happened.
+  const handleCopy = async () => {
+    const ok = await copyToClipboard(faucetUrl);
+    if (!ok) return;
+    setCopied(true);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -91,10 +115,14 @@ function QrDialog({ faucetUrl, onClose }: { faucetUrl: string; onClose: () => vo
         </div>
 
         <button
-          onClick={() => void copyToClipboard(faucetUrl)}
-          className="mt-3 w-full rounded-xl border border-stellar-blue/30 bg-stellar-blue/10 py-2 text-xs font-medium text-stellar-blue transition-all hover:bg-stellar-blue/20"
+          onClick={() => void handleCopy()}
+          className={`mt-3 w-full rounded-xl border py-2 text-xs font-medium transition-all ${
+            copied
+              ? "border-stellar-green/40 bg-stellar-green/10 text-stellar-green"
+              : "border-stellar-blue/30 bg-stellar-blue/10 text-stellar-blue hover:bg-stellar-blue/20"
+          }`}
         >
-          📋 Copy Faucet URL
+          {copied ? "✅ Copied!" : "📋 Copy Faucet URL"}
         </button>
       </div>
     </div>
