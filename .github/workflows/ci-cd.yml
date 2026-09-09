@@ -60,6 +60,21 @@ jobs:
             find target/ -name "*.wasm" 2>/dev/null || true
           fi
 
+      # Soroban's test harness writes a ledger snapshot for every test under
+      # contracts/test_snapshots, and the repo tracks them. A new test whose
+      # snapshot was never committed (or a contract change that altered env
+      # state without refreshing the snapshots) would otherwise slip through
+      # green here and drift on every checkout. Failing on a dirty tree makes
+      # the snapshot set a first-class part of the contract diff.
+      - name: Ensure test snapshots are committed and current
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "❌ cargo test produced or modified tracked files (snapshots):"
+            git status --porcelain
+            exit 1
+          fi
+          echo "✅ Snapshot tree is clean"
+
   # ─── Frontend Tests ───────────────────────────────────────────────
   frontend-tests:
     name: 🧪 Frontend Tests
