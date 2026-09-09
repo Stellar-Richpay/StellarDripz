@@ -12,6 +12,26 @@ import { HttpError } from "./http";
 const horizonServer = new StellarSdk.Horizon.Server(STELLAR_NETWORK.horizonUrl);
 
 /**
+ * Bound an SDK promise (loadAccount, submitTransaction, …) with a hard
+ * timeout. The Horizon SDK's HTTP calls carry no timeout of their own, so a
+ * stalled node would otherwise hang a serverless invocation until the
+ * platform kills it — leaving the user with a spinner and no error.
+ */
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after 10s`)), 10_000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Fetch with an explicit timeout and a single retry for transient failures.
  * Prevents a hung upstream (Friendbot/Horizon) from tying up a serverless
  * invocation indefinitely.
@@ -57,7 +77,7 @@ export async function fetchBalanceServer(publicKey: string): Promise<BalanceResp
   // and made every balance fetch a database write.
 
   try {
-    const account = await horizonServer.loadAccount(publicKey);
+    const account = await withTimeout(horizonServer.loadAccount(publicKey), "Horizon loadAccount");
     const assets = account.balances
       .filter((b) => b.asset_type !== "liquidity_pool_shares")
       .map((b) => {
@@ -205,7 +225,10 @@ export async function sendPaymentServer(
     memo,
   );
 
-  const response = await horizonServer.submitTransaction(signedTx);
+  const response = await withTimeout(
+    horizonServer.submitTransaction(signedTx),
+    "Horizon submitTransaction",
+  );
 
   // Log
   const txRecord: TxRecord = {
@@ -381,8 +404,11 @@ export async function buildPaymentTransaction(
     }
   }
 
-  const sourceAccount = await horizonServer.loadAccount(senderPublicKey);
-  const feeStats = await horizonServer.fetchBaseFee();
+  const sourceAccount = await withTimeout(
+    horizonServer.loadAccount(senderPublicKey),
+    "Horizon loadAccount",
+  );
+  const feeStats = await withTimeout(horizonServer.fetchBaseFee(), "Horizon fetchBaseFee");
   const fee = String(Math.floor(Number(feeStats) * 2));
 
   const asset =
