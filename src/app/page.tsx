@@ -8,6 +8,7 @@ import SendForm from "@/components/SendForm";
 import TransactionHistory from "@/components/TransactionHistory";
 import NetworkWarning from "@/components/NetworkWarning";
 import SorobanDemo from "@/components/SorobanDemo";
+import ContractWizard from "@/components/ContractWizard";
 import CooldownTimer from "@/components/CooldownTimer";
 import TransactionFeedback from "@/components/TransactionFeedback";
 import { useAppContext } from "@/context/AppContext";
@@ -109,6 +110,10 @@ export default function Home() {
               </span>
               <div className="h-px flex-1 bg-white/5" />
             </div>
+
+            {/* Guided mint/transfer/stake/vote flows — uses the configured
+                contract IDs with an override for custom deployments. */}
+            <ContractWizard />
 
             {!activeContractId && (
               <div className="rounded-2xl border border-dashed border-stellar-purple/20 bg-surface-800/40 p-4">
