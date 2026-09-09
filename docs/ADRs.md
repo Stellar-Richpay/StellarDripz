@@ -192,3 +192,49 @@ storage. Two failure modes threatened the deployed contracts:
   re-vote.
 - Committed test snapshots reflect the extended `live_until` values; CI fails
   if `cargo test` leaves the snapshot tree dirty.
+
+---
+
+## ADR-007: SDK-27 Typed Contract Events
+
+**Date:** 2026-09-09
+**Status:** Accepted
+
+### Context
+All five contracts emitted events through `env.events().publish()`, which
+soroban-sdk 27 marks deprecated. Beyond the deprecation warning, the shim's
+ad-hoc `(symbol, addr, ...)` topic tuples had no compile-time shape — a
+renamed field or a swapped argument changed the emitted event silently, and
+off-chain indexers (the SSE `/api/events` stream, topic filters) had to know
+the exact tuple layout by convention.
+
+### Decision
+1. Every event is now a `#[contractevent]` struct with `#[topic]` fields for
+   the address/ID dimensions and plain fields for data.
+2. Each struct pins its original event symbol via the macro's `topics =
+   ["..."]` argument (e.g. `#[contractevent(topics = ["stake"])]`), so the
+   **topic list is byte-identical to the pre-migration events** — off-chain
+   topic filters and the SSE stream's topic strings are unchanged.
+3. The deprecated `publish()` shim and the now-unused shared event symbol
+   constants were deleted from `common/events.rs`; only the token transfer
+   event remains there as a shared helper.
+
+### Rationale
+- Typed events give the compiler a say in the emitted shape: a struct field
+  reorder or rename now shows up as a type error, not a silent on-chain
+  change.
+- Preserving the topic symbols means zero migration cost for anything already
+  filtering on them, and the snapshots in `contracts/test_snapshots` pin the
+  exact encoding — a new counter test compares the emitted event XDR to the
+  struct's `to_xdr()` output.
+- The data encoding differs (typed events emit a field-named map instead of a
+  bare value), which matches what the token/counter contracts already emitted
+  and is the SDK-27 standard.
+
+### Consequences
+- Event consumers reading raw `data` payloads must handle the field-map
+  encoding; consumers filtering only on topics are unaffected.
+- The deprecated shim is gone, so the SDK's deprecation warnings are gone
+  and clippy runs clean.
+- New events should be declared as `#[contractevent]` structs with explicit
+  `topics` prefixes; the counter event-pinning test is the reference pattern.

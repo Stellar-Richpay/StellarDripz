@@ -38,8 +38,8 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [x] ✅ Counter with per-user tracking
 - [ ] 🔲 Submit contracts to SCF Audit Bank for external review
 - [ ] 🔲 Implement SAC (Stellar Asset Contract) compatibility wrapper for DripToken
-- [ ] 🔲 Add `#[contracterror]` codes to all remaining contracts (Governance, Counter)
-- [ ] 🔲 Migrate legacy `publish()` calls to `#[contractevent]` structs in all contracts
+- [x] ✅ Add `#[contracterror]` codes to all remaining contracts (Governance, Counter)
+- [x] ✅ Migrate legacy `publish()` calls to `#[contractevent]` structs in all contracts
 
 ### Frontend
 - [x] ✅ Multi-wallet connection (Freighter, xBull, Albedo, LOBSTR, WalletConnect)
@@ -50,8 +50,8 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [ ] 🔲 Add contract interaction wizard (guided flow for mint/transfer/stake/vote)
 
 ### Testing
-- [x] ✅ 76 Rust contract tests (incl. 4 property-based fuzz tests)
-- [x] ✅ 253 TypeScript tests (35 suites)
+- [x] ✅ 94 Rust contract tests (incl. property-based fuzz tests)
+- [x] ✅ 276 TypeScript tests (38 suites)
 - [x] ✅ TypeScript strict mode — zero compilation errors
 - [ ] 🔲 Achieve >80% code coverage on contracts (add edge case tests)
 - [ ] 🔲 Add integration tests against live testnet contracts
@@ -70,7 +70,7 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 **Deliverable:** Feature-complete testnet dApp with analytics, mainnet config, and GrantFox campaign.
 
 ### Features
-- [ ] 🔲 Admin dashboard with real-time analytics (contract calls, faucet usage, active users)
+- [x] ✅ Admin dashboard with real-time analytics (contract calls, faucet usage, active users)
 - [ ] 🔲 SEP-0024 hosted deposit/withdrawal integration
 - [ ] 🔲 SEP-0041 full compliance (token metadata, allowance, authorized/clawback)
 - [ ] 🔲 Staking leaderboard and reward history UI
@@ -144,4 +144,4 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 
 ---
 
-*Last updated: August 11, 2026*
+*Last updated: September 9, 2026*
