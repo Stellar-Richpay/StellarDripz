@@ -67,6 +67,9 @@ jest.mock("@/lib/server/csrf", () => ({
 const mockCheckRateLimit = jest.fn().mockReturnValue(null);
 jest.mock("@/lib/server/rateLimiter", () => ({
   checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  // The batch route attaches X-RateLimit-* headers to its success response;
+  // the mock passes the response through unchanged.
+  attachRateLimitHeaders: (_req: unknown, res: unknown) => res,
 }));
 
 jest.mock("@/lib/server/horizonService", () => ({
