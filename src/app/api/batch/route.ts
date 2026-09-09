@@ -11,13 +11,19 @@ import { NextRequest, NextResponse } from "next/server";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { isValidStellarAddress } from "@/lib/stellar/address";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
-import { checkRateLimit } from "@/lib/server/rateLimiter";
+import { checkRateLimit, attachRateLimitHeaders } from "@/lib/server/rateLimiter";
 import { assertFaucetAllowed } from "@/lib/server/horizonService";
 import { validateCsrf, setCsrfCookie } from "@/lib/server/csrf";
 import { parseJsonBody, toHttpError } from "@/lib/server/http";
 
 const MAX_BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
+// Hard deadline for the whole batch. Ten Friendbot calls with a 10s timeout
+// each can run to ~105s, far past a serverless function's wall-clock budget
+// — on Vercel's Hobby tier a 10s batch would be killed mid-loop with no
+// per-address results at all. Once the deadline passes, remaining addresses
+// are reported as skipped instead of silently dropped.
+const BATCH_DEADLINE_MS = 25_000;
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +81,19 @@ export async function POST(request: NextRequest) {
       error?: string;
     }[] = [];
 
+    const batchStart = Date.now();
     for (const address of normalized) {
+      // Once the batch deadline passes, stop making new Friendbot calls and
+      // report the rest as skipped — a partial, explicit result set beats a
+      // function timeout that returns nothing at all.
+      if (Date.now() - batchStart > BATCH_DEADLINE_MS) {
+        results.push({
+          address,
+          status: "error",
+          error: "Skipped — batch deadline reached, retry the remaining addresses",
+        });
+        continue;
+      }
       try {
         const url = `${STELLAR_NETWORK.friendbotUrl}?addr=${encodeURIComponent(address)}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
@@ -110,12 +128,18 @@ export async function POST(request: NextRequest) {
     const succeeded = results.filter((r) => r.status === "success").length;
     const failed = results.filter((r) => r.status === "error").length;
 
-    const response = NextResponse.json({
-      total: results.length,
-      succeeded,
-      failed,
-      results,
-    });
+    // Attach X-RateLimit-* headers like every other rate-limited route, so
+    // clients that poll batch funding can back off before hitting a 429.
+    const response = attachRateLimitHeaders(
+      request,
+      NextResponse.json({
+        total: results.length,
+        succeeded,
+        failed,
+        results,
+      }),
+      "general",
+    );
     setCsrfCookie(response);
     return response;
   } catch (err) {
