@@ -237,6 +237,13 @@ impl DripGovernance {
             {
                 return Err(GovError::InvalidParameter);
             }
+            // The pool rejects lock periods above its cap at execution time;
+            // validating here (against the same shared constant) stops a
+            // doomed proposal from wasting a full voting cycle. Keeping the
+            // cap in one place means the two can never drift apart.
+            GovernanceAction::SetLockPeriod(period) if *period > pool::MAX_LOCK_PERIOD => {
+                return Err(GovError::InvalidParameter);
+            }
             _ => {}
         }
 
@@ -1142,6 +1149,55 @@ mod governance_test {
             &GovernanceAction::SetRewardRate(1i128),
         );
         assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+    }
+
+    #[test]
+    fn test_propose_rejects_lock_period_over_pool_cap() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let proposer = Address::generate(&env);
+
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &proposer, &1000i128);
+
+        // Register a real pool so the cap check is against the shared constant
+        // the pool itself enforces at set_lock_period time.
+        let governance_id = env.register(DripGovernance, ());
+        let pool_id = env.register(DripPool, ());
+        let pool_client = pool::DripPoolClient::new(&env, &pool_id);
+        pool_client.initialize_pool(&governance_id, &token_id, &100i128, &10i128, &100u32);
+
+        let client = DripGovernanceClient::new(&env, &governance_id);
+        client.initialize_governance(&admin, &token_id, &pool_id, &100u32, &1i128);
+
+        // A lock period beyond the pool cap can never execute — reject it at
+        // propose time instead of after a full voting cycle.
+        let err = client.try_propose(
+            &proposer,
+            &String::from_str(&env, "Too long"),
+            &String::from_str(&env, "Lock beyond the pool cap"),
+            &GovernanceAction::SetLockPeriod(pool::MAX_LOCK_PERIOD + 1),
+        );
+        assert_eq!(err, Err(Ok(GovError::InvalidParameter)));
+        assert_eq!(client.get_proposal_count(), 0u64);
+
+        // Exactly at the cap is legal and must be accepted.
+        let id = client.propose(
+            &proposer,
+            &String::from_str(&env, "At cap"),
+            &String::from_str(&env, "Exactly the pool maximum"),
+            &GovernanceAction::SetLockPeriod(pool::MAX_LOCK_PERIOD),
+        );
+        assert_eq!(id, 1u64);
     }
 
     #[test]
