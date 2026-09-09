@@ -4,19 +4,7 @@
  */
 import type { NetworkType } from "@/types/stellar";
 import { STELLAR_NETWORK } from "../stellar/network";
-import { storageSetJSON } from "../storage";
-
-function persistWallet(wallet: {
-  publicKey: string;
-  walletId: string;
-  walletName: string;
-  connectedAt: number;
-}): void {
-  // Same key + guards as the other connectors, via the shared storage
-  // helper — a local copy of this logic drifted here and duplicated the
-  // try/catch dance (and any future hardening) from walletKit.
-  storageSetJSON("stellardripz_wallet", wallet);
-}
+import { persistWallet } from "./walletKit";
 
 /**
  * Check for the LOBSTR extension object in window.
