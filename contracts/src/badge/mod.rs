@@ -1,9 +1,8 @@
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
-use crate::common::events as e;
 use crate::common::storage as s;
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String,
-    Symbol, Vec,
+    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, Address, Env,
+    String, Symbol, Vec,
 };
 
 // ---- Contract Errors ----
@@ -64,6 +63,58 @@ fn is_zero_address(env: &Env, addr: &Address) -> bool {
     addr.to_string() == String::from_str(env, ZERO_ADDRESS_STR)
 }
 
+// ---- Contract Events (SDK 27 pattern) ----
+//
+// Each struct's `#[topic]` fields become event topics and the remaining
+// fields become data, preserving the exact topic/data shape the contracts
+// emitted before the migration off the deprecated `env.events().publish()`
+// API (symbol first, then addresses/ids, then a data payload).
+
+#[contractevent(topics = ["bdg_init"])]
+pub struct BadgeInitEvent {
+    #[topic]
+    pub admin: Address,
+    pub value: u64,
+}
+
+#[contractevent(topics = ["bdg_creat"])]
+pub struct BadgeCreatedEvent {
+    #[topic]
+    pub admin: Address,
+    #[topic]
+    pub badge_id: u64,
+    pub name: String,
+}
+
+#[contractevent(topics = ["bdg_updte"])]
+pub struct BadgeUpdatedEvent {
+    #[topic]
+    pub admin: Address,
+    #[topic]
+    pub badge_id: u64,
+    pub tier: u32,
+}
+
+#[contractevent(topics = ["claim"])]
+pub struct BadgeClaimedEvent {
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub badge_id: u64,
+    pub claimed_ledger: u32,
+}
+
+#[contractevent(topics = ["bdg_revke"])]
+pub struct BadgeRevokedEvent {
+    #[topic]
+    pub admin: Address,
+    #[topic]
+    pub user: Address,
+    #[topic]
+    pub badge_id: u64,
+    pub claimed_ledger: u32,
+}
+
 #[contract]
 pub struct DripBadge;
 
@@ -85,7 +136,11 @@ impl DripBadge {
         s::set_persistent(&env, &KEY_BADGE_COUNT, &0u64);
         s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (symbol_short!("bdg_init"), &admin), 0u64);
+        BadgeInitEvent {
+            admin: admin.clone(),
+            value: 0u64,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -133,7 +188,12 @@ impl DripBadge {
         let key = (KEY_BADGE, count);
         s::set_and_extend(&env, &key, &badge, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (symbol_short!("bdg_creat"), &admin, count), name);
+        BadgeCreatedEvent {
+            admin: admin.clone(),
+            badge_id: count,
+            name,
+        }
+        .publish(&env);
         Ok(count)
     }
 
@@ -182,11 +242,12 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &key, &updated, TTL_REFRESH_THRESHOLD);
 
-        e::publish(
-            &env,
-            (symbol_short!("bdg_updte"), &admin, badge_id),
-            updated.tier,
-        );
+        BadgeUpdatedEvent {
+            admin: admin.clone(),
+            badge_id,
+            tier: updated.tier,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -219,11 +280,12 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
-        e::publish(
-            &env,
-            (e::EVENT_BADGE_CLAIM, &user, badge_id),
-            env.ledger().sequence(),
-        );
+        BadgeClaimedEvent {
+            user: user.clone(),
+            badge_id,
+            claimed_ledger: env.ledger().sequence(),
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -250,11 +312,13 @@ impl DripBadge {
         }
 
         env.storage().persistent().remove(&claim_key);
-        e::publish(
-            &env,
-            (symbol_short!("bdg_revke"), &admin, user, badge_id),
-            env.ledger().sequence(),
-        );
+        BadgeRevokedEvent {
+            admin: admin.clone(),
+            user: user.clone(),
+            badge_id,
+            claimed_ledger: env.ledger().sequence(),
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -359,11 +423,12 @@ impl DripBadge {
         };
         s::set_and_extend(&env, &claim_key, &claim, TTL_REFRESH_THRESHOLD);
 
-        e::publish(
-            &env,
-            (e::EVENT_BADGE_CLAIM, &user, badge_id),
-            env.ledger().sequence(),
-        );
+        BadgeClaimedEvent {
+            user: user.clone(),
+            badge_id,
+            claimed_ledger: env.ledger().sequence(),
+        }
+        .publish(&env);
         Ok(())
     }
 

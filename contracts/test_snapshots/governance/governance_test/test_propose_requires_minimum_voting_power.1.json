@@ -793,7 +793,16 @@
               }
             ],
             "data": {
-              "string": "Yes"
+              "map": [
+                {
+                  "key": {
+                    "symbol": "title"
+                  },
+                  "val": {
+                    "string": "Yes"
+                  }
+                }
+              ]
             }
           }
         }

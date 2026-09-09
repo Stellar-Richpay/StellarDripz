@@ -1,5 +1,4 @@
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
-use crate::common::events as e;
 use crate::common::storage as s;
 use crate::pool;
 use crate::token;
@@ -34,19 +33,59 @@ pub enum GovError {
 }
 
 // ---- Contract Events (SDK 27 pattern) ----
+//
+// `#[topic]` fields become event topics, remaining fields become data — the
+// same topic/data shape the deprecated `env.events().publish()` calls emitted
+// (symbol first, then addresses/ids, then a payload).
 
-#[contractevent]
+#[contractevent(topics = ["gov_init"])]
+pub struct GovernanceInitEvent {
+    #[topic]
+    pub admin: Address,
+    pub voting_period: u32,
+}
+
+#[contractevent(topics = ["propose"])]
 pub struct ProposalCreatedEvent {
-    pub proposal_id: u64,
+    #[topic]
     pub proposer: Address,
+    #[topic]
+    pub proposal_id: u64,
     pub title: String,
 }
 
-#[contractevent]
+#[contractevent(topics = ["vote"])]
 pub struct VoteCastEvent {
-    pub proposal_id: u64,
+    #[topic]
     pub voter: Address,
+    #[topic]
+    pub proposal_id: u64,
     pub power: i128,
+}
+
+#[contractevent(topics = ["cancel"])]
+pub struct ProposalCancelledEvent {
+    #[topic]
+    pub caller: Address,
+    #[topic]
+    pub proposal_id: u64,
+    pub cancelled: bool,
+}
+
+#[contractevent(topics = ["execute"])]
+pub struct ProposalExecutedEvent {
+    #[topic]
+    pub executor: Address,
+    #[topic]
+    pub proposal_id: u64,
+    pub passed: bool,
+}
+
+#[contractevent(topics = ["quorum"])]
+pub struct QuorumSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub quorum_bps: u32,
 }
 
 // ---- Data Types ----
@@ -156,7 +195,11 @@ impl DripGovernance {
         s::set_persistent(&env, &KEY_PROPOSAL_COUNT, &0u64);
         s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (symbol_short!("gov_init"), &admin), voting_period);
+        GovernanceInitEvent {
+            admin: admin.clone(),
+            voting_period,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -243,7 +286,12 @@ impl DripGovernance {
         let key = (KEY_PROPOSAL, count);
         s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (e::EVENT_PROPOSE, &proposer, count), title);
+        ProposalCreatedEvent {
+            proposer: proposer.clone(),
+            proposal_id: count,
+            title,
+        }
+        .publish(&env);
         Ok(count)
     }
 
@@ -317,7 +365,12 @@ impl DripGovernance {
         s::set_and_extend(&env, &vote_key, &vote_record, TTL_REFRESH_THRESHOLD);
         s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (e::EVENT_VOTE, &voter, proposal_id), power);
+        VoteCastEvent {
+            voter: voter.clone(),
+            proposal_id,
+            power,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -353,7 +406,12 @@ impl DripGovernance {
             .persistent()
             .remove(&(KEY_PROPOSAL, symbol_short!("action"), proposal_id));
 
-        e::publish(&env, (symbol_short!("cancel"), &caller, proposal_id), true);
+        ProposalCancelledEvent {
+            caller: caller.clone(),
+            proposal_id,
+            cancelled: true,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -435,11 +493,12 @@ impl DripGovernance {
         proposal.executed = true;
         s::set_and_extend(&env, &key, &proposal, TTL_REFRESH_THRESHOLD);
 
-        e::publish(
-            &env,
-            (symbol_short!("execute"), &executor, proposal_id),
-            proposal.passed,
-        );
+        ProposalExecutedEvent {
+            executor: executor.clone(),
+            proposal_id,
+            passed: proposal.passed,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -592,7 +651,11 @@ impl DripGovernance {
         }
         admin.require_auth();
         s::set_and_extend(&env, &KEY_QUORUM_BPS, &quorum_bps, TTL_REFRESH_THRESHOLD);
-        e::publish(&env, (symbol_short!("quorum"), &admin), quorum_bps);
+        QuorumSetEvent {
+            admin: admin.clone(),
+            quorum_bps,
+        }
+        .publish(&env);
         Ok(())
     }
 

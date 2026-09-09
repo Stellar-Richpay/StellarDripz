@@ -61,6 +61,17 @@ pub struct TokenInitializedEvent {
     pub decimals: u32,
 }
 
+/// Emitted on approve (or allowance revocation to zero). Topics are the
+/// approve symbol, the owner, and the spender; data is the approved amount.
+#[contractevent(topics = ["approve"])]
+pub struct ApprovalEvent {
+    #[topic]
+    pub owner: Address,
+    #[topic]
+    pub spender: Address,
+    pub amount: i128,
+}
+
 // ---- Storage Keys ----
 
 const KEY_ALLOWANCES: Symbol = symbol_short!("ALLOW_M");
@@ -358,7 +369,12 @@ impl DripToken {
             s::set_and_extend(&env, &key, &allowance, TTL_REFRESH_THRESHOLD);
         }
 
-        e::publish(&env, (e::EVENT_APPROVE, &owner, &spender), amount);
+        ApprovalEvent {
+            owner: owner.clone(),
+            spender: spender.clone(),
+            amount,
+        }
+        .publish(&env);
         Ok(())
     }
 

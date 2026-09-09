@@ -1,9 +1,9 @@
 use crate::common::constants::{TTL_REFRESH_THRESHOLD, ZERO_ADDRESS_STR};
-use crate::common::events as e;
 use crate::common::storage as s;
 use crate::token;
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, String, Symbol,
+    contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, Address, Env,
+    String, Symbol,
 };
 
 // ---- Contract Errors ----
@@ -60,6 +60,82 @@ pub const REWARD_DIVISOR: i128 = 10_000_000i128;
 /// the contract itself expires — reject it up front.
 pub const MAX_LOCK_PERIOD: u32 = 6_307_200;
 
+// ---- Contract Events (SDK 27 pattern) ----
+//
+// `#[topic]` fields become event topics, remaining fields become data — the
+// same topic/data shape the deprecated `env.events().publish()` calls emitted
+// (symbol first, then addresses, then a payload).
+
+#[contractevent(topics = ["pool_init"])]
+pub struct PoolInitEvent {
+    #[topic]
+    pub admin: Address,
+    pub reward_rate: i128,
+}
+
+#[contractevent(topics = ["stake"])]
+pub struct StakeEvent {
+    #[topic]
+    pub user: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["unstake"])]
+pub struct UnstakeEvent {
+    #[topic]
+    pub user: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["reward"])]
+pub struct RewardClaimedEvent {
+    #[topic]
+    pub user: Address,
+    pub claimable: i128,
+}
+
+#[contractevent(topics = ["rew_fund"])]
+pub struct RewardsFundedEvent {
+    #[topic]
+    pub admin: Address,
+    pub amount: i128,
+}
+
+#[contractevent(topics = ["rew_rate"])]
+pub struct RewardRateSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub reward_rate: i128,
+}
+
+#[contractevent(topics = ["min_stk"])]
+pub struct MinStakeSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub min_stake: i128,
+}
+
+#[contractevent(topics = ["max_stk"])]
+pub struct MaxStakeSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub max_stake: i128,
+}
+
+#[contractevent(topics = ["lock_per"])]
+pub struct LockPeriodSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub lock_period: u32,
+}
+
+#[contractevent(topics = ["pool_act"])]
+pub struct PoolActiveSetEvent {
+    #[topic]
+    pub admin: Address,
+    pub active: bool,
+}
+
 #[contract]
 pub struct DripPool;
 
@@ -113,11 +189,11 @@ impl DripPool {
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &0i128);
         s::set_persistent(&env, &KEY_REWARD_POOL, &0i128);
         s::bump_instance_ttl(&env, TTL_REFRESH_THRESHOLD);
-        e::publish(
-            &env,
-            (symbol_short!("pool_init"), &admin),
-            config.reward_rate,
-        );
+        PoolInitEvent {
+            admin: admin.clone(),
+            reward_rate: config.reward_rate,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -193,7 +269,11 @@ impl DripPool {
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total_staked = total.checked_add(amount).expect("Total staked overflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total_staked);
-        e::publish(&env, (e::EVENT_STAKE, &user), amount);
+        StakeEvent {
+            user: user.clone(),
+            amount,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -271,7 +351,11 @@ impl DripPool {
             .try_transfer(&pool_address, &user, &amount)
             .map_err(transfer_failed)?
             .map_err(transfer_failed)?;
-        e::publish(&env, (e::EVENT_UNSTAKE, &user), amount);
+        UnstakeEvent {
+            user: user.clone(),
+            amount,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -336,7 +420,11 @@ impl DripPool {
         existing_stake.start_ledger = env.ledger().sequence();
         s::set_and_extend(&env, &stake_key, &existing_stake, TTL_REFRESH_THRESHOLD);
 
-        e::publish(&env, (e::EVENT_REWARD, &user), claimable);
+        RewardClaimedEvent {
+            user: user.clone(),
+            claimable,
+        }
+        .publish(&env);
         Ok(claimable)
     }
 
@@ -416,7 +504,11 @@ impl DripPool {
             .checked_add(amount)
             .expect("Reward pool overflow");
         s::set_persistent(&env, &KEY_REWARD_POOL, &reward_pool);
-        e::publish(&env, (symbol_short!("rew_fund"), &admin), amount);
+        RewardsFundedEvent {
+            admin: admin.clone(),
+            amount,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -441,7 +533,11 @@ impl DripPool {
         );
         config.reward_rate = reward_rate;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
-        e::publish(&env, (symbol_short!("rew_rate"), &admin), reward_rate);
+        RewardRateSetEvent {
+            admin: admin.clone(),
+            reward_rate,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -471,7 +567,11 @@ impl DripPool {
         }
         config.min_stake = min_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
-        e::publish(&env, (symbol_short!("min_stk"), &admin), min_stake);
+        MinStakeSetEvent {
+            admin: admin.clone(),
+            min_stake,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -503,7 +603,11 @@ impl DripPool {
         }
         config.max_stake = max_stake;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
-        e::publish(&env, (symbol_short!("max_stk"), &admin), max_stake);
+        MaxStakeSetEvent {
+            admin: admin.clone(),
+            max_stake,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -530,7 +634,11 @@ impl DripPool {
         );
         config.lock_period = lock_period;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
-        e::publish(&env, (symbol_short!("lock_per"), &admin), lock_period);
+        LockPeriodSetEvent {
+            admin: admin.clone(),
+            lock_period,
+        }
+        .publish(&env);
         Ok(())
     }
 
@@ -552,7 +660,11 @@ impl DripPool {
         );
         config.active = active;
         s::set_persistent(&env, &KEY_POOL_CONFIG, &config);
-        e::publish(&env, (symbol_short!("pool_act"), &admin), active);
+        PoolActiveSetEvent {
+            admin: admin.clone(),
+            active,
+        }
+        .publish(&env);
         Ok(())
     }
 
