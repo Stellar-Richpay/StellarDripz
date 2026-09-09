@@ -43,8 +43,11 @@ interface RateLimitEntry {
 const ipMap = new Map<string, RateLimitEntry>();
 const addressMap = new Map<string, RateLimitEntry>();
 
-// Periodic cleanup every 5 minutes
-setInterval(
+// Periodic cleanup every 5 minutes. unref() so the timer never keeps a
+// serverless process (or a Jest run) alive on its own — cleanup is a
+// best-effort housekeeping task, not a reason for the runtime to stay up.
+// jsdom's setInterval returns a number, so guard before calling unref.
+const cleanupTimer = setInterval(
   () => {
     const now = Date.now();
     for (const [key, entry] of ipMap) {
@@ -56,6 +59,9 @@ setInterval(
   },
   5 * 60 * 1000,
 );
+if (typeof cleanupTimer !== "number") {
+  cleanupTimer.unref();
+}
 
 interface RateLimitConfig {
   windowMs: number;
