@@ -145,8 +145,13 @@ function getDb(): Database {
         const raw = fs.readFileSync(dbPath, "utf-8");
         _db = JSON.parse(raw) as Database;
       }
-    } catch {
-      /* fall through to empty */
+    } catch (err) {
+      // A corrupt/unreadable fallback file should not crash the app, but it
+      // must not be silent either — a fresh empty DB would otherwise quietly
+      // replace all recorded history and analytics.
+      logger.warn("JSON fallback database read failed — starting empty", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -172,8 +177,13 @@ function persistDb(): void {
       const dir = path.dirname(dbPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(dbPath, JSON.stringify(_db ?? getEmptyDb(), null, 2));
-    } catch {
-      /* disk full or permission error */
+    } catch (err) {
+      // Disk-full / permission failures were previously swallowed entirely,
+      // so operators had no signal that history and analytics were evaporating
+      // on every write. Log once per failed flush.
+      logger.warn("JSON fallback persistence failed — recent transactions may be lost", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }, 0);
 }
