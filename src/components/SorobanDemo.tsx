@@ -126,7 +126,11 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
 
   // ---- Proxied write: set greeting ---- //
   const handleSetGreeting = useCallback(async () => {
-    if (!state.wallet.publicKey || !newGreeting.trim() || isNetworkMismatch) return;
+    // `loading` is in the guard (not just the deps): the Set button is
+    // disabled while a call is in flight, but the Enter key path bypasses
+    // disabled buttons — without the guard, pressing Enter mid-flight fires a
+    // second write the user didn't intend.
+    if (loading || !state.wallet.publicKey || !newGreeting.trim() || isNetworkMismatch) return;
     setLoading(true);
     try {
       const address = state.wallet.publicKey;
@@ -151,7 +155,7 @@ export default function SorobanDemo({ contractId }: SorobanDemoProps) {
     } finally {
       setLoading(false);
     }
-  }, [state.wallet.publicKey, contractId, newGreeting, isNetworkMismatch]);
+  }, [state.wallet.publicKey, contractId, newGreeting, isNetworkMismatch, loading]);
 
   return (
     <div className="space-y-4 rounded-2xl border border-stellar-purple/20 bg-surface-800/60 p-5 backdrop-blur-md">
