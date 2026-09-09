@@ -197,22 +197,33 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {events.slice(0, 50).map((e, i) => (
-                <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
-                  <td className="py-2 px-3">
-                    <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px]">
-                      {e.eventType.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 font-mono text-white/60">{e.address.slice(0, 12)}...</td>
-                  <td className="py-2 px-3 text-white/40">
-                    {new Date(e.timestamp).toLocaleString()}
-                  </td>
-                  <td className="py-2 px-3 text-white/30 font-mono">
-                    {e.data ? JSON.stringify(e.data).slice(0, 40) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {events.slice(0, 50).map((e) => {
+                // Keyed on the event's own fields, not the array index: rows
+                // keep their identity across refreshes, so React never
+                // recycles a <tr> onto a different event (which can cause
+                // flicker or stale cell state when the list reorders).
+                const rowKey = `${e.eventType}-${e.address}-${e.timestamp}-${
+                  e.data ? JSON.stringify(e.data).slice(0, 40) : ""
+                }`;
+                return (
+                  <tr key={rowKey} className="border-b border-white/5 hover:bg-white/[0.02]">
+                    <td className="py-2 px-3">
+                      <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px]">
+                        {e.eventType.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-mono text-white/60">
+                      {e.address.slice(0, 12)}...
+                    </td>
+                    <td className="py-2 px-3 text-white/40">
+                      {new Date(e.timestamp).toLocaleString()}
+                    </td>
+                    <td className="py-2 px-3 text-white/30 font-mono">
+                      {e.data ? JSON.stringify(e.data).slice(0, 40) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
