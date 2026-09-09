@@ -1,3 +1,4 @@
+use crate::common::constants::TTL_REFRESH_THRESHOLD;
 use soroban_sdk::{symbol_short, Env, IntoVal, Symbol};
 
 // ---- Storage Keys ----
@@ -11,7 +12,14 @@ pub const KEY_BALANCE: Symbol = symbol_short!("BALANCE");
 
 // ---- Storage Helpers ----
 
-/// Get or default for persistent storage
+/// Get or default for persistent storage.
+///
+/// Extends the entry's TTL on every successful read. Admin and config keys
+/// (ADMIN, POOL_CFG, TOK_ID, …) are written once at initialization with the
+/// network's default write TTL (~4096 ledgers) and are almost never rewritten,
+/// so without extend-on-read they would silently expire while the contract is
+/// quiet — bricking admin checks, metadata reads, and pool/governance config
+/// for good. Reads keep them alive for as long as anyone is using the contract.
 pub fn get_persistent<
     T: soroban_sdk::IntoVal<Env, soroban_sdk::Val> + soroban_sdk::TryFromVal<Env, soroban_sdk::Val>,
 >(
@@ -19,7 +27,13 @@ pub fn get_persistent<
     key: &Symbol,
     default: T,
 ) -> T {
-    env.storage().persistent().get(key).unwrap_or(default)
+    match env.storage().persistent().get(key) {
+        Some(value) => {
+            bump_persistent_ttl(env, key, TTL_REFRESH_THRESHOLD);
+            value
+        }
+        None => default,
+    }
 }
 
 /// Set persistent storage

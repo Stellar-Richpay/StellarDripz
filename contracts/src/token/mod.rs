@@ -872,6 +872,43 @@ mod token_test {
         assert!(ttl_after_write > 4096);
     }
 
+    /// Admin/config entries written once at init carry the network default
+    /// TTL (~4096 ledgers) and are almost never rewritten — a quiet contract
+    /// would otherwise lose its ADMIN/NAME/SYMBOL entries and brick every
+    /// admin-gated function. A read must extend the entry's TTL so the
+    /// contract stays usable for as long as anyone interacts with it.
+    #[test]
+    fn test_config_reads_extend_ttl() {
+        use soroban_sdk::testutils::storage::Persistent as _;
+
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register(DripToken, ());
+        let client = DripTokenClient::new(&env, &contract_id);
+        client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+
+        // Freshly written with the default TTL — far below the refresh
+        // threshold the storage helper extends toward.
+        let ttl_before =
+            env.as_contract(&contract_id, || env.storage().persistent().get_ttl(&s::KEY_ADMIN));
+        assert!(ttl_before < TTL_REFRESH_THRESHOLD);
+
+        // The admin getter reads the entry through the shared helper, which
+        // must extend it toward the ledger max.
+        client.admin();
+        let ttl_after =
+            env.as_contract(&contract_id, || env.storage().persistent().get_ttl(&s::KEY_ADMIN));
+        assert!(ttl_after > ttl_before);
+        assert!(ttl_after > TTL_REFRESH_THRESHOLD);
+    }
+
     /// Revoking an allowance (approve 0) removes the stored entry instead of
     /// keeping a zero-value record alive, and re-approving afterwards works.
     #[test]
