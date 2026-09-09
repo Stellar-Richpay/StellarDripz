@@ -6,9 +6,9 @@
 // — they are maintained in src/token/mod.rs, src/pool/mod.rs, etc.
 
 mod counter_test {
-    use crate::counter::{StellarDripzCounter, StellarDripzCounterClient};
-    use soroban_sdk::testutils::Address as _;
-    use soroban_sdk::{Address, Env, String};
+    use crate::counter::{IncrementEvent, StellarDripzCounter, StellarDripzCounterClient};
+    use soroban_sdk::testutils::{Address as _, Events as _};
+    use soroban_sdk::{Address, Env, Event, String};
 
     #[test]
     fn test_counter_increment() {
@@ -24,6 +24,40 @@ mod counter_test {
         assert_eq!(client.get_global(), 1);
         assert_eq!(client.increment(&user), 2);
         assert_eq!(client.get_global(), 2);
+    }
+
+    #[test]
+    fn test_increment_emits_typed_event() {
+        let env = Env::default();
+        let user = Address::generate(&env);
+        env.mock_all_auths();
+
+        let contract_id = env.register(StellarDripzCounter, ());
+        let client = StellarDripzCounterClient::new(&env, &contract_id);
+
+        // The typed IncrementEvent must be emitted with the exact user and
+        // post-increment counts. This pins the #[contractevent] encoding
+        // (topic/data split and field order) so a regression in the typed
+        // event path is caught here rather than silently changing what
+        // off-chain indexers see. (In the test host, the event buffer holds
+        // the events of the most recent invocation, so assert per call.)
+        client.increment(&user);
+        let expected1 = IncrementEvent {
+            user: user.clone(),
+            global_count: 1,
+            user_count: 1,
+        }
+        .to_xdr(&env, &contract_id);
+        assert_eq!(env.events().all().events(), &[expected1]);
+
+        client.increment(&user);
+        let expected2 = IncrementEvent {
+            user: user.clone(),
+            global_count: 2,
+            user_count: 2,
+        }
+        .to_xdr(&env, &contract_id);
+        assert_eq!(env.events().all().events(), &[expected2]);
     }
 
     #[test]
