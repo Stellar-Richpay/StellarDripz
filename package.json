@@ -41,6 +41,11 @@
     "contracts:fmt:check": "cd contracts && cargo fmt --check",
     "contracts:deploy": "npx ts-node --transpile-only scripts/deploy-contract.ts",
     "db:migrate": "npx ts-node --transpile-only scripts/migrate-db.ts",
+    "video:capture": "node video/scripts/capture.mjs",
+    "video:build": "node video/scripts/build-show.mjs",
+    "video:render": "node video/scripts/render.mjs",
+    "video:stills": "node video/scripts/render-still.mjs",
+    "video": "npm run video:build && npm run video:render",
     "clean": "rm -rf .next contracts/target"
   },
   "dependencies": {

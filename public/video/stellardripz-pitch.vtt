@@ -1,0 +1,37 @@
+WEBVTT
+
+1
+00:00:00.400 --> 00:00:13.600
+Every developer building on Stellar hits the same wall. Funding a testnet account, juggling five wallets, deploying contracts, and no visibility into what those contracts are actually doing.
+
+2
+00:00:14.300 --> 00:00:27.420
+Meet StellarDripz: a production grade Stellar dApp that collapses all of that into one platform. Live today on Vercel, with five Soroban smart contracts already deployed to testnet.
+
+3
+00:00:28.120 --> 00:00:45.480
+Connect any supported wallet. Freighter, xBull, Albedo, LOBSTR or WalletConnect. One click of the faucet sends ten thousand testnet XLM through Friendbot, with per address rate limiting and a cooldown so the endpoint can't be drained.
+
+4
+00:00:46.180 --> 00:00:59.340
+From there, send payments to any Stellar address. The app builds the transaction server side, signs it in your wallet, submits it, and streams the result into your history with a direct link to the block explorer.
+
+5
+00:01:00.040 --> 00:01:18.080
+This is where StellarDripz goes beyond a faucet. A guided contract wizard walks you through real Soroban flows. Mint DripToken, stake in DripPool, vote on governance, claim achievement badges. Every write is signed and submitted, and events stream back live.
+
+6
+00:01:18.780 --> 00:01:35.820
+Under the hood, it's a hybrid architecture. Reads, balances, simulation and events, go straight from the browser to Horizon and Soroban RPC. Writes are proxied through Next.js API routes, where they're rate limited, validated and logged.
+
+7
+00:01:36.520 --> 00:01:51.760
+Quality is enforced end to end. One hundred and nine Rust contract tests covering reward accounting and lock periods, three hundred and four frontend tests, strict TypeScript and end to end checks, all wired into continuous integration.
+
+8
+00:01:52.460 --> 00:02:02.820
+And it's all live right now on Vercel, with a health endpoint that verifies Horizon, Soroban RPC and every contract ID before you ship.
+
+9
+00:02:03.520 --> 00:02:14.080
+StellarDripz. Everything you need to build, test and demo on Stellar, in one place. Open source, MIT licensed, and ready to deploy.

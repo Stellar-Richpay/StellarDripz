@@ -12,11 +12,23 @@ A full-featured Stellar testnet faucet and smart contract platform built with Ne
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Soroban](https://img.shields.io/badge/Soroban-27-blue)](https://soroban.stellar.org)
+[![Demo video](https://img.shields.io/badge/▶_Demo-2--minute_product_pitch-8B5CF6?style=flat-square)](./public/video/stellardripz-pitch.mp4)
+
+[![Watch the StellarDripz product pitch](./public/video/stellardripz-pitch-preview.gif)](./public/video/stellardripz-pitch.mp4)
+
+**▶️ [Watch / download the 2-minute product pitch (MP4 · 1080p · 30fps)](./public/video/stellardripz-pitch.mp4)**
+· [720p (8 MB)](./public/video/stellardripz-pitch-720p.mp4) · [Transcript](./video/transcript.md)
+· [Captions (VTT)](./public/video/stellardripz-pitch.vtt)
+
+Everything in the video is the real app on Stellar testnet — live faucet funding, a signed
+payment, and Soroban contract calls, captured from the running UI and the deployed
+[stellardripz.vercel.app](https://stellardripz.vercel.app).
 
 ---
 
 ## 📋 Table of Contents
 
+- [Demo video](#-demo-video)
 - [Features](#-features)
 - [Architecture](#-architecture)
 - [Smart Contracts](#-smart-contracts)
@@ -28,7 +40,7 @@ A full-featured Stellar testnet faucet and smart contract platform built with Ne
 - [API Reference](#-api-reference)
 - [Environment Variables](#-environment-variables)
 - [Project Structure](#-project-structure)
-- [Demo](#-demo)
+- [Screenshots](#-screenshots)
 
 ---
 
@@ -227,7 +239,7 @@ The contracts exercise typed errors, quorum voting, reward accounting,
 allowance-expiry boundaries, lock-period enforcement, TTL maintenance,
 pool parameter guards, badge metadata bounds and pagination,
 cross-contract failure propagation, and property-style fuzz invariants
-(92 tests).
+(109 tests).
 
 ### Frontend Tests
 
@@ -237,7 +249,7 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (38 suites, 276 tests, all passing ✅):
+Test suites (41 suites, 304 tests, all passing ✅):
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `useContractEvents`, `walletService`
 - API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
 - Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `sorobanSubmit`, `horizonService`
@@ -298,7 +310,8 @@ SUPABASE_SERVICE_ROLE_KEY             # if using Supabase
 [![Live](https://img.shields.io/badge/Live-stellardripz.vercel.app-000?style=flat-square&logo=vercel&logoColor=white&labelColor=000)](https://stellardripz.vercel.app)
 
 **🔗 Live Demo:** [https://stellardripz.vercel.app](https://stellardripz.vercel.app)  
-**🎥 Demo:** See [demo/README.md](./demo/README.md) for the walkthrough script. A recorded demo video is planned for the next release.
+**🎥 Demo video:** [stellar-dripz product pitch (MP4)](./public/video/stellardripz-pitch.mp4) — see [Demo video](#-demo-video).  
+**📝 Walkthrough script:** [demo/README.md](./demo/README.md).
 
 ### Security Headers
 
@@ -472,60 +485,78 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 
 ---
 
-## 🎥 Demo Video Script (2-3 minutes)
+## 🎥 Demo Video
 
-1. **Introduction (0:00-0:20)**
-   - Show project README and architecture diagram
-   - Explain StellarDripz purpose
+The product pitch — **2 minutes 19 seconds**, 1080p/30fps with voice-over, captions and a
+full transcript. Download it, or watch it straight from this repository:
 
-2. **Wallet Connection & Faucet (0:20-0:50)**
-   - Connect Freighter wallet
-   - Click faucet to receive 10,000 testnet XLM
-   - Show balance update
+| | |
+|---|---|
+| **Video (MP4, 1080p, 26 MB)** | [public/video/stellardripz-pitch.mp4](./public/video/stellardripz-pitch.mp4) |
+| **Video (MP4, 720p, 8 MB)** | [public/video/stellardripz-pitch-720p.mp4](./public/video/stellardripz-pitch-720p.mp4) |
+| **Animated preview (GIF, 1.7 MB)** | [public/video/stellardripz-pitch-preview.gif](./public/video/stellardripz-pitch-preview.gif) |
+| **Poster / thumbnail** | [public/video/stellardripz-pitch-poster.jpg](./public/video/stellardripz-pitch-poster.jpg) |
+| **Captions (WebVTT)** | [public/video/stellardripz-pitch.vtt](./public/video/stellardripz-pitch.vtt) |
+| **Narration transcript** | [video/transcript.md](./video/transcript.md) |
 
-3. **Send Payment (0:50-1:15)**
-   - Send XLM to another address
-   - Show transaction confirmation
-   - Transaction history update
+The MP4s carry **chapter markers** for the nine beats below, so QuickTime, VLC and
+YouTube pick up the sections without re-timing anything by hand.
 
-4. **Smart Contract Demo (1:15-2:00)**
-   - Paste deployed contract ID
-   - Read counter value
-   - Increment counter (wallet signing)
-   - Set greeting message
-   - Show real-time event stream
+[![StellarDripz product pitch — open the MP4](./public/video/stellardripz-pitch-preview.gif)](./public/video/stellardripz-pitch.mp4)
 
-5. **Advanced Contracts (2:00-2:30)**
-   - Show DripToken mint/transfer
-   - Show DripPool staking
-   - Show governance voting
-   - Show badge claims
+### Chapters
 
-6. **CI/CD & Testing (2:30-3:00)**
-   - Show GitHub Actions pipeline running
-   - Show test output (92 contract + 276 frontend tests passing)
-   - Show Vercel deployment
-   - Admin dashboard analytics
+| Time | Chapter | What you are seeing |
+|------|---------|--------------------|
+| 0:00 | The Problem | Shipping on Stellar starts with a maze of faucets, wallets and manual contract deploys |
+| 0:13 | The Solution | StellarDripz — one platform, five Soroban contracts already live on testnet |
+| 0:27 | Multi-Wallet Faucet | Freighter, xBull, Albedo, LOBSTR and WalletConnect; one click funds 10,000 testnet XLM with a real rate-limited Friendbot call |
+| 0:45 | Payments + History | A signed XLM payment: built server-side, signed in the wallet, submitted, then streamed into history with an explorer link |
+| 0:59 | Soroban Smart Contracts | The guided contract wizard (mint, transfer, stake, vote) and a direct Soroban RPC read of the deployed counter |
+| 1:18 | Hybrid Architecture | Direct reads to Horizon/Soroban RPC, writes proxied through the Next.js API layer |
+| 1:36 | Built To Last | Real `cargo test` and `jest` output, strict TypeScript, and the CI pipeline that gates every push |
+| 1:52 | Live On Vercel | The production deployment and the `/api/health` check that verifies Horizon, Soroban RPC and all five contract IDs |
+| 2:03 | Get Started | Open source, MIT licensed, ready to deploy |
+
+Every screenshot in the video comes from an automated capture run against the real app
+(`video/scripts/capture.mjs`), and the video itself is rebuilt from those captures by
+`video/scripts/build-show.mjs` + `video/scripts/render.mjs`, so it can be regenerated after
+any UI change:
+
+```bash
+npm run dev -- -p 3210        # app on testnet, in another shell
+npm run video:capture         # real stills, clips and terminal artifacts
+npm run video:build           # captures → timeline (video/.work/show.json)
+npm run video:render          # frames + voice-over + chapters + variants → public/video/*
+npm run video:stills          # regenerate the README screenshots from real artifacts
+```
+
+`npm run video:render -- --variants-only` rebuilds just the 720p copy and the GIF
+preview from an already-rendered MP4.
 
 ---
 
 ## 📊 Screenshots
 
 ### CI/CD Pipeline Running
-![CI/CD Pipeline](./screenshots/cicd-pipeline.png)
+![CI/CD Pipeline](./screenshots/ci-cd-pipeline.png)
 *GitHub Actions workflow — contract tests, frontend tests, lint, build, and Vercel deploy all passing.*
 
 ### Test Output — All Tests Passing
 ![Test Output](./screenshots/test-output.png)
-*38 test suites, 276 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
+*41 test suites, 304 tests passing with zero failures. TypeScript strict mode compiles cleanly.*
 
 ### Mobile Responsive UI
 ![Mobile UI](./screenshots/mobile-responsive.png)
 *Fully responsive layout from 320px to 4K — stacked cards on mobile, two-column on tablet, max-width 5XL on desktop.*
 
-### Contract Deployment
-![Contract Deployment](./screenshots/contract-deployment.png)
-*Five smart contracts deployed to Stellar Testnet: Counter, DripToken, DripPool, DripGovernance, DripBadge.*
+### Live Deployment (Vercel)
+![Live deployment](./screenshots/live-deployment.png)
+*The production app served from [stellardripz.vercel.app](https://stellardripz.vercel.app) — same UI, same contracts, no local setup.*
+
+### Admin Dashboard
+![Admin dashboard](./screenshots/admin-dashboard.png)
+*`/admin` analytics: real usage counts and transaction monitoring, fed by the same API layer that serves the app.*
 
 ### Multi-Wallet Connect
 ![Wallet Connect](./screenshots/wallet-connect.png)
@@ -607,15 +638,15 @@ Subscribes to real-time Soroban contract events via SSE with automatic polling f
 
 ## 📊 Test Coverage
 
-| Category | Suites | Tests |
-|----------|--------|-------|
-| Services | 7 | 40+ |
-| Hooks | 5 | 30+ |
-| API Routes | 11 | 70+ |
-| Validation & other | 8 | 75+ |
-| **Total** | **31** | **217** |
+| Suite | Suites | Tests |
+|-------|--------|-------|
+| Frontend (`npm test` — jest: hooks, API routes, services, validation) | 41 | 304 |
+| Contracts (`npm run contracts:test` — cargo) | — | 109 |
+| **Total** | **41** | **413** |
 
-All 217 tests pass with zero failures. TypeScript strict mode compiles cleanly.
+All 413 tests pass with zero failures, and `tsc --noEmit` compiles cleanly under
+strict mode. The same summary is what the pitch video shows on screen — see
+[Demo video](#-demo-video).
 
 ### Running Tests
 

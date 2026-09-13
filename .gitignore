@@ -58,3 +58,9 @@ playwright-report/
 coverage/
 
 # Rust WASM build artifacts (contract compilation)
+
+# Video pipeline scratch space. Holds rendered frame dumps, intermediate
+# encodes, and the throwaway testnet keypair the capture harness signs with —
+# none of it may be committed (the keypair is still a private key).
+/video/.work/
+

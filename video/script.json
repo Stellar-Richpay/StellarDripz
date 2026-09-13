@@ -1,0 +1,71 @@
+{
+  "title": "StellarDripz — Product Pitch",
+  "voice": "Charon",
+  "model": "gemini-3.1-flash-tts-preview",
+  "notes": "Narration is generated per scene so each shot can be timed to its own audio. `target` is the intended on-screen duration in seconds; the builder uses the real audio length.",
+  "scenes": [
+    {
+      "id": "01-problem",
+      "chapter": "The Problem",
+      "target": 13,
+      "narration": "Every developer building on Stellar hits the same wall. Funding a testnet account, juggling five wallets, deploying contracts, and no visibility into what those contracts are actually doing.",
+      "visual": "Cold open on the live app. Slow push-in on the hero, then a dimmed treatment with the three pain points called out as chips."
+    },
+    {
+      "id": "02-solution",
+      "chapter": "The Solution",
+      "target": 12,
+      "narration": "Meet StellarDripz: a production grade Stellar dApp that collapses all of that into one platform. Live today on Vercel, with five Soroban smart contracts already deployed to testnet.",
+      "visual": "Logo/wordmark reveal over the hero. Contract IDs and the five contract names animate in as a strip."
+    },
+    {
+      "id": "03-faucet-wallets",
+      "chapter": "Multi-Wallet Faucet",
+      "target": 16,
+      "narration": "Connect any supported wallet. Freighter, xBull, Albedo, LOBSTR or WalletConnect. One click of the faucet sends ten thousand testnet XLM through Friendbot, with per address rate limiting and a cooldown so the endpoint can't be drained.",
+      "visual": "Real recording: wallet picker opens, Freighter connects, address appears, faucet click, balance ticks up, cooldown timer starts."
+    },
+    {
+      "id": "04-payments",
+      "chapter": "Payments + History",
+      "target": 14,
+      "narration": "From there, send payments to any Stellar address. The app builds the transaction server side, signs it in your wallet, submits it, and streams the result into your history with a direct link to the block explorer.",
+      "visual": "Real recording: fill the send form, submit, success toast, transaction history row appears with an explorer link."
+    },
+    {
+      "id": "05-contracts",
+      "chapter": "Soroban Smart Contracts",
+      "target": 18,
+      "narration": "This is where StellarDripz goes beyond a faucet. A guided contract wizard walks you through real Soroban flows. Mint DripToken, stake in DripPool, vote on governance, claim achievement badges. Every write is signed and submitted, and events stream back live.",
+      "visual": "Contract wizard tabs stepped through (mint, transfer, stake, vote), Soroban demo counter increment, live event stream filling."
+    },
+    {
+      "id": "06-architecture",
+      "chapter": "Hybrid Architecture",
+      "target": 15,
+      "narration": "Under the hood, it's a hybrid architecture. Reads, balances, simulation and events, go straight from the browser to Horizon and Soroban RPC. Writes are proxied through Next.js API routes, where they're rate limited, validated and logged.",
+      "visual": "Architecture diagram built from the README, then split-screen code: directClient.ts reads vs the API route writes, with highlight sweeps."
+    },
+    {
+      "id": "07-quality",
+      "chapter": "Built To Last",
+      "target": 14,
+      "narration": "Quality is enforced end to end. One hundred and nine Rust contract tests covering reward accounting and lock periods, three hundred and four frontend tests, strict TypeScript and end to end checks, all wired into continuous integration.",
+      "visual": "Real terminal: contracts test summary and jest summary scrolled to the pass counts, then the GitHub Actions workflow YAML with job names."
+    },
+    {
+      "id": "08-live",
+      "chapter": "Live On Vercel",
+      "target": 11,
+      "narration": "And it's all live right now on Vercel, with a health endpoint that verifies Horizon, Soroban RPC and every contract ID before you ship.",
+      "visual": "Real /api/health JSON rendered large with fields highlighted, then the deployed app loading at stellardripz.vercel.app."
+    },
+    {
+      "id": "09-outro",
+      "chapter": "Get Started",
+      "target": 12,
+      "narration": "StellarDripz. Everything you need to build, test and demo on Stellar, in one place. Open source, MIT licensed, and ready to deploy.",
+      "visual": "End card: wordmark, tagline, live URL, repo URL, MIT badge, five contract IDs scrolling."
+    }
+  ]
+}
