@@ -9,6 +9,9 @@ import TransactionHistory from "@/components/TransactionHistory";
 import NetworkWarning from "@/components/NetworkWarning";
 import SorobanDemo from "@/components/SorobanDemo";
 import ContractWizard from "@/components/ContractWizard";
+import StakingLeaderboard from "@/components/StakingLeaderboard";
+import RewardSummary from "@/components/RewardSummary";
+import BadgeGallery from "@/components/BadgeGallery";
 import CooldownTimer from "@/components/CooldownTimer";
 import TransactionFeedback from "@/components/TransactionFeedback";
 import { useAppContext } from "@/context/AppContext";
@@ -16,6 +19,13 @@ import { getContractIdError } from "@/lib/stellar/contractId";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
 
 const isMainnet = STELLAR_NETWORK.network === "MAINNET";
+
+const REPO_URL = "https://github.com/Stellar-Richpay/StellarDripz";
+/**
+ * The product pitch ships inside the repo (`public/video/`), so the app can
+ * serve it from its own origin instead of sending visitors to a video host.
+ */
+const PITCH_URL = "/video/stellardripz-pitch.mp4";
 
 export default function Home() {
   const { state, checkCooldown } = useAppContext();
@@ -64,6 +74,28 @@ export default function Home() {
             ? "Multi-wallet gateway with smart contract support. Direct balances, payments, and real-time Soroban events on mainnet."
             : "Multi-wallet faucet with smart contract support. Rate-limited funding, batch API, and real-time Soroban events."}
         </p>
+
+        {/* The pitch and the source, kept together in the hero: a reviewer
+            landing on the live app can watch how it works or read the code
+            without hunting for either. */}
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href={PITCH_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-stellar-purple/30 bg-stellar-purple/10 px-4 py-2 text-xs font-semibold text-stellar-purple transition-colors hover:bg-stellar-purple/20"
+          >
+            ▶ Watch the 2-minute pitch
+          </a>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            ★ GitHub
+          </a>
+        </div>
       </div>
 
       <NetworkWarning />
@@ -166,6 +198,20 @@ export default function Home() {
             )}
 
             {activeContractId && <SorobanDemo contractId={activeContractId} />}
+          </div>
+
+          {/* Staking & Badges — on-chain reads: leaderboard, rewards, gallery */}
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/5" />
+              <span className="text-xs font-medium text-white/30 uppercase tracking-wider">
+                Staking & Badges
+              </span>
+              <div className="h-px flex-1 bg-white/5" />
+            </div>
+            <StakingLeaderboard />
+            <RewardSummary />
+            <BadgeGallery />
           </div>
         </>
       )}

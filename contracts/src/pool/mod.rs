@@ -3,7 +3,7 @@ use crate::common::storage as s;
 use crate::token;
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, Address, Env,
-    String, Symbol,
+    String, Symbol, Vec,
 };
 
 // ---- Contract Errors ----
@@ -50,6 +50,14 @@ const KEY_POOL_CONFIG: Symbol = symbol_short!("POOL_CFG");
 const KEY_TOTAL_STAKED: Symbol = symbol_short!("TOT_STKD");
 const KEY_REWARD_POOL: Symbol = symbol_short!("REW_POOL");
 const KEY_TOKEN_ID: Symbol = symbol_short!("TOK_ID");
+/// Top-stakers leaderboard: a bounded, amount-descending Vec<(Address, i128)>
+/// refreshed on every stake/unstake. Kept small so each write is cheap.
+const KEY_LEADERBOARD: Symbol = symbol_short!("LEADERBD");
+
+/// Maximum entries kept in the on-chain leaderboard. Bound the writes: every
+/// stake/unstake rewrites the board, so an unbounded list would make each
+/// interaction O(n) storage and grow rent forever.
+pub const LEADERBOARD_MAX: u32 = 50;
 
 /// Default max stake (10 trillion with 7 decimals = 1,000,000 tokens)
 pub const DEFAULT_MAX_STAKE: i128 = 10_000_000_000_000i128;
@@ -269,6 +277,7 @@ impl DripPool {
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total_staked = total.checked_add(amount).expect("Total staked overflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total_staked);
+        Self::update_leaderboard(&env, &user, new_total);
         StakeEvent {
             user: user.clone(),
             amount,
@@ -337,6 +346,7 @@ impl DripPool {
         let total: i128 = s::get_persistent(&env, &KEY_TOTAL_STAKED, 0i128);
         let new_total = total.checked_sub(amount).expect("Total staked underflow");
         s::set_persistent(&env, &KEY_TOTAL_STAKED, &new_total);
+        Self::update_leaderboard(&env, &user, existing_stake.amount);
         let token_id: Address = s::get_persistent(
             &env,
             &KEY_TOKEN_ID,
@@ -722,6 +732,70 @@ impl DripPool {
     /// show pool health before users stake.
     pub fn get_reward_pool(env: Env) -> i128 {
         s::get_persistent(&env, &KEY_REWARD_POOL, 0i128)
+    }
+
+    /// Top stakers by staked amount, most staked first. `start` skips that
+    /// many entries, `limit` caps the returned list. An empty board (or an
+    /// out-of-range start) returns an empty Vec.
+    pub fn list_top_stakers(env: Env, start: u32, limit: u32) -> Vec<(Address, i128)> {
+        let board: Vec<(Address, i128)> = env
+            .storage()
+            .persistent()
+            .get(&KEY_LEADERBOARD)
+            .unwrap_or(Vec::new(&env));
+        let mut out = Vec::new(&env);
+        if limit == 0 {
+            return out;
+        }
+        let mut taken = 0u32;
+        for (idx, item) in board.iter().enumerate() {
+            if (idx as u32) >= start && taken < limit {
+                out.push_back(item);
+                taken += 1;
+            }
+        }
+        out
+    }
+
+    // ---- Leaderboard ----
+
+    /// Refresh the top-stakers board after a stake/unstake. Drops the user's
+    /// stale entry, re-inserts at the amount-descending position (ties keep
+    /// insertion order — first to reach an amount ranks first), and truncates
+    /// to LEADERBOARD_MAX. Bounded O(n) rebuild with n ≤ LEADERBOARD_MAX.
+    fn update_leaderboard(env: &Env, user: &Address, amount: i128) {
+        let board: Vec<(Address, i128)> = env
+            .storage()
+            .persistent()
+            .get(&KEY_LEADERBOARD)
+            .unwrap_or(Vec::new(env));
+        let mut next: Vec<(Address, i128)> = Vec::new(env);
+        let mut inserted = false;
+        for (addr, amt) in board.iter() {
+            if addr == *user {
+                // Drop the stale entry; the fresh amount is inserted below.
+                continue;
+            }
+            if !inserted && amount > amt {
+                next.push_back((user.clone(), amount));
+                inserted = true;
+            }
+            next.push_back((addr, amt));
+        }
+        if !inserted && amount > 0 {
+            next.push_back((user.clone(), amount));
+        }
+        if next.len() > LEADERBOARD_MAX {
+            let mut truncated: Vec<(Address, i128)> = Vec::new(env);
+            for (n, item) in next.iter().enumerate() {
+                if (n as u32) >= LEADERBOARD_MAX {
+                    break;
+                }
+                truncated.push_back(item);
+            }
+            next = truncated;
+        }
+        s::set_and_extend(env, &KEY_LEADERBOARD, &next, TTL_REFRESH_THRESHOLD);
     }
 }
 
@@ -1200,5 +1274,95 @@ mod pool_error_test {
         assert_eq!(err, Err(Ok(PoolError::InvalidParameter)));
         let err = client.try_stake(&user, &(-5i128));
         assert_eq!(err, Err(Ok(PoolError::InvalidParameter)));
+    }
+
+    /// The leaderboard ranks by staked amount, refreshes on stake and
+    /// unstake, and drops users who unstake everything.
+    #[test]
+    fn test_leaderboard_ranks_by_stake() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let alice = Address::generate(&env);
+        let bob = Address::generate(&env);
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        token_client.mint(&admin, &alice, &10_000i128);
+        token_client.mint(&admin, &bob, &10_000i128);
+        let contract_id = env.register(DripPool, ());
+        let client = DripPoolClient::new(&env, &contract_id);
+        client.initialize_pool(&admin, &token_id, &100i128, &10i128, &0u32);
+        let exp = env.ledger().sequence() + 9999u32;
+        token_client.approve(&alice, &contract_id, &10_000i128, &exp);
+        token_client.approve(&bob, &contract_id, &10_000i128, &exp);
+
+        // Alice stakes 1000 first, then Bob stakes 5000 — Bob ranks first.
+        client.stake(&alice, &1000i128);
+        client.stake(&bob, &5000i128);
+        let board = client.list_top_stakers(&0u32, &10u32);
+        assert_eq!(board.len(), 2);
+        assert_eq!(board.get(0).unwrap().1, 5000i128);
+        assert_eq!(board.get(1).unwrap().1, 1000i128);
+
+        // Alice tops up past Bob: she moves to rank 1.
+        client.stake(&alice, &8000i128);
+        let board = client.list_top_stakers(&0u32, &10u32);
+        assert_eq!(board.get(0).unwrap().1, 9000i128);
+        assert_eq!(board.get(1).unwrap().1, 5000i128);
+
+        // Unstaking part of a position re-ranks; unstaking everything removes
+        // the user from the board entirely.
+        env.ledger().set_sequence_number(500);
+        client.unstake(&alice, &8500i128);
+        let board = client.list_top_stakers(&0u32, &10u32);
+        assert_eq!(board.len(), 2);
+        assert_eq!(board.get(0).unwrap().1, 5000i128);
+
+        client.unstake(&bob, &5000i128);
+        let board = client.list_top_stakers(&0u32, &10u32);
+        assert_eq!(board.len(), 1);
+        assert_eq!(board.get(0).unwrap().1, 500i128);
+    }
+
+    /// The leaderboard is bounded at LEADERBOARD_MAX entries so every
+    /// stake/unstake write stays cheap.
+    #[test]
+    fn test_leaderboard_is_bounded() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let token_id = env.register(DripToken, ());
+        let token_client = token::DripTokenClient::new(&env, &token_id);
+        token_client.initialize_token(
+            &admin,
+            &String::from_str(&env, "DT"),
+            &String::from_str(&env, "D"),
+            &7u32,
+        );
+        let contract_id = env.register(DripPool, ());
+        let client = DripPoolClient::new(&env, &contract_id);
+        client.initialize_pool(&admin, &token_id, &100i128, &1i128, &0u32);
+
+        let exp = env.ledger().sequence() + 9999u32;
+        for i in 0..60u32 {
+            let user = Address::generate(&env);
+            token_client.mint(&admin, &user, &10_000i128);
+            token_client.approve(&user, &contract_id, &10_000i128, &exp);
+            client.stake(&user, &(1000i128 + i as i128));
+        }
+
+        let board = client.list_top_stakers(&0u32, &100u32);
+        assert_eq!(board.len(), LEADERBOARD_MAX);
+        // The largest stake (1000 + 59) is first.
+        assert_eq!(board.get(0).unwrap().1, 1059i128);
+        // Paging window works.
+        let page = client.list_top_stakers(&2u32, &3u32);
+        assert_eq!(page.len(), 3);
     }
 }

@@ -68,6 +68,12 @@ export interface DirectSimulateResult {
   resultValue?: string;
 }
 
+export interface DirectReadResult {
+  /** The native (converted) return value: strings, numbers, booleans,
+   * arrays, or plain objects for contract structs/vecs. */
+  result: unknown;
+}
+
 // ---- Horizon Reads ---- //
 
 /**
@@ -144,6 +150,49 @@ export async function directSimulateContract(
   }
 
   return { resultValue };
+}
+
+/**
+ * Read any contract function directly from Soroban RPC (no API proxy) and
+ * return the result converted to native JS values via scValToNative — Vecs
+ * become arrays, structs become plain objects, so structured reads (badge
+ * lists, leaderboards) work without the string coercion that
+ * directSimulateContract applies.
+ */
+export async function directReadContract(
+  contractId: string,
+  functionName: string,
+  args: StellarSdk.xdr.ScVal[],
+  signerPublicKey: string,
+): Promise<DirectReadResult> {
+  const sourceAccount = await withTimeout(
+    horizon().loadAccount(signerPublicKey),
+    "Horizon account fetch",
+  );
+  const contract = new StellarSdk.Contract(contractId);
+  const op = contract.call(functionName, ...args);
+
+  const tx = new StellarSdk.TransactionBuilder(sourceAccount, {
+    fee: "100",
+    networkPassphrase: STELLAR_NETWORK.networkPassphrase,
+  })
+    .addOperation(op)
+    .setTimeout(30)
+    .build();
+
+  const simResponse = await withTimeout(
+    soroban().simulateTransaction(tx),
+    "Soroban simulateTransaction",
+  );
+  if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
+    throw new Error(`Contract read failed: ${simResponse.error}`);
+  }
+
+  let result: unknown;
+  if (simResponse.result?.retval) {
+    result = StellarSdk.scValToNative(simResponse.result.retval);
+  }
+  return { result };
 }
 
 /**
