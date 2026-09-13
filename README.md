@@ -4,7 +4,6 @@
 
 A full-featured Stellar testnet faucet and smart contract platform built with Next.js, Soroban, and Stellar SDK. Features multi-wallet support, real-time event streaming, on-chain governance, token staking, and achievement badges.
 
-[![CI/CD Pipeline](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions)
 [![Docker Build](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/docker-build.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/docker-build.yml)
 [![Lint](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/lint-strict.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/lint-strict.yml)
 [![E2E Tests](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/e2e-tests.yml)
@@ -12,6 +11,7 @@ A full-featured Stellar testnet faucet and smart contract platform built with Ne
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Soroban](https://img.shields.io/badge/Soroban-27-blue)](https://soroban.stellar.org)
+[![CI/CD Pipeline](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/Stellar-Richpay/StellarDripz/actions/workflows/ci-cd.yml)
 [![Demo video](https://img.shields.io/badge/▶_Demo-2--minute_product_pitch-8B5CF6?style=flat-square)](./public/video/stellardripz-pitch.mp4)
 
 [![Watch the StellarDripz product pitch](./public/video/stellardripz-pitch-preview.gif)](./public/video/stellardripz-pitch.mp4)
@@ -366,8 +366,24 @@ The pipeline runs on every push and PR to `main`:
 | 🧪 Frontend Tests | Push, PR | `npm test`, `npx tsc --noEmit` |
 | 📋 Lint | Push, PR | `npm run lint` |
 | 🏗️ Build | Push, PR | `npm run build` |
-| 🚀 Deploy Preview | PR | Vercel preview deployment |
-| 🌐 Deploy Production | Push to main | Vercel production |
+| 🔐 Vercel Credentials | Push, PR | Reports whether the deploy secrets are configured, so the deploy jobs can gate on it (a job-level `if` cannot read `secrets`) |
+| 🚀 Deploy Preview | PR, when the secrets exist | Vercel preview deployment |
+| 🌐 Deploy Production | Push to main, when the secrets exist | Vercel production, then the live smoke test |
+| 🔎 Live Deployment | Deploy, nightly, manual | `scripts/smoke-deploy.mjs` against the live URL |
+
+### Post-Deploy Smoke Test
+
+A deployment that reports `READY` can still be wrong for visitors, so
+`npm run smoke:deploy` checks the live URL itself: the landing page still links to
+the pitch video, every file in [`public/video`](./public/video) is served with the
+expected content type and size (compared against the committed bytes), and
+`/api/health` reports all five contracts as configured. It runs automatically after
+a production deploy, nightly as a canary, and on demand:
+
+```bash
+npm run smoke:deploy                                                   # production alias
+SMOKE_BASE_URL=https://preview-xyz.vercel.app npm run smoke:deploy     # any deployment
+```
 
 ### Required Secrets
 
@@ -375,6 +391,7 @@ The pipeline runs on every push and PR to `main`:
 VERCEL_TOKEN        — Vercel API token
 VERCEL_ORG_ID       — Vercel organization ID
 VERCEL_PROJECT_ID   — Vercel project ID
+SUPABASE_SERVICE_ROLE_KEY — if using Supabase
 ```
 
 ### Required Variables
@@ -389,12 +406,6 @@ NEXT_PUBLIC_CONTRACT_DRIP_POOL
 NEXT_PUBLIC_CONTRACT_GOVERNANCE
 NEXT_PUBLIC_CONTRACT_BADGE
 NEXT_PUBLIC_SUPABASE_URL
-```
-
-### Required Secrets
-
-```
-SUPABASE_SERVICE_ROLE_KEY
 ```
 
 ---
