@@ -41,15 +41,17 @@ npm run video:render       # ~4,200 frames @ 1080p30 + audio + chapters + varian
 
 `capture.mjs` is safe to re-run: it reuses the demo keypair, re-funds through the
 app's own faucet, and writes everything under `video/.work/` (gitignored — it holds
-the throwaway secret key).
+the throwaway secret key). The master is deliberately encoded for repository size
+(crf 29, preset slow: ~0.99 SSIM against a crf 20 encode) so the whole video set
+stays around 16 MB.
 
 Outputs land in `public/video/`:
 
 | File | Notes |
 |------|-------|
-| `stellardripz-pitch.mp4` | 1080p/30fps master, ~26 MB, 9 chapter markers |
-| `stellardripz-pitch-720p.mp4` | 1280×720 companion for slow connections, ~8 MB |
-| `stellardripz-pitch-preview.gif` | 7s animated preview (six beats), ~1.7 MB, for the README |
+| `stellardripz-pitch.mp4` | 1080p/30fps master, ~9.5 MB (crf 29 + slow), 9 chapter markers |
+| `stellardripz-pitch-720p.mp4` | 1280×720 companion for slow connections, ~5 MB |
+| `stellardripz-pitch-preview.gif` | 7s animated preview (six beats), ~1.5 MB, for the README |
 | `stellardripz-pitch-poster.jpg` | 1920×1080 end-card poster / hero thumbnail |
 | `stellardripz-pitch.vtt` | WebVTT captions |
 

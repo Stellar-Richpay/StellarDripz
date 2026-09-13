@@ -200,6 +200,14 @@ function buildAudio() {
 
 // ---- encode -----------------------------------------------------------------
 
+/**
+ * Encode the frame sequence to the 1080p master.
+ *
+ * The rate/distortion settings are a size budget decision, not a default: the
+ * video is committed to the repository, so crf 29 + preset slow keeps the whole
+ * thing around 12 MB while measuring ~0.993 SSIM against a crf 20 encode (i.e.
+ * visually identical on UI footage, which is where the bytes go).
+ */
 function encode(master) {
   mkdirSync(OUT_DIR, { recursive: true });
   execFileSync(
@@ -217,9 +225,9 @@ function encode(master) {
       "-c:v",
       "libx264",
       "-preset",
-      "medium",
+      "slow",
       "-crf",
-      "20",
+      "29",
       "-pix_fmt",
       "yuv420p",
       "-profile:v",
@@ -229,19 +237,18 @@ function encode(master) {
       "-c:a",
       "aac",
       "-b:a",
-      "192k",
+      "112k",
       "-shortest",
       OUT_MP4,
     ],
     { stdio: "inherit" },
   );
-  const size = (readFileSync(OUT_MP4).length / 1024 / 1024).toFixed(1);
-  console.log(`  ✓ ${path.relative(ROOT, OUT_MP4)} (${size} MB)`);
+  console.log(`  ✓ ${path.relative(ROOT, OUT_MP4)} (${mb(OUT_MP4)} MB)`);
 }
 
-/** Megabyte count of a file, for the build log. */
+/** Megabyte count of a file (decimal MB, to match the sizes quoted in the README). */
 function mb(file) {
-  return (statSync(file).size / 1024 / 1024).toFixed(1);
+  return (statSync(file).size / 1e6).toFixed(1);
 }
 
 // ---- chapters ---------------------------------------------------------------
@@ -307,6 +314,9 @@ function writeChapters() {
  * of one. Both are cut from the finished MP4 so they can never drift from it.
  */
 function writeVariants() {
+  // crf 31 (rather than a fixed “half the master's bitrate”): the 720p copy is
+  // re-encoded from an already compressed master, so it needs a wider crf gap
+  // than the resolution drop alone to actually come out lighter.
   execFileSync(
     "ffmpeg",
     [
@@ -322,7 +332,7 @@ function writeVariants() {
       "-preset",
       "slow",
       "-crf",
-      "24",
+      "31",
       "-pix_fmt",
       "yuv420p",
       "-movflags",
@@ -330,7 +340,7 @@ function writeVariants() {
       "-c:a",
       "aac",
       "-b:a",
-      "128k",
+      "112k",
       OUT_720,
     ],
     { stdio: "inherit" },

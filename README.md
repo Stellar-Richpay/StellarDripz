@@ -17,7 +17,7 @@ A full-featured Stellar testnet faucet and smart contract platform built with Ne
 [![Watch the StellarDripz product pitch](./public/video/stellardripz-pitch-preview.gif)](./public/video/stellardripz-pitch.mp4)
 
 **▶️ [Watch / download the 2-minute product pitch (MP4 · 1080p · 30fps)](./public/video/stellardripz-pitch.mp4)**
-· [720p (8 MB)](./public/video/stellardripz-pitch-720p.mp4) · [Transcript](./video/transcript.md)
+· [720p (5 MB)](./public/video/stellardripz-pitch-720p.mp4) · [Transcript](./video/transcript.md)
 · [Captions (VTT)](./public/video/stellardripz-pitch.vtt)
 
 Everything in the video is the real app on Stellar testnet — live faucet funding, a signed
@@ -492,9 +492,9 @@ full transcript. Download it, or watch it straight from this repository:
 
 | | |
 |---|---|
-| **Video (MP4, 1080p, 26 MB)** | [public/video/stellardripz-pitch.mp4](./public/video/stellardripz-pitch.mp4) |
-| **Video (MP4, 720p, 8 MB)** | [public/video/stellardripz-pitch-720p.mp4](./public/video/stellardripz-pitch-720p.mp4) |
-| **Animated preview (GIF, 1.7 MB)** | [public/video/stellardripz-pitch-preview.gif](./public/video/stellardripz-pitch-preview.gif) |
+| **Video (MP4, 1080p, 9.5 MB)** | [public/video/stellardripz-pitch.mp4](./public/video/stellardripz-pitch.mp4) |
+| **Video (MP4, 720p, 5 MB)** | [public/video/stellardripz-pitch-720p.mp4](./public/video/stellardripz-pitch-720p.mp4) |
+| **Animated preview (GIF, 1.5 MB)** | [public/video/stellardripz-pitch-preview.gif](./public/video/stellardripz-pitch-preview.gif) |
 | **Poster / thumbnail** | [public/video/stellardripz-pitch-poster.jpg](./public/video/stellardripz-pitch-poster.jpg) |
 | **Captions (WebVTT)** | [public/video/stellardripz-pitch.vtt](./public/video/stellardripz-pitch.vtt) |
 | **Narration transcript** | [video/transcript.md](./video/transcript.md) |
