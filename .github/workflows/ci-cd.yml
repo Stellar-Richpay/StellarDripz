@@ -145,12 +145,38 @@ jobs:
             exit 1
           fi
 
+  # ─── Deploy Gate (Vercel credentials) ────────────────────────────
+  # The `secrets` context is not available inside a job-level `if`, so the
+  # deploy jobs gate on an output produced by a *step*, where secrets are
+  # readable. Referencing `secrets` at job level makes the whole workflow file
+  # invalid, which GitHub reports as a run that fails in 0s with zero jobs.
+  deploy-gate:
+    name: 🔐 Vercel Credentials
+    needs: [build]
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Check whether Vercel credentials are configured
+        id: check
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Vercel credentials present — deploys enabled."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Vercel credentials missing — skipping deploys (set VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID)."
+          fi
+
   # ─── Deploy Preview (Vercel) ─────────────────────────────────────
   deploy-preview:
     name: 🚀 Deploy Preview
-    # Skip until the Vercel credentials are configured in repo secrets.
-    if: github.event_name == 'pull_request' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != ''
-    needs: [build]
+    if: github.event_name == 'pull_request' && needs.deploy-gate.outputs.enabled == 'true'
+    needs: [build, deploy-gate]
     runs-on: ubuntu-latest
     environment:
       name: preview
@@ -158,15 +184,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+
+      # The build runs on Vercel, so values default to the project's own
+      # environment settings; any public var configured on the repo is passed
+      # through explicitly (empty ones are skipped so they cannot blank out the
+      # project configuration).
       - name: Deploy to Vercel (preview)
         id: deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: "--prod=false"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           NEXT_PUBLIC_SOROBAN_RPC_URL: ${{ vars.NEXT_PUBLIC_SOROBAN_RPC_URL }}
           NEXT_PUBLIC_HORIZON_URL: ${{ vars.NEXT_PUBLIC_HORIZON_URL }}
           NEXT_PUBLIC_STELLAR_NETWORK: ${{ vars.NEXT_PUBLIC_STELLAR_NETWORK }}
@@ -176,15 +208,22 @@ jobs:
           NEXT_PUBLIC_CONTRACT_GOVERNANCE: ${{ vars.NEXT_PUBLIC_CONTRACT_GOVERNANCE }}
           NEXT_PUBLIC_CONTRACT_BADGE: ${{ vars.NEXT_PUBLIC_CONTRACT_BADGE }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          args=()
+          for key in NEXT_PUBLIC_SOROBAN_RPC_URL NEXT_PUBLIC_HORIZON_URL NEXT_PUBLIC_STELLAR_NETWORK NEXT_PUBLIC_CONTRACT_COUNTER NEXT_PUBLIC_CONTRACT_DRIP_TOKEN NEXT_PUBLIC_CONTRACT_DRIP_POOL NEXT_PUBLIC_CONTRACT_GOVERNANCE NEXT_PUBLIC_CONTRACT_BADGE NEXT_PUBLIC_SUPABASE_URL; do
+            [ -n "${!key}" ] && args+=(-e "$key=${!key}")
+          done
+          npx --yes vercel@latest deploy --yes --token="$VERCEL_TOKEN" "${args[@]}" > /tmp/vercel-deploy.log 2>&1 || { cat /tmp/vercel-deploy.log; exit 1; }
+          cat /tmp/vercel-deploy.log
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "🔍 Preview deployment: $url" >> "$GITHUB_STEP_SUMMARY"
 
   # ─── Deploy Production ───────────────────────────────────────────
   deploy-production:
     name: 🌐 Deploy Production
-    # Skip until the Vercel credentials are configured in repo secrets;
-    # once added, deploys resume automatically on every push to main.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != ''
-    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.deploy-gate.outputs.enabled == 'true'
+    needs: [build, deploy-gate]
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -192,14 +231,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Vercel (production)
-        uses: amondnet/vercel-action@v25
+      - uses: actions/setup-node@v4
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: "--prod"
+          node-version-file: ".node-version"
+          cache: "npm"
+
+      - name: Deploy to Vercel (production)
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           NEXT_PUBLIC_SOROBAN_RPC_URL: ${{ vars.NEXT_PUBLIC_SOROBAN_RPC_URL }}
           NEXT_PUBLIC_HORIZON_URL: ${{ vars.NEXT_PUBLIC_HORIZON_URL }}
           NEXT_PUBLIC_STELLAR_NETWORK: ${{ vars.NEXT_PUBLIC_STELLAR_NETWORK }}
@@ -209,5 +250,12 @@ jobs:
           NEXT_PUBLIC_CONTRACT_GOVERNANCE: ${{ vars.NEXT_PUBLIC_CONTRACT_GOVERNANCE }}
           NEXT_PUBLIC_CONTRACT_BADGE: ${{ vars.NEXT_PUBLIC_CONTRACT_BADGE }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          args=()
+          for key in NEXT_PUBLIC_SOROBAN_RPC_URL NEXT_PUBLIC_HORIZON_URL NEXT_PUBLIC_STELLAR_NETWORK NEXT_PUBLIC_CONTRACT_COUNTER NEXT_PUBLIC_CONTRACT_DRIP_TOKEN NEXT_PUBLIC_CONTRACT_DRIP_POOL NEXT_PUBLIC_CONTRACT_GOVERNANCE NEXT_PUBLIC_CONTRACT_BADGE NEXT_PUBLIC_SUPABASE_URL; do
+            [ -n "${!key}" ] && args+=(-e "$key=${!key}")
+          done
+          npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN" "${args[@]}" 2>&1 | tee /tmp/vercel-deploy.log
+          grep -qE 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log
+          echo "🌐 Production: https://stellardripz.vercel.app" >> "$GITHUB_STEP_SUMMARY"
 # CI/CD pipeline: contracts → tests → lint → build → deploy

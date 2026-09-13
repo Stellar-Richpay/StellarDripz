@@ -19,6 +19,7 @@ A full-featured Stellar testnet faucet and smart contract platform built with Ne
 **▶️ [Watch / download the 2-minute product pitch (MP4 · 1080p · 30fps)](./public/video/stellardripz-pitch.mp4)**
 · [720p (5 MB)](./public/video/stellardripz-pitch-720p.mp4) · [Transcript](./video/transcript.md)
 · [Captions (VTT)](./public/video/stellardripz-pitch.vtt)
+· [Stream it live](https://stellardripz.vercel.app/video/stellardripz-pitch.mp4)
 
 Everything in the video is the real app on Stellar testnet — live faucet funding, a signed
 payment, and Soroban contract calls, captured from the running UI and the deployed
@@ -488,7 +489,9 @@ All components use relative units, flexbox/grid, and Tailwind responsive classes
 ## 🎥 Demo Video
 
 The product pitch — **2 minutes 19 seconds**, 1080p/30fps with voice-over, captions and a
-full transcript. Download it, or watch it straight from this repository:
+full transcript. **Stream it from the live deployment**
+([`stellardripz.vercel.app/video/stellardripz-pitch.mp4`](https://stellardripz.vercel.app/video/stellardripz-pitch.mp4)),
+or download it straight from this repository:
 
 | | |
 |---|---|

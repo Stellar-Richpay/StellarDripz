@@ -11,6 +11,20 @@ contracts/target/
 scripts/explore-sdk.js
 scripts/probe-*.js
 
+# Video pipeline scratch space — rendered frames, intermediate encodes and the
+# throwaway testnet keypair used by the capture harness. Never deploy this:
+# it is ~570 MB and the keypair must not leave the machine.
+/video/.work/
+
+# Runtime data store (transaction records are written here at runtime)
+/data/
+
+# Test/report artifacts
+coverage/
+test-results/
+playwright-report/
+.turbo/
+
 # Local env
 .env*.local
 
