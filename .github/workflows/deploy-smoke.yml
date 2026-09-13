@@ -1,0 +1,50 @@
+name: Deploy Smoke Test
+
+# Verifies a *live* deployment, not a build: the landing page still links to the
+# pitch video, every file in public/video is served with the right type and size,
+# and /api/health reports all five contracts as configured.
+#
+# Triggers:
+#   deployment_status — fires when Vercel (via the Git integration) promotes a
+#                       production deployment, so this runs right after a release
+#                       without being tied to the CI deploy job.
+#   schedule          — nightly canary, so a broken deployment is noticed even
+#                       when nothing was pushed.
+#   workflow_dispatch — manual run against any deployment URL.
+
+on:
+  deployment_status:
+    states: [success]
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base-url:
+        description: "Deployment URL to check"
+        required: false
+        default: "https://stellardripz.vercel.app"
+
+jobs:
+  smoke:
+    name: 🔎 Live Deployment
+    # Production only: preview deployments run without the contract environment
+    # variables, so their /api/health check is expected to differ.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment.environment == 'Production' &&
+       github.event.deployment_status.state == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+
+      - name: Smoke test the deployment
+        env:
+          SMOKE_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.inputs.base-url || 'https://stellardripz.vercel.app' }}
+        run: |
+          node scripts/smoke-deploy.mjs
+          echo "### ✅ Live deployment smoke test passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$SMOKE_BASE_URL\` serves the pitch video set, the hero links and a healthy \`/api/health\`." >> "$GITHUB_STEP_SUMMARY"

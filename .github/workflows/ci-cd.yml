@@ -258,4 +258,12 @@ jobs:
           npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN" "${args[@]}" 2>&1 | tee /tmp/vercel-deploy.log
           grep -qE 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log
           echo "🌐 Production: https://stellardripz.vercel.app" >> "$GITHUB_STEP_SUMMARY"
+
+      # A deploy that reports READY can still be broken for visitors: the pitch
+      # video may be missing, mistyped or truncated, or the hero links may have
+      # gone. Check the live alias rather than trusting the deploy status.
+      - name: Smoke test the production deployment
+        run: node scripts/smoke-deploy.mjs
+        env:
+          SMOKE_BASE_URL: https://stellardripz.vercel.app
 # CI/CD pipeline: contracts → tests → lint → build → deploy

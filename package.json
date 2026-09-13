@@ -47,6 +47,7 @@
     "video:stills": "node video/scripts/render-still.mjs",
     "video": "npm run video:build && npm run video:render",
     "deploy:vercel": "node scripts/deploy-vercel.mjs",
+    "smoke:deploy": "node scripts/smoke-deploy.mjs",
     "clean": "rm -rf .next contracts/target"
   },
   "dependencies": {
