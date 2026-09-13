@@ -280,6 +280,17 @@ npm start
 3. Set environment variables (see below)
 4. Deploy!
 
+**One-command deploy (when the GitHub ↗ Vercel connection is not set up):**
+
+`scripts/deploy-vercel.mjs` uploads this checkout to the project with the Vercel
+file-hash API and waits for the production deployment, so a release can be shipped
+without the CLI or the Git integration:
+
+```bash
+VERCEL_TOKEN=vercel_token_here npm run deploy:vercel                  # production
+DEPLOY_TARGET=preview VERCEL_TOKEN=... npm run deploy:vercel         # preview URL
+```
+
 **Production setup checklist (for a fully functional deployment):**
 
 1. **Deploy the smart contracts** — set a funded testnet `DEPLOYER_SECRET_KEY`, run `npm run contracts:deploy`, and copy the printed `NEXT_PUBLIC_CONTRACT_*` IDs.
@@ -303,8 +314,16 @@ NEXT_PUBLIC_SUPABASE_URL              # if using Supabase
 **Required GitHub Secrets:**
 
 ```
+VERCEL_TOKEN                          # vercel.com/account/tokens — needed for deploys
+VERCEL_ORG_ID                         # team_jug30FRlPO9NtzfmVeEZzlCI
+VERCEL_PROJECT_ID                     # prj_sXgRXmGcWtvYISQhfm7fNObTyFVu
 SUPABASE_SERVICE_ROLE_KEY             # if using Supabase
 ```
+
+The CI/CD pipeline checks these in a `deploy-gate` job: with all three Vercel
+values present, every push to `main` deploys to production and every pull request
+gets a preview URL. Without them the pipeline still runs tests, lint and build,
+and simply skips the deploy jobs.
 
 ### Live Deployment
 
