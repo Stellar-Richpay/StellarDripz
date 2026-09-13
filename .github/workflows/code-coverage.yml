@@ -24,7 +24,10 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --coverage --coverageReporters=json-summary --coverageReporters=text --coverageReporters=lcov
 
+      # The lcov-reporter comments on pull requests; on pushes there is no PR
+      # to comment on, so gate it to pull_request events to avoid a hard failure.
       - name: Report coverage
+        if: github.event_name == 'pull_request'
         uses: romeovs/lcov-reporter-action@v0.4.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
