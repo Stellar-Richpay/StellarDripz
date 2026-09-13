@@ -16,6 +16,13 @@ useDefault = true
     '''(Test SDF (Network|Future Network|Network ; September 2015)|Public Global Stellar Network ; September 2015)''',
     # Placeholder/sample secret keys in test fixtures
     '''S[A-Z0-9]{55}''',
+    # Stellar contract IDs (C-addresses) and public account keys (G-addresses).
+    # Both are public on-chain identifiers, but a high-entropy C-address trips
+    # the generic-api-key rule whenever the nearby key is named "token" — which
+    # it is, for the DripToken contract. Real secrets are S-addresses and stay
+    # flagged.
+    '''C[A-Z2-7]{55}''',
+    '''G[A-Z2-7]{55}''',
   ]
 
   # Path-level allowlist for files that contain known safe content
