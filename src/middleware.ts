@@ -66,5 +66,7 @@ export function middleware(request: NextRequest) {
 export const config = {
   // Only API routes need the token; pages are protected by SameSite cookies
   // and the header-based CSRF only applies to state-changing API calls.
+  // A client with no cookie yet (fresh visitor) bootstraps one from the
+  // API layer — see ensureCsrfToken in src/lib/client/apiClient.ts.
   matcher: ["/api/:path*"],
 };

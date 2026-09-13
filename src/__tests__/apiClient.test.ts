@@ -74,7 +74,26 @@ describe("apiClient CSRF integration", () => {
     expect(headers.get(CSRF_HEADER)).toBeNull();
   });
 
+  it("bootstraps a CSRF token before a state-changing request when none is set", async () => {
+    // The server sets the cookie on the bootstrap GET's response, so the mock
+    // sets it while answering that call.
+    fetchMock.mockImplementationOnce(async () => {
+      setCookie("bootstrapped-token");
+      return mockResponse({ status: "healthy" });
+    });
+    fetchMock.mockResolvedValueOnce(mockResponse({ success: true }));
+
+    await request("/api/faucet/fund", { method: "POST" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/health");
+    const [, init] = fetchMock.mock.calls[1];
+    const headers = init?.headers as Headers;
+    expect(headers.get(CSRF_HEADER)).toBe("bootstrapped-token");
+  });
+
   it("parses the retry-after header into the thrown error", async () => {
+    setCookie("token-retry");
     fetchMock.mockResolvedValueOnce(
       mockResponse({ error: "Rate limited" }, { status: 429, headers: { "Retry-After": "42" } }),
     );
@@ -87,6 +106,7 @@ describe("apiClient CSRF integration", () => {
   });
 
   it("handles non-JSON error responses without throwing a SyntaxError", async () => {
+    setCookie("token-502");
     fetchMock.mockResolvedValueOnce(mockResponse("<html>Bad Gateway</html>", { status: 502 }));
 
     await expect(connectWallet("GABC", "freighter", "Freighter")).rejects.toMatchObject({

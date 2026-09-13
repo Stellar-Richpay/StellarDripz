@@ -31,6 +31,29 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+/**
+ * Guarantee a CSRF token exists before a state-changing request.
+ *
+ * The cookie is set by the middleware on API responses, so a visitor whose
+ * first API interaction is a POST (connect a wallet, hit the faucet) has no
+ * token yet and the request is rejected with 403 "CSRF token missing" — and
+ * the wallet session registration that follows a connect silently failed.
+ * One GET through the middleware bootstraps the cookie; it is a no-op once
+ * the token exists.
+ */
+async function ensureCsrfToken(): Promise<string | null> {
+  const existing = getCsrfToken();
+  if (existing) return existing;
+  try {
+    await fetchWithTimeout("/api/health", { method: "GET" });
+  } catch {
+    // Bootstrap failed (offline / server down) — let the real request run and
+    // surface the server's own error rather than a synthetic one.
+    return null;
+  }
+  return getCsrfToken();
+}
+
 export async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers);
@@ -41,7 +64,10 @@ export async function request<T>(endpoint: string, options: RequestInit = {}): P
   }
 
   // Echo the CSRF cookie as a header so state-changing routes pass validation.
-  const csrfToken = getCsrfToken();
+  // Safe methods don't need one, and bootstrapping on a GET would add a
+  // pointless round-trip to every read.
+  const isSafeMethod = /^(GET|HEAD|OPTIONS)$/i.test(options.method || "GET");
+  const csrfToken = isSafeMethod ? getCsrfToken() : await ensureCsrfToken();
   if (csrfToken) {
     headers.set(CSRF_HEADER, csrfToken);
   }

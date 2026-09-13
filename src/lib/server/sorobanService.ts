@@ -93,7 +93,22 @@ export async function buildContractInvocation(
     .setTimeout(30)
     .build();
 
-  return { xdr: tx.toXDR() };
+  // Prepare the invocation (simulate → assemble) BEFORE the wallet signs it.
+  // A Soroban signature covers the envelope's Soroban transaction data —
+  // footprint, resource fees and auth entries — so re-assembling after the
+  // wallet signed could only produce an envelope nobody signed (on-chain:
+  // txBadAuth). Returning the prepared envelope means the wallet signs exactly
+  // what gets submitted.
+  const simResponse = await withTimeout(
+    sorobanServer.simulateTransaction(tx),
+    "Soroban simulateTransaction",
+  );
+  if (StellarSdk.rpc.Api.isSimulationError(simResponse)) {
+    throw new Error(`Simulation failed: ${simResponse.error}`);
+  }
+
+  const prepared = StellarSdk.rpc.assembleTransaction(tx, simResponse).build();
+  return { xdr: prepared.toXDR() };
 }
 
 // ---- Submit ----
@@ -129,16 +144,20 @@ export async function submitContractInvocation(
     throw new Error(`Simulation failed: ${simResponse.error}`);
   }
 
-  const preparedTx = StellarSdk.rpc.assembleTransaction(signedTx, simResponse);
-  const assembled = preparedTx as unknown as { built: { toXDR: () => string } };
-  const finalXdr = assembled.built.toXDR();
+  // The submitted envelope must already carry Soroban transaction data (the
+  // build route prepares it, and a real wallet signs the prepared envelope).
+  // Re-assembling here — which the previous implementation did — rebuilt the
+  // envelope and silently dropped the wallet's signature, so every contract
+  // write failed on-chain with txBadAuth. Validate instead of rewriting.
+  const isPrepared = innerTx.toEnvelope().v1().tx().ext().switch() === 1; // 1 = SOROBAN_TX_DATA_EXT
+  if (!isPrepared) {
+    throw new Error(
+      "Transaction is not prepared for submission: build it through /api/contract/invoke before signing",
+    );
+  }
 
-  const finalSignedTx = StellarSdk.TransactionBuilder.fromXDR(
-    finalXdr,
-    STELLAR_NETWORK.networkPassphrase,
-  );
   const response = await withTimeout(
-    sorobanServer.sendTransaction(finalSignedTx),
+    sorobanServer.sendTransaction(signedTx),
     "Soroban sendTransaction",
   );
 

@@ -256,6 +256,20 @@ export async function sendPaymentServer(
 }
 
 /**
+ * Normalize a Stellar amount string for comparison. The signed operation always
+ * carries the canonical fixed-precision form ("250.0000000"), while the
+ * client sends whatever the user typed ("250"), so a raw string compare would
+ * reject every whole-number payment. Strips trailing zeros instead of using
+ * Number() to stay exact for 12-decimal alphanum12 assets.
+ */
+export function normalizeAmountString(value: string): string {
+  const trimmed = value.trim();
+  const [whole, fraction = ""] = trimmed.split(".");
+  const significant = fraction.replace(/0+$/, "");
+  return significant ? `${whole}.${significant}` : whole;
+}
+
+/**
  * Verify a signed transaction envelope matches the claimed payment.
  * Throws on any mismatch — the caller turns this into a 400/500 response.
  */
@@ -296,7 +310,7 @@ function verifyPaymentTransaction(
     if (op.destination !== destination) {
       throw new HttpError(400, "Transaction destination does not match requested recipient");
     }
-    if (op.amount !== amount) {
+    if (normalizeAmountString(op.amount) !== normalizeAmountString(amount)) {
       throw new HttpError(400, "Transaction amount does not match requested amount");
     }
     const actualCode = op.asset.isNative() ? "XLM" : op.asset.code;

@@ -40,6 +40,11 @@ export default function ContractWizard() {
   const [loading, setLoading] = useState(false);
 
   const template = getTemplate(actionId);
+  // The Custom action carries its function name in the form, not the template
+  // (the template's `method` is an empty placeholder), so every call site has
+  // to resolve the method through this helper instead of template.method —
+  // otherwise Custom invocations were sent with an empty function name.
+  const effectiveMethod = template.id === "custom" ? values.method.trim() : template.method;
 
   // The configured contract IDs (NEXT_PUBLIC_CONTRACT_*); only ones actually
   // set are offered so the wizard never points at an empty string.
@@ -102,7 +107,7 @@ export default function ContractWizard() {
       const args = buildWizardArgs(template, values, walletAddress);
       const { xdr } = await buildContractCall(
         activeContractId,
-        template.method,
+        effectiveMethod,
         args,
         walletAddress,
       );
@@ -110,7 +115,7 @@ export default function ContractWizard() {
       const { hash, status } = await submitContract(
         signedXdr,
         activeContractId,
-        template.method,
+        effectiveMethod,
         walletAddress,
       );
 
@@ -131,7 +136,7 @@ export default function ContractWizard() {
     } finally {
       setLoading(false);
     }
-  }, [walletAddress, activeContractId, isNetworkMismatch, template, values]);
+  }, [walletAddress, activeContractId, isNetworkMismatch, template, effectiveMethod, values]);
 
   const stepIndicator = (
     <div className="flex items-center gap-2 text-[10px]">
@@ -268,7 +273,7 @@ export default function ContractWizard() {
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-white/80">
               {template.label} —{" "}
-              <span className="font-mono text-stellar-blue">{template.method}()</span>
+              <span className="font-mono text-stellar-blue">{effectiveMethod || "…"}()</span>
             </p>
             <button
               onClick={() => setStep("setup")}
@@ -303,7 +308,7 @@ export default function ContractWizard() {
                     inputMode="numeric"
                     value={values.amount}
                     onChange={(e) => setField("amount", e.target.value)}
-                    placeholder="e.g. 10000000 (10.0000000 tokens)"
+                    placeholder="e.g. 10000000 (1.0000000 tokens)"
                     className={inputClass}
                   />
                   {errors.amount && <p className={errorClass}>{errors.amount}</p>}
@@ -403,7 +408,7 @@ export default function ContractWizard() {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-white/30">Function</dt>
-              <dd className="font-mono text-stellar-blue">{template.method}</dd>
+              <dd className="font-mono text-stellar-blue">{effectiveMethod}</dd>
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-white/30">From</dt>
