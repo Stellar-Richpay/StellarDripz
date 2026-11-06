@@ -10,7 +10,7 @@ Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) before contributing. We 
 
 ### Reporting Bugs
 
-1. Check the [existing issues](https://github.com/StellarDripz/StellarDripz/issues) to avoid duplicates
+1. Check the [existing issues](https://github.com/Stellar-Richpay/StellarDripz/issues) to avoid duplicates
 2. Use the **Bug Report** template when opening a new issue
 3. Include:
    - Steps to reproduce
@@ -65,7 +65,7 @@ Please read our [Code of Conduct](./CODE_OF_CONDUCT.md) before contributing. We 
 
 ```bash
 # Clone
-git clone https://github.com/StellarDripz/StellarDripz.git
+git clone https://github.com/Stellar-Richpay/StellarDripz.git
 cd stellardripz
 
 # Install
@@ -110,7 +110,7 @@ We're actively growing the StellarDripz contributor community. Here's how you ca
 ### First-Time Contributors
 - Look for issues labeled `good first issue` or `help wanted`
 - Start with documentation or test improvements — they're great ways to learn the codebase
-- Join our [GitHub Discussions](https://github.com/StellarDripz/StellarDripz/discussions) to introduce yourself
+- Join our [GitHub Discussions](https://github.com/Stellar-Richpay/StellarDripz/discussions) to introduce yourself
 
 ### Drips Wave Program
 We participate in the Stellar Drips Wave contribution program. Issues tagged with complexity labels are eligible for rewards:
@@ -123,7 +123,7 @@ All contributors are recognized in our release notes and on the project README. 
 
 ## Getting Help
 
-- **Questions?** Open a [GitHub Discussion](https://github.com/StellarDripz/StellarDripz/discussions)
+- **Questions?** Open a [GitHub Discussion](https://github.com/Stellar-Richpay/StellarDripz/discussions)
 - **Stuck on a PR?** Mention `@StellarDripz` in a comment
 - **Security issues?** See [SECURITY.md](./SECURITY.md)
 

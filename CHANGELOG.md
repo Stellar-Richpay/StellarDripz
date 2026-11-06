@@ -329,7 +329,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[2.2.0]: https://github.com/StellarDripz/StellarDripz/compare/v2.1.0...v2.2.0
-[2.1.0]: https://github.com/StellarDripz/StellarDripz/compare/v2.0.0...v2.1.0
-[2.0.0]: https://github.com/StellarDripz/StellarDripz/compare/v1.0.0...v2.0.0
-[1.0.0]: https://github.com/StellarDripz/StellarDripz/releases/tag/v1.0.0
+[2.2.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v1.0.0...v2.0.0
+[1.0.0]: https://github.com/Stellar-Richpay/StellarDripz/releases/tag/v1.0.0

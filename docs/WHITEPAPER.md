@@ -124,7 +124,7 @@ See [SCF_ROADMAP.md](./SCF_ROADMAP.md) for the complete 4-tranche plan.
 
 ## 6. Team & Community
 
-- **GitHub**: https://github.com/StellarDripz/StellarDripz
+- **GitHub**: https://github.com/Stellar-Richpay/StellarDripz
 - **Live Demo**: https://stellardripz.vercel.app
 - **Contract Explorer**: [Stellar Expert](https://stellar.expert/explorer/testnet)
 - **Security**: security@stellardripz.dev

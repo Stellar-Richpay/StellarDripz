@@ -1,7 +1,7 @@
 {
   "ignorePatterns": [
     {
-      "pattern": "^https://github.com/StellarDripz/StellarDripz"
+      "pattern": "^https://github.com/Stellar-Richpay/StellarDripz"
     },
     {
       "pattern": "^http://localhost"
