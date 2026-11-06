@@ -6,11 +6,7 @@ import { getAppConfig } from "@/lib/env";
 import { directReadContract, directGetLatestLedger } from "@/lib/client/directClient";
 import { buildContractCall, submitContract } from "@/lib/client/apiClient";
 import { signTx } from "@/lib/wallets/walletKit";
-import {
-  formatTokenAmount,
-  parseProposals,
-  type ProposalView,
-} from "@/lib/contractReads";
+import { formatTokenAmount, parseProposals, type ProposalView } from "@/lib/contractReads";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { showToast } from "./Toast";
 
@@ -130,12 +126,7 @@ export default function GovernanceDashboard() {
         walletAddress,
       );
       const signedXdr = await signTx(state.wallet.walletId, buildRes.xdr);
-      const submitRes = await submitContract(
-        govId,
-        "execute_proposal",
-        walletAddress,
-        signedXdr,
-      );
+      const submitRes = await submitContract(govId, "execute_proposal", walletAddress, signedXdr);
       showToast({
         type: "success",
         title: "Proposal Executed! 🚀",
@@ -157,7 +148,11 @@ export default function GovernanceDashboard() {
   const handleCreateProposal = async () => {
     if (!govId || !walletAddress || !state.wallet.walletId) return;
     if (!newTitle.trim() || !newDesc.trim()) {
-      showToast({ type: "error", title: "Validation Error", message: "Title & description required" });
+      showToast({
+        type: "error",
+        title: "Validation Error",
+        message: "Title & description required",
+      });
       return;
     }
     setActionInProgress("create");
@@ -204,7 +199,8 @@ export default function GovernanceDashboard() {
         <h3 className="mt-2 text-sm font-semibold text-white">Governance Contract</h3>
         <p className="mt-1 text-xs text-white/40">
           Configure <code className="text-stellar-purple">NEXT_PUBLIC_CONTRACT_GOVERNANCE</code> in{" "}
-          <code className="text-stellar-purple">.env.local</code> to activate on-chain proposals and token-weighted voting.
+          <code className="text-stellar-purple">.env.local</code> to activate on-chain proposals and
+          token-weighted voting.
         </p>
       </div>
     );
@@ -253,7 +249,11 @@ export default function GovernanceDashboard() {
         <div>
           <p className="text-[9px] uppercase tracking-wider text-white/30">Active Proposals</p>
           <p className="mt-0.5 font-mono text-sm font-semibold text-white">
-            {proposals.filter((p) => latestLedger !== null && latestLedger <= p.votingEnd && !p.executed).length}
+            {
+              proposals.filter(
+                (p) => latestLedger !== null && latestLedger <= p.votingEnd && !p.executed,
+              ).length
+            }
           </p>
         </div>
         <div>
@@ -268,22 +268,29 @@ export default function GovernanceDashboard() {
       <div className="mt-4 space-y-3">
         {proposals.length === 0 ? (
           <p className="py-6 text-center text-xs text-white/25">
-            {loading ? "Loading proposals…" : "No proposals submitted yet. Create the first proposal above!"}
+            {loading
+              ? "Loading proposals…"
+              : "No proposals submitted yet. Create the first proposal above!"}
           </p>
         ) : (
           proposals.map((p) => {
             const isEnded = latestLedger !== null && latestLedger > p.votingEnd;
             const totalVotes = p.forVotes + p.againstVotes + p.abstainVotes;
-            const forPct = totalVotes > BigInt(0) ? Number((p.forVotes * BigInt(100)) / totalVotes) : 0;
-            const againstPct = totalVotes > BigInt(0) ? Number((p.againstVotes * BigInt(100)) / totalVotes) : 0;
+            const forPct =
+              totalVotes > BigInt(0) ? Number((p.forVotes * BigInt(100)) / totalVotes) : 0;
+            const againstPct =
+              totalVotes > BigInt(0) ? Number((p.againstVotes * BigInt(100)) / totalVotes) : 0;
 
             let statusLabel = "Voting Active";
             let statusClass = "bg-blue-500/15 text-blue-400 border-blue-500/30";
             if (p.executed) {
               statusLabel = p.passed ? "Executed ✓" : "Defeated";
-              statusClass = p.passed ? "bg-stellar-green/15 text-stellar-green border-stellar-green/30" : "bg-red-500/15 text-red-400 border-red-500/30";
+              statusClass = p.passed
+                ? "bg-stellar-green/15 text-stellar-green border-stellar-green/30"
+                : "bg-red-500/15 text-red-400 border-red-500/30";
             } else if (isEnded) {
-              statusLabel = p.forVotes > p.againstVotes ? "Passed — Ready to Execute" : "Voting Ended";
+              statusLabel =
+                p.forVotes > p.againstVotes ? "Passed — Ready to Execute" : "Voting Ended";
               statusClass = "bg-yellow-500/15 text-yellow-400 border-yellow-500/30";
             }
 
@@ -311,8 +318,12 @@ export default function GovernanceDashboard() {
                 {/* Vote Progress Bars */}
                 <div className="mt-3 space-y-1">
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-stellar-green font-medium">For: {forPct}% ({formatTokenAmount(p.forVotes)})</span>
-                    <span className="text-red-400 font-medium">Against: {againstPct}% ({formatTokenAmount(p.againstVotes)})</span>
+                    <span className="text-stellar-green font-medium">
+                      For: {forPct}% ({formatTokenAmount(p.forVotes)})
+                    </span>
+                    <span className="text-red-400 font-medium">
+                      Against: {againstPct}% ({formatTokenAmount(p.againstVotes)})
+                    </span>
                   </div>
                   <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                     <div
@@ -395,7 +406,9 @@ export default function GovernanceDashboard() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[10px] text-white/40">Description & Rationale</label>
+                <label className="mb-1 block text-[10px] text-white/40">
+                  Description & Rationale
+                </label>
                 <textarea
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
@@ -405,7 +418,9 @@ export default function GovernanceDashboard() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[10px] text-white/40">Target Reward Rate (Smallest Unit)</label>
+                <label className="mb-1 block text-[10px] text-white/40">
+                  Target Reward Rate (Smallest Unit)
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"

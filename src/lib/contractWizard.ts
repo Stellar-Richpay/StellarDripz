@@ -196,8 +196,7 @@ export function validateWizardForm(
     } else if (field.type === "badgeId") {
       const v = values.badgeId.trim();
       if (!v) errors.badgeId = "Badge ID is required.";
-      else if (!POSITIVE_INT_RE.test(v))
-        errors.badgeId = "Badge ID must be a positive integer.";
+      else if (!POSITIVE_INT_RE.test(v)) errors.badgeId = "Badge ID must be a positive integer.";
     } else if (field.type === "title") {
       const v = values.title.trim();
       if (!v) errors.title = "Proposal title is required.";

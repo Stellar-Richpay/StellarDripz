@@ -71,16 +71,10 @@ export default function Header() {
 
         {/* Navigation links */}
         <nav className="hidden items-center gap-4 text-xs font-medium md:flex">
-          <Link
-            href="/"
-            className="text-white/70 transition-colors hover:text-white"
-          >
+          <Link href="/" className="text-white/70 transition-colors hover:text-white">
             App
           </Link>
-          <Link
-            href="/admin"
-            className="text-white/70 transition-colors hover:text-white"
-          >
+          <Link href="/admin" className="text-white/70 transition-colors hover:text-white">
             Analytics
           </Link>
           <a
