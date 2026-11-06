@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAppConfig } from "@/lib/env";
 import { directReadContract } from "@/lib/client/directClient";
+import { buildContractCall, submitContract } from "@/lib/client/apiClient";
+import { signTx } from "@/lib/wallets/walletKit";
 import {
   BADGE_TIER_NAMES,
   parseBadges,
@@ -34,7 +36,37 @@ export default function BadgeGallery() {
   const [badges, setBadges] = useState<BadgeView[]>([]);
   const [owned, setOwned] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [claimingId, setClaimingId] = useState<number | null>(null);
   const badgeId = getAppConfig().contractIdBadge;
+
+  const handleClaimBadge = async (id: number) => {
+    if (!badgeId || !walletAddress || !state.wallet.walletId) return;
+    setClaimingId(id);
+    try {
+      const buildRes = await buildContractCall(
+        badgeId,
+        "claim_badge",
+        [walletAddress, { u64: id }],
+        walletAddress,
+      );
+      const signedXdr = await signTx(state.wallet.walletId, buildRes.xdr);
+      const submitRes = await submitContract(badgeId, "claim_badge", walletAddress, signedXdr);
+      showToast({
+        type: "success",
+        title: "Badge Claimed! 🎖️",
+        message: `Tx: ${submitRes.hash.slice(0, 8)}…`,
+      });
+      load();
+    } catch (err) {
+      showToast({
+        type: "error",
+        title: "Claim Failed",
+        message: err instanceof Error ? err.message : "Transaction failed",
+      });
+    } finally {
+      setClaimingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!badgeId || !walletAddress) return;
@@ -169,9 +201,13 @@ export default function BadgeGallery() {
                               earned
                             </span>
                           ) : (
-                            <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[9px] text-white/40">
-                              locked
-                            </span>
+                            <button
+                              onClick={() => handleClaimBadge(b.id)}
+                              disabled={claimingId === b.id}
+                              className="rounded-md border border-stellar-purple/30 bg-stellar-purple/20 px-2 py-0.5 text-[9px] font-semibold text-stellar-purple hover:bg-stellar-purple/30 active:scale-95 disabled:opacity-50"
+                            >
+                              {claimingId === b.id ? "Claiming…" : "Claim"}
+                            </button>
                           )}
                         </div>
                         <p className="mt-2 truncate text-xs font-semibold text-white/80">
