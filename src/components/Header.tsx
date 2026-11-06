@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAppContext } from "@/context/AppContext";
 import ThemeToggle from "@/components/ThemeToggle";
 import { STELLAR_NETWORK } from "@/lib/stellar/network";
@@ -67,6 +68,42 @@ export default function Header() {
           </span>
           {badgeLabel}
         </div>
+
+        {/* Navigation links */}
+        <nav className="hidden items-center gap-4 text-xs font-medium md:flex">
+          <Link
+            href="/"
+            className="text-white/70 transition-colors hover:text-white"
+          >
+            App
+          </Link>
+          <Link
+            href="/admin"
+            className="text-white/70 transition-colors hover:text-white"
+          >
+            Analytics
+          </Link>
+          <a
+            href={
+              appNetwork === "MAINNET"
+                ? "https://stellar.expert/explorer/public"
+                : "https://stellar.expert/explorer/testnet"
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/40 transition-colors hover:text-white/70"
+          >
+            Explorer ↗
+          </a>
+          <a
+            href="https://github.com/Stellar-Richpay/StellarDripz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/40 transition-colors hover:text-white/70"
+          >
+            GitHub ↗
+          </a>
+        </nav>
 
         {/* Light / Auto / Dark theme toggle */}
         <ThemeToggle />
