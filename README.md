@@ -50,7 +50,10 @@ payment, and Soroban contract calls, captured from the running UI and the deploy
 ### 🎯 Core Functionality
 - **Multi-Wallet Faucet** — Request 10,000 testnet XLM with Freighter, xBull, Albedo, LOBSTR, or WalletConnect
 - **Send Payments** — Transfer XLM between any Stellar testnet addresses
-- **Smart Contract Interaction** — Deploy and interact with Soroban smart contracts
+- **Smart Contract Interaction** — Guided Contract Wizard for minting, staking, voting, and claiming
+- **On-Chain Governance Dashboard** — Dedicated UI for inspecting proposals, tracking live quorum, voting, and triggering execution
+- **Interactive Staking & Rewards** — Stake DRIP tokens, calculate time-weighted rewards, and execute in-place claims or unstakes
+- **Achievement Badge Gallery** — Visual progression tracker with one-click NFT badge claiming
 - **Real-time Event Streaming** — Live contract events via SSE with polling fallback
 - **Admin Dashboard** — Analytics and transaction monitoring at `/admin`
 
@@ -250,12 +253,14 @@ npm run verify     # lint + typecheck + tests + format:check
 npm run format     # prettier --write
 ```
 
-Test suites (41 suites, 304 tests, all passing ✅):
+Test suites (44 suites, 321 tests, all passing ✅):
+- Components/UI: `governanceDashboard`, `RewardSummary`, `BadgeGallery`
 - Wallet/hooks: `useWallet`, `useBalance`, `useTransactionHistory`, `useFaucet`, `useContractEvents`, `walletService`
+- Contract interactions: `contractWizard`, `contractReads`, `contractTypes`, `contractId`, `sorobanSubmit`
 - API routes: `api-faucet`, `api-wallet`, `api-payment`, `api-balance`, `api-history`, `api-contract`, `api-health`, `api-status`, `api-analytics`, `api-batch`, `api-events`
-- Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `sorobanSubmit`, `horizonService`
-- Validation: `addressValidation`, `contractTypes`, `paymentValidation`, `networkGuard`, `memo`, `format`
-- Integration + wallet-service suites
+- Services/lib: `dbService`, `addressBookService`, `directClient`, `rateLimiter`, `rateLimiterServer`, `apiClient`, `env`, `config`, `http`, `horizonService`, `logger`
+- Validation/utils: `addressValidation`, `paymentValidation`, `networkGuard`, `memo`, `format`, `theme`, `explorer`
+- Integration: `integration` end-to-end simulation suite
 
 Coverage is collected with `npx jest --coverage`; the enforced global gate
 (45% branches / 50% functions / 55% lines) mirrors what CI runs inline.
