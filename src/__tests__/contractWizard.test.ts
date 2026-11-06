@@ -15,6 +15,9 @@ function values(overrides: Partial<WizardFormValues> = {}): WizardFormValues {
     address: RECIPIENT,
     amount: "10000000",
     proposalId: "3",
+    badgeId: "1",
+    title: "Update Fee",
+    description: "Proposal to update fee",
     choice: "1",
     method: "set_greeting",
     argsJson: '["hello"]',
@@ -23,12 +26,16 @@ function values(overrides: Partial<WizardFormValues> = {}): WizardFormValues {
 }
 
 describe("contractWizard templates", () => {
-  it("offers the four headline actions plus custom", () => {
+  it("offers all headline actions plus custom", () => {
     expect(WIZARD_TEMPLATES.map((t) => t.id)).toEqual([
       "mint",
       "transfer",
       "stake",
+      "unstake",
+      "claim_reward",
+      "claim_badge",
       "vote",
+      "create_proposal",
       "custom",
     ]);
   });
@@ -66,6 +73,23 @@ describe("validateWizardForm", () => {
     expect(missing.proposalId).toMatch(/required/i);
     const bad = validateWizardForm(getTemplate("vote"), values({ proposalId: "abc" }));
     expect(bad.proposalId).toMatch(/positive integer/i);
+  });
+
+  it("validates badgeId and proposal fields", () => {
+    const missingBadge = validateWizardForm(getTemplate("claim_badge"), values({ badgeId: "" }));
+    expect(missingBadge.badgeId).toMatch(/required/i);
+
+    const missingTitle = validateWizardForm(
+      getTemplate("create_proposal"),
+      values({ title: "", description: "desc" }),
+    );
+    expect(missingTitle.title).toMatch(/required/i);
+
+    const missingDesc = validateWizardForm(
+      getTemplate("create_proposal"),
+      values({ title: "T", description: "" }),
+    );
+    expect(missingDesc.description).toMatch(/required/i);
   });
 
   it("validates the custom method and JSON args", () => {
@@ -123,6 +147,30 @@ describe("buildWizardArgs", () => {
     expect(
       buildWizardArgs(getTemplate("custom"), values({ argsJson: '[1, "x"]' }), WALLET),
     ).toEqual([1, "x"]);
+  });
+
+  it("builds unstake args: [wallet, amount]", () => {
+    expect(buildWizardArgs(getTemplate("unstake"), values(), WALLET)).toEqual([WALLET, "10000000"]);
+  });
+
+  it("builds claim_reward args: [wallet]", () => {
+    expect(buildWizardArgs(getTemplate("claim_reward"), values(), WALLET)).toEqual([WALLET]);
+  });
+
+  it("builds claim_badge args: [wallet, { u64: id }]", () => {
+    expect(buildWizardArgs(getTemplate("claim_badge"), values({ badgeId: "5" }), WALLET)).toEqual([
+      WALLET,
+      { u64: 5 },
+    ]);
+  });
+
+  it("builds create_proposal args: [wallet, title, desc, action]", () => {
+    const args = buildWizardArgs(
+      getTemplate("create_proposal"),
+      values({ title: "Rate Up", description: "Increase rate", amount: "50" }),
+      WALLET,
+    );
+    expect(args).toEqual([WALLET, "Rate Up", "Increase rate", { SetRewardRate: ["50"] }]);
   });
 });
 
