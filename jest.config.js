@@ -7,7 +7,18 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
-    "^.+\\.[tj]sx?$": ["ts-jest", { tsconfig: "tsconfig.json", allowJs: true }],
+    "^.+\\.[tj]sx?$": [
+      "ts-jest",
+      {
+        tsconfig: {
+          target: "ES2017",
+          module: "commonjs",
+          jsx: "react-jsx",
+          esModuleInterop: true,
+          allowJs: true,
+        },
+      },
+    ],
   },
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   setupFiles: ["<rootDir>/jest.setup.js"],
