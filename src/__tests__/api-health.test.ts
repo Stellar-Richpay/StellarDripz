@@ -183,6 +183,13 @@ describe("GET /api/health", () => {
     // Exactly one probe round for both requests (cache is now warm).
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
+
+  it("handles OPTIONS preflight requests with CORS headers", async () => {
+    jest.resetModules();
+    const mod = await import("@/app/api/health/route");
+    const res = await mod.OPTIONS();
+    expect(res.status).toBe(204);
+  });
 });
 
 // Make this file a module so top-level declarations don't leak into the
