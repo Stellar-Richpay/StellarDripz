@@ -72,9 +72,8 @@ describe("parseJsonBody", () => {
 describe("toHttpError", () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
-  /** NODE_ENV is declared read-only on process.env; flip it via defineProperty. */
   function setNodeEnv(value: string): void {
-    Object.defineProperty(process.env, "NODE_ENV", { value, configurable: true });
+    (process.env as Record<string, string | undefined>).NODE_ENV = value;
   }
 
   afterEach(() => {
