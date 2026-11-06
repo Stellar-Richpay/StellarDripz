@@ -43,7 +43,42 @@ export default function RewardSummary() {
   const [latestLedger, setLatestLedger] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [unstaking, setUnstaking] = useState(false);
+  const [showUnstakeModal, setShowUnstakeModal] = useState(false);
+  const [unstakeAmount, setUnstakeAmount] = useState("");
   const poolId = getAppConfig().contractIdDripPool;
+
+  const handleUnstake = async () => {
+    if (!poolId || !walletAddress || !state.wallet.walletId || !stake) return;
+    const amountToUnstake = unstakeAmount.trim() || stake.amount.toString();
+    setUnstaking(true);
+    try {
+      const buildRes = await buildContractCall(
+        poolId,
+        "unstake",
+        [walletAddress, amountToUnstake],
+        walletAddress,
+      );
+      const signedXdr = await signTx(state.wallet.walletId, buildRes.xdr);
+      const submitRes = await submitContract(poolId, "unstake", walletAddress, signedXdr);
+      showToast({
+        type: "success",
+        title: "Unstaked Successfully! 🔓",
+        message: `Tx: ${submitRes.hash.slice(0, 8)}…`,
+      });
+      setShowUnstakeModal(false);
+      setUnstakeAmount("");
+      load();
+    } catch (err) {
+      showToast({
+        type: "error",
+        title: "Unstake Failed",
+        message: err instanceof Error ? err.message : "Transaction failed",
+      });
+    } finally {
+      setUnstaking(false);
+    }
+  };
 
   const handleClaimReward = async () => {
     if (!poolId || !walletAddress || !state.wallet.walletId) return;
@@ -148,21 +183,72 @@ export default function RewardSummary() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-          <p className="text-[10px] text-white/30">Staked</p>
-          <p className="mt-1 font-mono text-lg font-semibold text-white">
-            {formatTokenAmount(staked)}
-          </p>
-          {lockElapsed !== null && (
-            <p
-              className={`mt-1 text-[9px] ${lockElapsed ? "text-stellar-green" : "text-yellow-400/80"}`}
-            >
-              {staked > BigInt(0)
-                ? lockElapsed
-                  ? "lock elapsed — unstakeable"
-                  : `locked until ledger ${lockedUntil}`
-                : "no active stake"}
+        <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <div>
+            <p className="text-[10px] text-white/30">Staked</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-white">
+              {formatTokenAmount(staked)}
             </p>
+            {lockElapsed !== null && (
+              <p
+                className={`mt-1 text-[9px] ${lockElapsed ? "text-stellar-green" : "text-yellow-400/80"}`}
+              >
+                {staked > BigInt(0)
+                  ? lockElapsed
+                    ? "lock elapsed — unstakeable"
+                    : `locked until ledger ${lockedUntil}`
+                  : "no active stake"}
+              </p>
+            )}
+          </div>
+          {staked > BigInt(0) && lockElapsed && (
+            <div className="mt-2">
+              {!showUnstakeModal ? (
+                <button
+                  onClick={() => {
+                    setUnstakeAmount(staked.toString());
+                    setShowUnstakeModal(true);
+                  }}
+                  className="w-full rounded-lg border border-stellar-blue/30 bg-stellar-blue/10 px-3 py-1.5 text-xs font-semibold text-stellar-blue hover:bg-stellar-blue/20 active:scale-95"
+                >
+                  Unstake
+                </button>
+              ) : (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex gap-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={unstakeAmount}
+                      onChange={(e) => setUnstakeAmount(e.target.value)}
+                      placeholder="Amount"
+                      className="w-full rounded-lg border border-white/10 bg-surface-950 px-2 py-1 font-mono text-[10px] text-white focus:outline-none"
+                    />
+                    <button
+                      onClick={() => setUnstakeAmount(staked.toString())}
+                      className="rounded-lg border border-white/10 bg-white/5 px-1.5 text-[9px] text-white/50 hover:bg-white/10"
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={handleUnstake}
+                      disabled={unstaking || !unstakeAmount}
+                      className="flex-1 rounded-lg bg-gradient-to-r from-stellar-blue to-stellar-purple py-1 text-[10px] font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {unstaking ? "Unstaking…" : "Confirm"}
+                    </button>
+                    <button
+                      onClick={() => setShowUnstakeModal(false)}
+                      className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-white/50 hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3">
