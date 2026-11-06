@@ -238,3 +238,30 @@ the exact tuple layout by convention.
   and clippy runs clean.
 - New events should be declared as `#[contractevent]` structs with explicit
   `topics` prefixes; the counter event-pinning test is the reference pattern.
+
+---
+
+## ADR-008: On-Chain Governance Dashboard and Client-Side Soroban Integration
+
+**Date:** 2026-11-06
+**Status:** Accepted
+
+### Context
+The `DripGovernance` smart contract provides Soroban-native DAO governance: community members can create proposals, vote with DRIP voting power, and execute approved proposals once voting concludes. While the underlying contract logic, storage, and cross-contract interactions were fully implemented in Rust and tested, users lacked an integrated web interface in the dApp to inspect proposals, track vote tallies against quorum, submit votes with connected Stellar wallets, or trigger proposal execution. Furthermore, client-side Soroban parsing required robust handling of complex SCVal types and fallback support for demo modes, while `/api/contract/invoke` needed to support Soroban contract addresses (`C...`) in addition to account public keys (`G...`).
+
+### Decision
+1. **Dedicated Governance UI:** Built `GovernanceDashboard.tsx` integrated directly into the main dApp interface. It displays overall governance stats (total proposals, active count, quorum requirements, current user voting power), filterable proposal cards (All, Active, Passed, Defeated, Executed), live quorum progress visualization, an interactive voting interface (For/Against/Abstain), and an execute action trigger.
+2. **Robust Client-Side SCVal Parsers:** Added `readProposals`, `readGovernanceData`, `parseProposalScVal`, and `parseGovernanceStateScVal` in `src/lib/contractReads.ts` to decode Soroban RPC simulation outputs into typed views (`ProposalView`, `GovernanceDataView`), backed by deterministic fallback data when RPC is unreachable or running in demo environments.
+3. **Contract Address (`C...`) Resolution in Invocation Route:** Updated `/api/contract/invoke/route.ts` address regex from `/^G[A-Z2-7]{55}$/` to `/^[GC][A-Z2-7]{55}$/` and added `xdr.ScAddress.scAddressTypeContract`, preventing contract addresses from being mistyped as strings during cross-contract executions.
+4. **Interactive Staking and Badges:** Enhanced `RewardSummary.tsx` with modal-driven claim and unstake flows, and `BadgeGallery.tsx` with one-click badge claiming for eligible tiers.
+5. **Contract Wizard Action Templates:** Extended `src/lib/contractWizard.ts` with templates for `create_proposal`, `unstake`, `claim_reward`, and `claim_badge` to allow low-friction manual invocation via the wizard.
+
+### Rationale
+- Web3 usability demands that users can participate in DAO governance without manually encoding XDR or running CLI scripts.
+- Soroban's `Address` type encompasses both account keys (`G...`) and contract IDs (`C...`). Supporting both in the API gateway is required for governance actions targeting other contracts (e.g. DripPool or DripToken).
+- Providing resilient fallbacks ensures a seamless developer and reviewer experience regardless of RPC testnet latency or reset cycles.
+
+### Consequences
+- DAO proposals, quorum tracking, and vote casting are accessible directly in the browser with Freighter, xBull, and other supported wallets.
+- Full test coverage across component interaction tests (`governanceDashboard.test.tsx`, `RewardSummary.test.tsx`, `BadgeGallery.test.tsx`), parser tests (`contractReads.test.ts`), and wizard templates (`contractWizard.test.ts`).
+- Clean separation between on-chain simulation reads and signed write proxy submissions.
