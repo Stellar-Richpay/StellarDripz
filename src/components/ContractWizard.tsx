@@ -339,6 +339,30 @@ export default function ContractWizard() {
                   />
                   {errors.badgeId && <p className={errorClass}>{errors.badgeId}</p>}
                 </>
+              ) : field.type === "title" ? (
+                <>
+                  <label className="mb-1 block text-[10px] text-white/40">{field.label}</label>
+                  <input
+                    type="text"
+                    value={values.title}
+                    onChange={(e) => setField("title", e.target.value)}
+                    placeholder="e.g. Update Staking Reward Rate"
+                    className={inputClass}
+                  />
+                  {errors.title && <p className={errorClass}>{errors.title}</p>}
+                </>
+              ) : field.type === "description" ? (
+                <>
+                  <label className="mb-1 block text-[10px] text-white/40">{field.label}</label>
+                  <textarea
+                    value={values.description}
+                    onChange={(e) => setField("description", e.target.value)}
+                    placeholder="Describe the proposal purpose and rationale…"
+                    rows={3}
+                    className={inputClass}
+                  />
+                  {errors.description && <p className={errorClass}>{errors.description}</p>}
+                </>
               ) : field.type === "address" ? (
                 <>
                   <label className="mb-1 block text-[10px] text-white/40">{field.label}</label>

@@ -16,6 +16,7 @@ export type WizardActionId =
   | "claim_reward"
   | "claim_badge"
   | "vote"
+  | "create_proposal"
   | "custom";
 
 export interface WizardTemplate {
@@ -36,6 +37,8 @@ export type WizardField =
   | { name: "address"; label: string; type: "address" }
   | { name: "proposalId"; label: string; type: "proposalId" }
   | { name: "badgeId"; label: string; type: "badgeId" }
+  | { name: "title"; label: string; type: "title" }
+  | { name: "description"; label: string; type: "description" }
   | { name: "choice"; label: string; type: "choice" }
   | { name: "method"; label: string; type: "method" }
   | { name: "argsJson"; label: string; type: "argsJson" };
@@ -111,6 +114,19 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     ],
   },
   {
+    id: "create_proposal",
+    label: "Create Proposal",
+    description: "DripGovernance — propose an on-chain governance action.",
+    contract: "DripGovernance",
+    method: "create_proposal",
+    fields: [
+      { name: "title", label: "Title", type: "title" },
+      { name: "description", label: "Description", type: "description" },
+      { name: "amount", label: "Target Reward Rate", type: "amount" },
+    ],
+    hint: "Requires minimum voting power. Proposes an update to the staking pool reward rate.",
+  },
+  {
     id: "custom",
     label: "Custom",
     description: "Any contract function — method name + JSON argument array.",
@@ -133,6 +149,8 @@ export interface WizardFormValues {
   amount: string;
   proposalId: string;
   badgeId: string;
+  title: string;
+  description: string;
   choice: string;
   method: string;
   argsJson: string;
@@ -143,6 +161,8 @@ export const EMPTY_FORM: WizardFormValues = {
   amount: "",
   proposalId: "",
   badgeId: "1",
+  title: "",
+  description: "",
   choice: "0",
   method: "",
   argsJson: "[]",
@@ -178,6 +198,14 @@ export function validateWizardForm(
       if (!v) errors.badgeId = "Badge ID is required.";
       else if (!POSITIVE_INT_RE.test(v))
         errors.badgeId = "Badge ID must be a positive integer.";
+    } else if (field.type === "title") {
+      const v = values.title.trim();
+      if (!v) errors.title = "Proposal title is required.";
+      else if (v.length > 256) errors.title = "Title exceeds 256 characters.";
+    } else if (field.type === "description") {
+      const v = values.description.trim();
+      if (!v) errors.description = "Proposal description is required.";
+      else if (v.length > 4096) errors.description = "Description exceeds 4096 characters.";
     } else if (field.type === "method") {
       const v = values.method.trim();
       if (!v) errors.method = "Function name is required.";
@@ -237,6 +265,15 @@ export function buildWizardArgs(
       const choiceMap: Record<string, number> = { "0": 0, "1": 1, "2": 2 }; // For / Against / Abstain
       const choice = choiceMap[values.choice] ?? 0;
       return [walletAddress, Number(values.proposalId.trim()), choice];
+    }
+    case "create_proposal": {
+      // create_proposal(proposer, title, description, action: SetRewardRate(i128))
+      return [
+        walletAddress,
+        values.title.trim(),
+        values.description.trim(),
+        { SetRewardRate: [values.amount.trim() || "100"] },
+      ];
     }
     case "custom": {
       const parsed = JSON.parse(values.argsJson.trim() || "[]") as unknown[];
