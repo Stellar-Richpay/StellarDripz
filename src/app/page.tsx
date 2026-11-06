@@ -12,6 +12,7 @@ import ContractWizard from "@/components/ContractWizard";
 import StakingLeaderboard from "@/components/StakingLeaderboard";
 import RewardSummary from "@/components/RewardSummary";
 import BadgeGallery from "@/components/BadgeGallery";
+import GovernanceDashboard from "@/components/GovernanceDashboard";
 import CooldownTimer from "@/components/CooldownTimer";
 import TransactionFeedback from "@/components/TransactionFeedback";
 import { useAppContext } from "@/context/AppContext";
@@ -212,6 +213,18 @@ export default function Home() {
             <StakingLeaderboard />
             <RewardSummary />
             <BadgeGallery />
+          </div>
+
+          {/* Governance Proposals & Voting */}
+          <div className="max-w-2xl mx-auto space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/5" />
+              <span className="text-xs font-medium text-white/30 uppercase tracking-wider">
+                Governance & Voting
+              </span>
+              <div className="h-px flex-1 bg-white/5" />
+            </div>
+            <GovernanceDashboard />
           </div>
         </>
       )}
