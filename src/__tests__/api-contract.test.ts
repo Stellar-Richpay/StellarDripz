@@ -270,6 +270,22 @@ describe("POST /api/contract/invoke", () => {
       expect((await res.json()).error).toMatch(/out of range/i);
     });
 
+    it("encodes C contract address strings as scvAddress", async () => {
+      const contractAddress = "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM";
+      const req = createReq({
+        contractId: contractAddress,
+        functionName: "set_token",
+        signerAddress: VALID_SIGNER,
+        simulate: true,
+        args: [contractAddress],
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(mockSimulate).toHaveBeenCalledTimes(1);
+      const passedArgs = mockSimulate.mock.calls[0][2];
+      expect(passedArgs[0].switch().name).toBe("scvAddress");
+    });
+
     it("rejects map entries that are not [key, value] pairs", async () => {
       const req = createReq({
         contractId: "CCQCJNBKMVVZX5KAEV7MHMF47D4C4QXOOXSODGNBXDQOMEMWT3L5QRZM",

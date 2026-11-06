@@ -74,8 +74,8 @@ function argToScVal(arg: unknown): StellarSdk.xdr.ScVal {
 
   // string
   if (typeof arg === "string") {
-    // Detect Stellar address format
-    if (/^G[A-Z2-7]{55}$/.test(arg)) {
+    // Detect Stellar address format (account 'G...' or contract 'C...')
+    if (/^[GC][A-Z2-7]{55}$/.test(arg)) {
       const addr = new StellarSdk.Address(arg);
       return StellarSdk.xdr.ScVal.scvAddress(addr.toScAddress());
     }
