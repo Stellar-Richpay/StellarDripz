@@ -8,7 +8,15 @@
  * unit-testable and lets the component stay purely presentational.
  */
 
-export type WizardActionId = "mint" | "transfer" | "stake" | "vote" | "custom";
+export type WizardActionId =
+  | "mint"
+  | "transfer"
+  | "stake"
+  | "unstake"
+  | "claim_reward"
+  | "claim_badge"
+  | "vote"
+  | "custom";
 
 export interface WizardTemplate {
   id: WizardActionId;
@@ -62,6 +70,15 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     method: "stake",
     fields: [{ name: "amount", label: "Amount", type: "amount" }],
     hint: "Requires the pool to be your token's spender: approve an allowance first (e.g. approve(pool, amount, expiration)).",
+  },
+  {
+    id: "unstake",
+    label: "Unstake",
+    description: "DripPool — withdraw staked tokens once lock period has passed.",
+    contract: "DripPool",
+    method: "unstake",
+    fields: [{ name: "amount", label: "Amount", type: "amount" }],
+    hint: "Tokens must have completed the required lock period before unstaking.",
   },
   {
     id: "vote",
@@ -179,6 +196,9 @@ export function buildWizardArgs(
       return [walletAddress, values.address.trim(), values.amount.trim()];
     case "stake":
       // stake(user, amount)
+      return [walletAddress, values.amount.trim()];
+    case "unstake":
+      // unstake(user, amount)
       return [walletAddress, values.amount.trim()];
     case "vote": {
       // vote(voter, proposal_id: u64, choice: enum → u32)
