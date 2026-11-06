@@ -35,6 +35,7 @@ export type WizardField =
   | { name: "amount"; label: string; type: "amount" }
   | { name: "address"; label: string; type: "address" }
   | { name: "proposalId"; label: string; type: "proposalId" }
+  | { name: "badgeId"; label: string; type: "badgeId" }
   | { name: "choice"; label: string; type: "choice" }
   | { name: "method"; label: string; type: "method" }
   | { name: "argsJson"; label: string; type: "argsJson" };
@@ -90,6 +91,15 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     hint: "Rewards are calculated based on your staked amount and elapsed ledgers.",
   },
   {
+    id: "claim_badge",
+    label: "Claim Badge",
+    description: "DripBadge — claim an achievement NFT badge for your wallet.",
+    contract: "DripBadge",
+    method: "claim_badge",
+    fields: [{ name: "badgeId", label: "Badge ID", type: "badgeId" }],
+    hint: "Each badge can be claimed once per wallet.",
+  },
+  {
     id: "vote",
     label: "Vote",
     description: "DripGovernance — cast a vote on a proposal (power = your token balance).",
@@ -122,6 +132,7 @@ export interface WizardFormValues {
   address: string;
   amount: string;
   proposalId: string;
+  badgeId: string;
   choice: string;
   method: string;
   argsJson: string;
@@ -131,6 +142,7 @@ export const EMPTY_FORM: WizardFormValues = {
   address: "",
   amount: "",
   proposalId: "",
+  badgeId: "1",
   choice: "0",
   method: "",
   argsJson: "[]",
@@ -161,6 +173,11 @@ export function validateWizardForm(
       if (!v) errors.proposalId = "Proposal ID is required.";
       else if (!POSITIVE_INT_RE.test(v))
         errors.proposalId = "Proposal ID must be a positive integer.";
+    } else if (field.type === "badgeId") {
+      const v = values.badgeId.trim();
+      if (!v) errors.badgeId = "Badge ID is required.";
+      else if (!POSITIVE_INT_RE.test(v))
+        errors.badgeId = "Badge ID must be a positive integer.";
     } else if (field.type === "method") {
       const v = values.method.trim();
       if (!v) errors.method = "Function name is required.";
@@ -212,6 +229,9 @@ export function buildWizardArgs(
     case "claim_reward":
       // claim_reward(user)
       return [walletAddress];
+    case "claim_badge":
+      // claim_badge(user, badge_id: u64)
+      return [walletAddress, { u64: Number(values.badgeId.trim()) }];
     case "vote": {
       // vote(voter, proposal_id: u64, choice: enum → u32)
       const choiceMap: Record<string, number> = { "0": 0, "1": 1, "2": 2 }; // For / Against / Abstain

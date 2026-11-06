@@ -326,6 +326,19 @@ export default function ContractWizard() {
                   />
                   {errors.proposalId && <p className={errorClass}>{errors.proposalId}</p>}
                 </>
+              ) : field.type === "badgeId" ? (
+                <>
+                  <label className="mb-1 block text-[10px] text-white/40">{field.label}</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={values.badgeId}
+                    onChange={(e) => setField("badgeId", e.target.value)}
+                    placeholder="e.g. 1"
+                    className={inputClass}
+                  />
+                  {errors.badgeId && <p className={errorClass}>{errors.badgeId}</p>}
+                </>
               ) : field.type === "address" ? (
                 <>
                   <label className="mb-1 block text-[10px] text-white/40">{field.label}</label>
