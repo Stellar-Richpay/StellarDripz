@@ -28,6 +28,27 @@ export interface StakeView {
   rewardClaimed: bigint;
 }
 
+export interface ProposalView {
+  id: number;
+  proposer: string;
+  title: string;
+  description: string;
+  forVotes: bigint;
+  againstVotes: bigint;
+  abstainVotes: bigint;
+  createdLedger: number;
+  votingEnd: number;
+  executed: boolean;
+  passed: boolean;
+}
+
+export interface GovernanceConfigView {
+  tokenId: string;
+  poolId: string;
+  votingPeriod: number;
+  minPower: bigint;
+}
+
 export const BADGE_TIER_NAMES: Record<number, string> = {
   1: "Bronze",
   2: "Silver",
