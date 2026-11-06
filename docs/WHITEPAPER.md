@@ -1,6 +1,6 @@
 # StellarDripz — Technical Whitepaper v1.0
 
-**August 2026** | **Version 2.3.0**
+**November 2026** | **Version 2.3.0**
 
 ---
 
@@ -10,7 +10,8 @@ StellarDripz is a production-grade decentralized application (dApp) built on the
 Soroban smart contract platform. It provides a multi-wallet testnet faucet, token staking
 pools, on-chain governance, and achievement badges — all powered by 5 composable Soroban
 contracts. The platform demonstrates a complete Soroban dApp architecture: cross-contract
-communication, event streaming, rate-limited API gateway, and multi-wallet support.
+communication, event streaming, rate-limited API gateway, interactive governance dashboard,
+and multi-wallet support.
 
 ---
 
@@ -29,8 +30,8 @@ Developers building on Stellar Soroban face multiple friction points:
 StellarDripz provides an integrated platform addressing all four problems:
 1. **Faucet**: Rate-limited, multi-wallet testnet XLM distribution
 2. **Contracts**: 5 composable Soroban contracts with cross-contract communication
-3. **UI**: Polished Next.js frontend with SSE event streaming
-4. **Governance**: Token-weighted voting with on-chain execution
+3. **UI**: Polished Next.js frontend with live event streaming and full governance interface
+4. **Governance**: Token-weighted voting with on-chain execution and real-time quorum visualization
 
 ---
 
@@ -40,11 +41,12 @@ StellarDripz provides an integrated platform addressing all four problems:
 
 | Contract | Purpose | Lines | Tests |
 |----------|---------|-------|-------|
-| DripToken | Fungible token with minter delegation | 230 | 20 |
-| DripPool | Staking with time-weighted rewards | 210 | 16 |
-| DripGovernance | Token-weighted proposal voting | 260 | 16 |
-| DripBadge | Achievement NFT badges | 170 | 12 |
-| Counter | Simple increment + greeting | 60 | 8 |
+| DripToken | Fungible token with minter delegation & admin controls | 230 | 24 |
+| DripPool | Staking with time-weighted rewards & unstaking | 210 | 26 |
+| DripGovernance | Token-weighted proposal voting & execution | 260 | 24 |
+| DripBadge | Achievement NFT badges with claim verification | 170 | 19 |
+| Counter | Simple increment, greeting & per-user tracking | 60 | 16 |
+| **Total** | **5 Composable Smart Contracts** | **~930** | **109** |
 
 ### 2.2 Cross-Contract Communication
 
@@ -58,10 +60,13 @@ DripBadge ← DripPool (staking milestones trigger badge grants)
 ### 2.3 Frontend Architecture
 
 - **Next.js 14** with React 18, TypeScript strict mode
-- **API Gateway pattern**: Direct browser→Horizon reads, proxied API writes
+- **Governance Dashboard**: Full proposal lifecycle (creation, voting, quorum progress, on-chain execution)
+- **Interactive Staking & Badges**: In-place claim reward and unstake flows, NFT badge claiming
+- **Contract Wizard**: Guided action templates for minting, staking, unstaking, rewards, badges, and proposals
+- **API Gateway pattern**: Direct browser→Horizon reads, proxied rate-limited API writes supporting both `G...` and `C...` addresses
 - **SSE event streaming** with automatic Soroban RPC polling fallback
 - **Multi-wallet**: Freighter, xBull, Albedo, LOBSTR, WalletConnect
-- **Security**: CSP, CSRF, rate limiting, CORS policy
+- **Security**: CSP, CSRF, rate limiting, CORS preflight handling
 
 ---
 
@@ -124,7 +129,7 @@ See [SCF_ROADMAP.md](./SCF_ROADMAP.md) for the complete 4-tranche plan.
 
 ## 6. Team & Community
 
-- **GitHub**: https://github.com/StellarDripz/StellarDripz
+- **GitHub**: https://github.com/Stellar-Richpay/StellarDripz
 - **Live Demo**: https://stellardripz.vercel.app
 - **Contract Explorer**: [Stellar Expert](https://stellar.expert/explorer/testnet)
 - **Security**: security@stellardripz.dev

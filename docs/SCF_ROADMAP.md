@@ -46,12 +46,12 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [x] ✅ SSE event streaming with polling fallback
 - [x] ✅ Rate-limited API routes with CSRF protection
 - [x] ✅ Contract ID input with Stellar checksum validation
-- [ ] 🔲 Complete WalletConnect UI messaging for unconfigured project ID
-- [ ] 🔲 Add contract interaction wizard (guided flow for mint/transfer/stake/vote)
+- [x] ✅ Complete WalletConnect UI messaging for unconfigured project ID
+- [x] ✅ Add contract interaction wizard (guided flow for mint/transfer/stake/vote/unstake/claim)
 
 ### Testing
-- [x] ✅ 94 Rust contract tests (incl. property-based fuzz tests)
-- [x] ✅ 276 TypeScript tests (38 suites)
+- [x] ✅ 109 Rust contract tests (incl. property-based fuzz tests and snapshot verifications)
+- [x] ✅ 310+ TypeScript tests across 41+ suites
 - [x] ✅ TypeScript strict mode — zero compilation errors
 - [ ] 🔲 Achieve >80% code coverage on contracts (add edge case tests)
 - [ ] 🔲 Add integration tests against live testnet contracts
@@ -60,7 +60,7 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [x] ✅ Architecture diagram and API reference
 - [x] ✅ Deployment guide and production checklist
 - [x] ✅ SCF roadmap (this document)
-- [ ] 🔲 Record 5-minute product demo video
+- [x] ✅ Record 5-minute product demo video (public/video/stellardripz-pitch.mp4)
 
 ---
 
@@ -73,10 +73,10 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 - [x] ✅ Admin dashboard with real-time analytics (contract calls, faucet usage, active users)
 - [ ] 🔲 SEP-0024 hosted deposit/withdrawal integration
 - [ ] 🔲 SEP-0041 full compliance (token metadata, allowance, authorized/clawback)
-- [ ] 🔲 Staking leaderboard and reward history UI
-- [ ] 🔲 Governance proposal creation wizard with template actions
-- [ ] 🔲 Badge gallery with tier progression visualization
-- [ ] 🔲 Dark/light theme toggle with system preference detection
+- [x] ✅ Staking leaderboard and reward history UI (interactive claim and unstake flows)
+- [x] ✅ Governance proposal creation wizard with template actions & full GovernanceDashboard
+- [x] ✅ Badge gallery with tier progression visualization & interactive badge claiming
+- [x] ✅ Dark/light theme toggle with system preference detection
 
 ### Infrastructure
 - [ ] 🔲 Redis-based rate limiting (Upstash) for multi-instance Vercel deployments
@@ -86,8 +86,8 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 
 ### Community
 - [ ] 🔲 Launch GrantFox campaign with 3 funded bounties ($500 each)
-- [ ] 🔲 Publish contributor guide with Drips Wave point values
-- [ ] 🔲 Set up GitHub Discussions for community support
+- [x] ✅ Publish contributor guide with Drips Wave point values
+- [x] ✅ Set up GitHub Discussions for community support
 - [ ] 🔲 Create Discord/Telegram community channel
 
 ---
@@ -144,4 +144,4 @@ StellarDripz is a production-grade Stellar testnet faucet and smart contract pla
 
 ---
 
-*Last updated: September 9, 2026*
+*Last updated: November 6, 2026*
