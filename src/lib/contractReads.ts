@@ -128,6 +128,52 @@ export function parseStake(result: unknown): StakeView {
   };
 }
 
+/** Parse a single proposal struct from get_proposal or list_proposals. */
+export function parseProposal(result: unknown): ProposalView | null {
+  if (!result || typeof result !== "object") return null;
+  const p = result as Record<string, unknown>;
+  const id = typeof p.id === "number" ? p.id : Number(p.id ?? 0);
+  if (!id) return null;
+  return {
+    id,
+    proposer: asString(p.proposer),
+    title: asString(p.title),
+    description: asString(p.description),
+    forVotes: asBigInt(p.for_votes),
+    againstVotes: asBigInt(p.against_votes),
+    abstainVotes: asBigInt(p.abstain_votes),
+    createdLedger:
+      typeof p.created_ledger === "number" ? p.created_ledger : Number(p.created_ledger ?? 0),
+    votingEnd: typeof p.voting_end === "number" ? p.voting_end : Number(p.voting_end ?? 0),
+    executed: Boolean(p.executed),
+    passed: Boolean(p.passed),
+  };
+}
+
+/** list_proposals returns Vec<Proposal>. */
+export function parseProposals(result: unknown): ProposalView[] {
+  if (!Array.isArray(result)) return [];
+  const proposals: ProposalView[] = [];
+  for (const raw of result) {
+    const parsed = parseProposal(raw);
+    if (parsed) proposals.push(parsed);
+  }
+  return proposals;
+}
+
+/** parse get_gov_config tuple (token_id, pool_id, voting_period, min_power). */
+export function parseGovConfig(result: unknown): GovernanceConfigView {
+  if (!Array.isArray(result) || result.length < 4) {
+    return { tokenId: "", poolId: "", votingPeriod: 0, minPower: BigInt(0) };
+  }
+  return {
+    tokenId: asString(result[0]),
+    poolId: asString(result[1]),
+    votingPeriod: typeof result[2] === "number" ? result[2] : Number(result[2] ?? 0),
+    minPower: asBigInt(result[3]),
+  };
+}
+
 /**
  * Format a token amount in smallest units (7 decimals) as a readable
  * decimal string, e.g. 10000000 → "10.0000000". Handles BigInt and
