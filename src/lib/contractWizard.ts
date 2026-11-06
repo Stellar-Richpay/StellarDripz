@@ -81,6 +81,15 @@ export const WIZARD_TEMPLATES: WizardTemplate[] = [
     hint: "Tokens must have completed the required lock period before unstaking.",
   },
   {
+    id: "claim_reward",
+    label: "Claim Rewards",
+    description: "DripPool — claim accumulated staking rewards to your wallet.",
+    contract: "DripPool",
+    method: "claim_reward",
+    fields: [],
+    hint: "Rewards are calculated based on your staked amount and elapsed ledgers.",
+  },
+  {
     id: "vote",
     label: "Vote",
     description: "DripGovernance — cast a vote on a proposal (power = your token balance).",
@@ -200,6 +209,9 @@ export function buildWizardArgs(
     case "unstake":
       // unstake(user, amount)
       return [walletAddress, values.amount.trim()];
+    case "claim_reward":
+      // claim_reward(user)
+      return [walletAddress];
     case "vote": {
       // vote(voter, proposal_id: u64, choice: enum → u32)
       const choiceMap: Record<string, number> = { "0": 0, "1": 1, "2": 2 }; // For / Against / Abstain
