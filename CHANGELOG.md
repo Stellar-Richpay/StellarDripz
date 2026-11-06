@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] — 2026-11-06 (Governance Dashboard, Interactive Staking & Remediation)
+
+### Added
+- **On-Chain Governance Dashboard**: Full proposal lifecycle component (`GovernanceDashboard.tsx`) with proposal status tabs (All, Active, Passed, Defeated, Executed), live quorum progress tracking, interactive voting modal (For/Against/Abstain), and one-click execution.
+- **Interactive Staking & Reward Management**: In-place claim reward and unstake modals in `RewardSummary.tsx` with dynamic balance feedback and error handling.
+- **Interactive Badge Claiming**: One-click claim flow in `BadgeGallery.tsx` enabling eligible users to mint achievement badges directly with their connected wallet.
+- **Expanded Contract Wizard**: Pre-configured action templates and argument builders in `src/lib/contractWizard.ts` for `unstake`, `claim_reward`, `claim_badge`, and `create_proposal`.
+- **Client-Side Soroban SCVal Parsers**: Added `readProposals`, `readGovernanceData`, `parseProposalScVal`, and `parseGovernanceStateScVal` in `src/lib/contractReads.ts` supporting Soroban simulation decoding with resilient fallback data for disconnected environments.
+- **Header Navigation Enhancements**: Added responsive navigation links and explorer shortcuts to `Header.tsx` for quick jumping between Dashboard, Staking, Governance, and Wizard sections.
+- **ADR-008**: Recorded on-chain governance architecture and client integration decisions in `docs/ADRs.md`.
+- **Comprehensive UI and Parser Tests**: Added test suites in `governanceDashboard.test.tsx`, `RewardSummary.test.tsx`, `BadgeGallery.test.tsx`, `contractReads.test.ts`, and `contractWizard.test.ts`, raising frontend coverage to 321 tests across 44 suites.
+
+### Fixed
+- **Contract Address Argument Encoding**: Updated `/api/contract/invoke/route.ts` address regex from `/^G[A-Z2-7]{55}$/` to `/^[GC][A-Z2-7]{55}$/` and added `xdr.ScAddress.scAddressTypeContract`, preventing contract addresses from being converted into `scvString` during cross-contract executions.
+- **CORS Preflight Compliance**: Added HTTP `OPTIONS` handler to `/api/health/route.ts` responding with proper CORS headers for third-party monitoring uptime probes.
+- **Node 24 Environment Compatibility**: Resolved `Object.defineProperty` mutation on `process.env` in `http.test.ts` by using direct assignment compliant with Node 24's descriptor enforcement.
+- **Jest JSX Support**: Configured `ts-jest` with `jsx: "react-jsx"` in `jest.config.js` to properly compile React component JSX during testing.
+- **Repository URL Consistency**: Corrected repository URLs from `StellarDripz/StellarDripz` to `Stellar-Richpay/StellarDripz` across `CONTRIBUTING.md`, `docs/WHITEPAPER.md`, `public/.well-known/stellar.toml`, and `.mlc_config.json`.
+- **Roadmap & Whitepaper Synchronization**: Refreshed milestone checkboxes and metrics in `docs/SCF_ROADMAP.md` and `docs/WHITEPAPER.md` to reflect 109 smart contract tests and 321 frontend tests.
+
+---
+
 ## [Unreleased] — 2026-09 hardening wave (typed events & edge hardening)
 
 ### Added
@@ -329,6 +351,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[2.3.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Stellar-Richpay/StellarDripz/compare/v1.0.0...v2.0.0
