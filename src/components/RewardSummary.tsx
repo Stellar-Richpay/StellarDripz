@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { getAppConfig } from "@/lib/env";
 import { directReadContract, directGetLatestLedger } from "@/lib/client/directClient";
+import { buildContractCall, submitContract } from "@/lib/client/apiClient";
+import { signTx } from "@/lib/wallets/walletKit";
 import { formatTokenAmount, parseStake, type StakeView } from "@/lib/contractReads";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { showToast } from "./Toast";
@@ -40,7 +42,37 @@ export default function RewardSummary() {
   const [config, setConfig] = useState<PoolConfigView>({ rewardRate: BigInt(0), lockPeriod: 0 });
   const [latestLedger, setLatestLedger] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [claiming, setClaiming] = useState(false);
   const poolId = getAppConfig().contractIdDripPool;
+
+  const handleClaimReward = async () => {
+    if (!poolId || !walletAddress || !state.wallet.walletId) return;
+    setClaiming(true);
+    try {
+      const buildRes = await buildContractCall(
+        poolId,
+        "claim_reward",
+        [walletAddress],
+        walletAddress,
+      );
+      const signedXdr = await signTx(state.wallet.walletId, buildRes.xdr);
+      const submitRes = await submitContract(poolId, "claim_reward", walletAddress, signedXdr);
+      showToast({
+        type: "success",
+        title: "Rewards Claimed! 🎉",
+        message: `Tx: ${submitRes.hash.slice(0, 8)}…`,
+      });
+      load();
+    } catch (err) {
+      showToast({
+        type: "error",
+        title: "Claim Failed",
+        message: err instanceof Error ? err.message : "Transaction failed",
+      });
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!poolId || !walletAddress) return;
@@ -133,11 +165,22 @@ export default function RewardSummary() {
             </p>
           )}
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-          <p className="text-[10px] text-white/30">Claimable</p>
-          <p className="mt-1 font-mono text-lg font-semibold text-stellar-green">
-            {formatTokenAmount(claimable ?? BigInt(0))}
-          </p>
+        <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <div>
+            <p className="text-[10px] text-white/30">Claimable</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-stellar-green">
+              {formatTokenAmount(claimable ?? BigInt(0))}
+            </p>
+          </div>
+          {(claimable ?? BigInt(0)) > BigInt(0) && (
+            <button
+              onClick={handleClaimReward}
+              disabled={claiming}
+              className="mt-2 w-full rounded-lg bg-gradient-to-r from-stellar-green to-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:opacity-90 active:scale-95 disabled:opacity-50"
+            >
+              {claiming ? "Claiming…" : "Claim Rewards"}
+            </button>
+          )}
         </div>
       </div>
 
